@@ -3,6 +3,12 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../'),
+  eslint: {
+    // Linting is handled at the monorepo root via `npm run lint`.
+    // next build should not duplicate it (root .eslintrc.js paths don't
+    // resolve correctly when ESLint runs from inside the frontend/ directory).
+    ignoreDuringBuilds: true,
+  },
   async rewrites() {
     return [
       {
