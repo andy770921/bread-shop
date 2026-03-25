@@ -1,14 +1,14 @@
-# Claude Code Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-This is a fullstack monorepo with Next.js frontend and NestJS backend, designed for seamless Claude Code integration. Uses npm workspaces + Turborepo for unified dependency management.
-
-## Structure
+Fullstack monorepo with Next.js frontend and NestJS backend. Uses npm workspaces + Turborepo for unified dependency management.
 
 ```
-├── frontend/           # Next.js (App Router) + TanStack Query + Vitest
-├── backend/            # NestJS + nodemon
+├── frontend/           # Next.js 15 (App Router) + TanStack Query + Jest — port 3001
+├── backend/            # NestJS 11 + nodemon — port 3000
 ├── shared/             # Shared TypeScript types (@repo/shared)
 ├── .claude/commands/   # Custom slash commands
 ├── documents/          # Work tracking (organized by ticket)
@@ -16,44 +16,78 @@ This is a fullstack monorepo with Next.js frontend and NestJS backend, designed 
 └── package.json        # npm workspaces root
 ```
 
-## Quick Start
+## Commands
 
 ```bash
-# Install all dependencies (single command!)
-npm install
-
-# Start development (FE on :3001, BE on :3000)
-npm run dev
-
-# Run all tests
-npm run test
-
-# Build all
-npm run build
-
-# Lint all code
-npm run lint
+npm install              # Install all dependencies
+npm run dev              # Start FE (:3001) + BE (:3000) in parallel
+npm run build            # Build all workspaces
+npm run test             # Run all tests
+npm run lint             # Lint all code
 ```
 
-## Deployment (Vercel)
+**Backend tests:**
+```bash
+cd backend && npm run test          # Jest unit tests
+cd backend && npm run test:watch    # Watch mode
+cd backend && npm run test:cov      # Coverage report
+cd backend && npm run test:e2e      # E2E tests
+```
 
-Both frontend and backend are configured for Vercel deployment.
+**Run a single test file:**
+```bash
+cd frontend && npx jest src/path/to/file.spec.ts
+cd backend  && npx jest src/path/to/file.spec.ts
+```
 
-### Frontend
-- Auto-detected as Next.js project
-- Set root directory: `frontend`
-- Config: `frontend/vercel.json`
+## Architecture
 
-### Backend (Serverless)
-- Runs as Vercel serverless function
-- Set root directory: `backend`
-- Config: `backend/vercel.json` + `backend/api/index.ts`
+### Request Flow
 
-**Note**: Backend has serverless limitations (cold starts, no WebSockets, 10s timeout).
+Frontend home page → `useHealth()` (TanStack Query) → fetches `${NEXT_PUBLIC_API_URL}/api/health` → NestJS controller returns `HealthResponse` (shared type).
 
-## Custom Slash Commands (Skills)
+- **API client**: `frontend/src/utils/fetchers/fetchers.client.ts` constructs URLs from `NEXT_PUBLIC_API_URL` (default: `http://localhost:3000`)
+- **TanStack Query provider**: `frontend/src/app/providers.tsx` — wraps app, passes default fetch function
+- **Query hooks**: `frontend/src/queries/` — use shared types for response typing
 
-Skills are located in `.claude/commands/[skill-name]/SKILL.md`
+### Shared Types
+
+`shared/src/types/` exports interfaces used by both frontend and backend:
+- `HealthResponse` — `{ status: 'ok' | 'error', timestamp: string }`
+- `ApiResponse<T>` — generic wrapper
+
+Import as: `import { HealthResponse } from '@repo/shared'`
+
+### Backend Structure
+
+- `src/main.ts` — bootstraps NestJS, enables CORS (`origin: true, credentials: true`), mounts Swagger UI at `/` and JSON at `/api-json`
+- `src/app.module.ts` — root module, loads global `ConfigModule` (reads `.env`)
+- DTOs in `src/dto/` implement shared interfaces and add Swagger decorators
+
+### Environment Variables
+
+Copy `.env.example` to `.env` in each workspace before running:
+- `backend/.env` — `NODE_ENV`, `PORT` (default 3000)
+- `frontend/.env.local` — `NEXT_PUBLIC_API_URL` (default `http://localhost:3000`)
+
+## Code Style
+
+- **Prettier**: semi, 2-space tabs, 100 print width, single quotes, trailing commas
+- **ESLint**: unified root `.eslintrc.js` — TypeScript, Next.js, Prettier; all packages at root
+- **TypeScript**: strict mode; frontend uses `moduleResolution: bundler`; backend uses CommonJS + decorators; shared uses CommonJS
+
+## Documentation Pattern
+
+Work is tracked in `documents/[TICKET-NUMBER]/`:
+```
+documents/FEAT-1/
+├── plans/        # PRDs, RFCs, design decisions
+└── development/  # Implementation docs
+```
+
+## Custom Slash Commands
+
+Located in `.claude/commands/[skill-name]/SKILL.md`. Replace `[TICKET]` with ticket ID (e.g., `FEAT-1`).
 
 | Command | Description |
 |---------|-------------|
@@ -64,51 +98,8 @@ Skills are located in `.claude/commands/[skill-name]/SKILL.md`
 | `/improve-codebase-architecture [TICKET]` | Find architectural improvements |
 | `/deploy-vercel [TICKET]` | Deploy to Vercel with step-by-step guidance |
 
-**Usage**: Replace `[TICKET]` with your ticket identifier (e.g., `FEAT-1`, `BUG-42`).
+## Deployment (Vercel)
 
-## Documentation Pattern
-
-All work should be tracked in `documents/[TICKET-NUMBER]/`:
-
-```
-documents/
-└── FEAT-1/
-    ├── plans/              # PRDs, RFCs, design decisions
-    └── development/        # Implementation docs
-```
-
-## Code Style
-
-### Prettier
-- Semi: true | Tab width: 2 | Print width: 100
-- Single quotes | Trailing commas: all | Bracket spacing: true
-
-### ESLint
-- Unified configuration in root `.eslintrc.js`
-- Supports TypeScript (@typescript-eslint), Next.js, and Prettier
-- All ESLint packages installed at root level
-
-### TypeScript
-- Strict mode enabled
-- Frontend: ES2020, Next.js/React JSX (moduleResolution: bundler)
-- Backend: ES2021, CommonJS, decorators
-- Shared: ES2020, CommonJS (importable from both apps)
-
-## Testing
-
-```bash
-# Run all tests
-npm run test
-
-# Individual apps
-cd frontend && npm run test
-cd backend && npm run test
-```
-
-## Development Notes
-
-- Frontend: http://localhost:3001 (Next.js)
-- Backend: http://localhost:3000 (NestJS)
-- Shared types: `shared/src/` — import as `@repo/shared`
-- Uses Turborepo for parallel task execution
-- Caching enabled for builds
+- **Frontend**: set root directory `frontend`, auto-detected as Next.js
+- **Backend**: set root directory `backend`, runs as serverless function via `backend/api/index.ts`
+- Backend serverless limitations: cold starts, no WebSockets, 10s timeout
