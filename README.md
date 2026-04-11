@@ -1,4 +1,4 @@
-# Claude Code Fullstack Boilerplate
+# Bread Shop
 
 A fullstack monorepo with Next.js frontend and NestJS backend, optimized for Claude Code integration.
 

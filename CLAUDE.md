@@ -4,102 +4,120 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fullstack monorepo with Next.js frontend and NestJS backend. Uses npm workspaces + Turborepo for unified dependency management.
+Papa Bakery online shop. Fullstack monorepo: Next.js frontend, NestJS backend, Supabase (PostgreSQL + Auth + Storage). npm workspaces + Turborepo.
 
 ```
-├── frontend/           # Next.js 15 (App Router) + TanStack Query + Jest — port 3001
-├── backend/            # NestJS 11 + nodemon — port 3000
+├── frontend/           # Next.js 15 (App Router) + shadcn/ui + TanStack Query — port 3001
+├── backend/            # NestJS 11 + Supabase client — port 3000
 ├── shared/             # Shared TypeScript types (@repo/shared)
-├── .claude/commands/   # Custom slash commands
-├── documents/          # Work tracking (organized by ticket)
-├── turbo.json          # Turborepo configuration
-└── package.json        # npm workspaces root
+├── documents/          # Work tracking (organized by ticket, e.g. FEAT-1/)
+└── package.json        # npm workspaces root + Turborepo
 ```
 
 ## Commands
 
 ```bash
-npm install              # Install all dependencies
+npm install              # Install all dependencies (from root)
 npm run dev              # Start FE (:3001) + BE (:3000) in parallel
 npm run build            # Build all workspaces
 npm run test             # Run all tests
 npm run lint             # Lint all code
 ```
 
-**Backend tests:**
 ```bash
-cd backend && npm run test          # Jest unit tests
-cd backend && npm run test:watch    # Watch mode
-cd backend && npm run test:cov      # Coverage report
-cd backend && npm run test:e2e      # E2E tests
-```
-
-**Run a single test file:**
-```bash
-cd frontend && npx jest src/path/to/file.spec.ts
-cd backend  && npx jest src/path/to/file.spec.ts
+cd backend && npm run test          # Backend Jest unit tests
+cd backend && npm run test:e2e      # Backend E2E tests
+cd frontend && npx jest src/path/to/file.spec.ts   # Single test file
+cd backend  && npx jest src/path/to/file.spec.ts   # Single test file
 ```
 
 ## Architecture
 
-### Request Flow
+### API Proxy (Critical Pattern)
 
-Frontend home page → `useHealth()` (TanStack Query) → fetches `${NEXT_PUBLIC_API_URL}/api/health` → NestJS controller returns `HealthResponse` (shared type).
+Frontend uses **Next.js rewrites** (`next.config.ts`) to proxy `/api/*` to backend. This keeps `session_id` cookies same-origin.
 
-- **API client**: `frontend/src/utils/fetchers/fetchers.client.ts` constructs URLs from `NEXT_PUBLIC_API_URL` (default: `http://localhost:3000`)
-- **TanStack Query provider**: `frontend/src/app/providers.tsx` — wraps app, passes default fetch function
-- **Query hooks**: `frontend/src/queries/` — use shared types for response typing
+- Frontend fetch calls **must use relative URLs** (`/api/cart`, never `http://localhost:3000/api/cart`)
+- The shared `getAuthHeaders()` in `frontend/src/lib/api.ts` provides Bearer token from localStorage
+- Backend CORS allows only `FRONTEND_URL` origin (not `origin: true`)
+
+### Session-Based Cart
+
+Every visitor gets a `session_id` HttpOnly cookie. Cart items link to sessions, not users directly.
+
+- `SessionMiddleware` (`backend/src/common/middleware/session.middleware.ts`) runs on all `api/*` except webhooks
+- Sessions created lazily (only on cart/favorites/orders GETs or any POST, not on product listing GETs)
+- On login: `mergeSessionOnLogin()` links session to user, merges cart items from old sessions
+- On logout: session stays, `user_id` cleared — cart remains accessible as guest
+- In-memory session cache (60s TTL, max 10k entries) reduces DB hits
+
+### Backend Modules
+
+All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` — inject `SupabaseService` anywhere.
+
+| Module   | Key Endpoints                                        | Auth                   |
+| -------- | ---------------------------------------------------- | ---------------------- |
+| Auth     | POST login, register, logout; GET me; LINE OAuth     | — / Bearer             |
+| Product  | GET /api/products(?category=slug), /api/products/:id | —                      |
+| Category | GET /api/categories                                  | —                      |
+| Cart     | GET/POST/PATCH/DELETE /api/cart/\*                   | Session (OptionalAuth) |
+| Favorite | GET/POST/DELETE /api/favorites/\*                    | Bearer required        |
+| Order    | POST /api/orders; GET list, detail, by-number        | Session + Bearer       |
+| Payment  | POST checkout, webhook (Lemon Squeezy skeleton)      | Session / —            |
+| LINE     | POST /api/orders/:id/line-send                       | Bearer required        |
+| User     | GET/PATCH /api/user/profile                          | Bearer required        |
+
+**Guards**: `AuthGuard` (requires Bearer JWT via `supabase.auth.getUser()`), `OptionalAuthGuard` (passes through guests). Guards inject `SupabaseService` from the global module — no module imports needed.
+
+### Frontend Structure
+
+- `app/providers.tsx` — ThemeProvider → TanStackQuery → AuthProvider → Toaster
+- `lib/auth-context.tsx` — manages JWT in localStorage, invalidates `['cart']` query on login/logout
+- `queries/` — TanStack Query hooks with `credentials: 'include'` and `getAuthHeaders()`
+- `components/ui/` — shadcn/ui (Tailwind v4), auto-generated via `npx shadcn@latest add`
+- `i18n/` — zh.json + en.json, `useLocale()` hook returns `{ locale, t, toggleLocale }`
+- Design tokens as CSS custom properties in `globals.css` (light/dark: `--primary-500`, `--bg-body`, etc.)
 
 ### Shared Types
 
-`shared/src/types/` exports interfaces used by both frontend and backend:
-- `HealthResponse` — `{ status: 'ok' | 'error', timestamp: string }`
-- `ApiResponse<T>` — generic wrapper
+`shared/src/types/` — Product, Cart, Order, Auth, User, Favorite, Common. Import: `import { CartResponse } from '@repo/shared'`
 
-Import as: `import { HealthResponse } from '@repo/shared'`
+### Database (Supabase)
 
-### Backend Structure
+Tables: `profiles`, `categories`, `products`, `sessions`, `cart_items`, `favorites`, `orders`, `order_items`. RLS enabled but bypassed by service role key. Product images in Storage bucket `product-images` (public) — `image_url` stores the full HTTPS URL.
 
-- `src/main.ts` — bootstraps NestJS, enables CORS (`origin: true, credentials: true`), mounts Swagger UI at `/` and JSON at `/api-json`
-- `src/app.module.ts` — root module, loads global `ConfigModule` (reads `.env`)
-- DTOs in `src/dto/` implement shared interfaces and add Swagger decorators
+Key triggers: auto-create profile on auth signup, auto-generate order numbers (`ORD-YYYYMMDD-NNNN` via sequence), auto-update `updated_at`.
 
-### Environment Variables
+### LINE Integration
 
-Copy `.env.example` to `.env` in each workspace before running:
-- `backend/.env` — `NODE_ENV`, `PORT` (default 3000)
-- `frontend/.env.local` — `NEXT_PUBLIC_API_URL` (default `http://localhost:3000`)
+- **LINE Login** (Channel 2008445583): OAuth2 → backend callback → one-time code exchange → frontend stores JWT
+- **LINE Messaging** (Channel 2008443478): Push Flex Messages for order summaries via `@line/bot-sdk`
+- Backend derives callback URL from request headers (`X-Forwarded-Proto` + `Host`) — no `BACKEND_URL` env needed
+
+## Environment Variables
+
+Copy `.env.example` to actual env files:
+
+- `backend/.env` — Supabase URL/key, FRONTEND_URL, LINE credentials, Lemon Squeezy (optional)
+- `frontend/.env.local` — `NEXT_PUBLIC_API_URL=http://localhost:3000`
 
 ## Code Style
 
-- **Prettier**: semi, 2-space tabs, 100 print width, single quotes, trailing commas
-- **ESLint**: unified root `.eslintrc.js` — TypeScript, Next.js, Prettier; all packages at root
-- **TypeScript**: strict mode; frontend uses `moduleResolution: bundler`; backend uses CommonJS + decorators; shared uses CommonJS
+- **Prettier**: semi, 2-space indent, 100 print width, single quotes, trailing commas
+- **ESLint**: unified root `.eslintrc.js` — TypeScript, Next.js, Prettier
+- **TypeScript**: strict mode; frontend `moduleResolution: bundler`; backend CommonJS + decorators
+- Backend DTOs use `class-validator` decorators + `@nestjs/swagger` for validation and API docs
 
 ## Documentation Pattern
 
-Work is tracked in `documents/[TICKET-NUMBER]/`:
 ```
 documents/FEAT-1/
-├── plans/        # PRDs, RFCs, design decisions
-└── development/  # Implementation docs
+├── plans/        # PRDs, design tokens, HTML mockups
+└── development/  # DB schema, API specs, auth flows, E2E test plans
 ```
-
-## Custom Slash Commands
-
-Located in `.claude/commands/[skill-name]/SKILL.md`. Replace `[TICKET]` with ticket ID (e.g., `FEAT-1`).
-
-| Command | Description |
-|---------|-------------|
-| `/write-a-prd [TICKET]` | Create a PRD through systematic discovery |
-| `/grill-me [TICKET]` | Stress-test a plan through questioning |
-| `/tdd [TICKET]` | Implement features with test-driven development |
-| `/triage-issue [TICKET]` | Investigate bugs and create fix plans |
-| `/improve-codebase-architecture [TICKET]` | Find architectural improvements |
-| `/deploy-vercel [TICKET]` | Deploy to Vercel with step-by-step guidance |
 
 ## Deployment (Vercel)
 
-- **Frontend**: set root directory `frontend`, auto-detected as Next.js
-- **Backend**: set root directory `backend`, runs as serverless function via `backend/api/index.ts`
-- Backend serverless limitations: cold starts, no WebSockets, 10s timeout
+- **Frontend**: root directory `frontend`, auto-detected as Next.js
+- **Backend**: root directory `backend`, serverless function via `backend/api/index.ts`
+- Serverless limitations: cold starts, no WebSockets, 10s timeout

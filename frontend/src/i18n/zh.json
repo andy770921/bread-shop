@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "home": "首頁",
+    "about": "關於我們",
+    "contact": "聯絡我們",
+    "login": "登入/註冊",
+    "logout": "登出",
+    "cart": "購物車",
+    "profile": "個人資料",
+    "orders": "訂單記錄"
+  },
+  "home": {
+    "title": "周爸烘焙坊",
+    "subtitle": "用心烘焙，傳遞幸福",
+    "allCategories": "全部",
+    "editorialToggle": "介紹",
+    "addToCart": "加入購物車",
+    "addedToCart": "已加入購物車"
+  },
+  "cart": {
+    "title": "購物車",
+    "empty": "購物車是空的",
+    "emptyDesc": "探索我們的烘焙產品，找到您喜歡的商品。",
+    "startShopping": "開始購物",
+    "subtotal": "小計",
+    "shipping": "運費",
+    "freeShipping": "免運費",
+    "freeShippingNote": "滿NT$500免運費",
+    "total": "總計",
+    "orderSummary": "訂單摘要",
+    "customerInfo": "訂購資訊",
+    "name": "姓名",
+    "phone": "電話",
+    "email": "電子郵件",
+    "address": "地址",
+    "notes": "備註",
+    "creditCard": "信用卡付款",
+    "linePay": "透過 LINE 聯繫",
+    "continueShopping": "繼續購物",
+    "remove": "移除"
+  },
+  "process": {
+    "title": "製作過程",
+    "step1Title": "嚴選原料",
+    "step1Desc": "選用全球頂級食材，確保每份產品的品質",
+    "step2Title": "精心製作",
+    "step2Desc": "資深烘焙師傅手工製作，用心打造每一份",
+    "step3Title": "耐心發酵",
+    "step3Desc": "遵循傳統工藝，充分發酵帶出最佳風味",
+    "step4Title": "每日現烤",
+    "step4Desc": "清晨現烤，保證最新鮮的品質和風味"
+  },
+  "story": {
+    "title": "周爸的故事",
+    "p1": "在台灣中部一個安靜的小鎮，周爸用30年的烘焙經驗，打造出「周爸烘焙坊」。每一份麵包都是用心與傳統工法製作，只為了將最道地的歐洲村莊烘焙文化帶到您的餐桌。",
+    "p2": "選用進口麵粉與天然酵種，每一口都能嘗到新鮮與誠意。不趕時間，只堅持品質—這就是周爸的承諾。"
+  },
+  "banner": {
+    "text": "限時優惠：滿NT$500享免運"
+  },
+  "auth": {
+    "login": "登入",
+    "register": "註冊",
+    "email": "電子郵件",
+    "password": "密碼",
+    "name": "姓名",
+    "loginWithLine": "使用 LINE 登入",
+    "noAccount": "還沒有帳號？",
+    "hasAccount": "已有帳號？"
+  },
+  "profile": {
+    "title": "個人資料",
+    "save": "儲存",
+    "saved": "已儲存"
+  },
+  "orders": {
+    "title": "訂單記錄",
+    "empty": "尚無訂單記錄",
+    "orderNumber": "訂單編號",
+    "status": "狀態",
+    "total": "總計",
+    "date": "日期"
+  },
+  "checkout": {
+    "successTitle": "訂單已成立！",
+    "successDesc": "感謝您的訂購，我們會盡快處理。",
+    "backHome": "回到首頁"
+  },
+  "status": {
+    "pending": "待付款",
+    "paid": "已付款",
+    "preparing": "準備中",
+    "shipping": "配送中",
+    "delivered": "已送達",
+    "cancelled": "已取消"
+  }
+}

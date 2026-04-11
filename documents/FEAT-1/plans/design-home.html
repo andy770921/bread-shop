@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>周爸烘焙坊 - 用心烘焙，傳遞幸福</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-50: #FFFBF5; --primary-100: #FEF5E8; --primary-200: #FDE8D4;
+            --primary-300: #F9D4B0; --primary-400: #F5BB87; --primary-500: #D4885A;
+            --primary-600: #C07545; --primary-700: #9D5F31; --primary-800: #7A4620;
+            --primary-900: #5C3D1E;
+            --neutral-50: #FDFBF9; --neutral-100: #FAF8F5; --neutral-200: #F5F1EC;
+            --neutral-300: #E8E2D9; --neutral-400: #D6CCC0; --neutral-500: #B8ADA0;
+            --neutral-600: #9A8E83; --neutral-700: #6F645A; --neutral-800: #3D281A;
+            --neutral-900: #1A110B;
+            --success-500: #52B788; --warning-500: #F5A623; --error-500: #DC2626;
+            --text-primary: #1A110B; --text-secondary: #6F645A; --text-tertiary: #A89E92;
+            --text-inverse: #FDFBF9;
+            --border-light: #E8E2D9; --border-default: #D6CCC0; --border-strong: #9A8E83;
+            --bg-body: #FDFBF9; --bg-surface: #FFFFFF; --bg-elevated: #FAF8F5;
+            --bg-footer: #3D281A;
+            --shadow-sm: 0 1px 3px rgba(26,17,11,0.10);
+            --shadow-md: 0 4px 12px rgba(26,17,11,0.08);
+            --shadow-lg: 0 10px 24px rgba(26,17,11,0.12);
+            --shadow-xl: 0 20px 40px rgba(26,17,11,0.15);
+            --shadow-header: 0 1px 3px rgba(26,17,11,0.10);
+            --hero-overlay: rgba(212,136,90,0.25);
+            --banner-gradient: linear-gradient(135deg, #F5A623 0%, #D4885A 50%, #C07545 100%);
+            --process-bg: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+            --checkout-gradient: linear-gradient(135deg, #D4885A 0%, #C07545 100%);
+        }
+
+        html.dark {
+            --primary-50: #2A1E14; --primary-100: #3A2A1C; --primary-200: #4D3825;
+            --primary-300: #6B4E34; --primary-400: #D49A6A; --primary-500: #E0965F;
+            --primary-600: #C8824E; --primary-700: #F0B080; --primary-800: #F5C8A0;
+            --primary-900: #FAE0C8;
+            --neutral-50: #161110; --neutral-100: #1E1712; --neutral-200: #2A2018;
+            --neutral-300: #3D3028; --neutral-400: #5A4D42; --neutral-500: #7A6E62;
+            --neutral-600: #9A8E83; --neutral-700: #C4B8AB; --neutral-800: #E8DDD2;
+            --neutral-900: #FAF5F0;
+            --success-500: #6BCCA0; --warning-500: #F5B840; --error-500: #EF4444;
+            --text-primary: #FAF5F0; --text-secondary: #C4B8AB; --text-tertiary: #8A7E72;
+            --text-inverse: #161110;
+            --border-light: #3D3028; --border-default: #5A4D42; --border-strong: #7A6E62;
+            --bg-body: #161110; --bg-surface: #1E1712; --bg-elevated: #2A2018;
+            --bg-footer: #0E0A08;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.30);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+            --shadow-lg: 0 10px 24px rgba(0,0,0,0.35);
+            --shadow-xl: 0 20px 40px rgba(0,0,0,0.45);
+            --shadow-header: 0 2px 8px rgba(0,0,0,0.35);
+            --hero-overlay: rgba(22,17,16,0.5);
+            --banner-gradient: linear-gradient(135deg, #C07545 0%, #9D5F31 50%, #7A4620 100%);
+            --process-bg: linear-gradient(135deg, #1E1712 0%, #2A2018 100%);
+            --checkout-gradient: linear-gradient(135deg, #E0965F 0%, #C8824E 100%);
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: background-color 400ms ease-in-out, color 400ms ease-in-out;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 700;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border-light);
+            box-shadow: var(--shadow-header);
+            transition: background-color 400ms ease-in-out, border-color 400ms ease-in-out;
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .logo {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-600);
+            flex-shrink: 0;
+        }
+
+        nav {
+            flex: 1;
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 300ms ease;
+        }
+
+        nav a:hover {
+            color: var(--primary-600);
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            margin-left: auto;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border-default);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 300ms ease;
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--primary-600);
+            color: var(--primary-600);
+        }
+
+        .dark-toggle {
+            background: transparent;
+            border: 1px solid var(--border-default);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 300ms ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dark-toggle:hover {
+            border-color: var(--primary-600);
+            color: var(--primary-600);
+        }
+
+        .cart-icon {
+            position: relative;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-secondary);
+            transition: color 300ms ease;
+        }
+
+        .cart-icon:hover {
+            color: var(--primary-600);
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: var(--error-500);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Seasonal Banner */
+        .seasonal-banner {
+            background: var(--banner-gradient);
+            color: white;
+            text-align: center;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            animation: slideDown 500ms ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 600px;
+            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)),
+                        url('https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1600&h=800&fit=crop') center/cover;
+            background-attachment: fixed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+        }
+
+        .hero-content h1 {
+            font-size: 56px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .hero-content p {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        /* Category Pills & View Toggle */
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .category-pills {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid var(--border-default);
+            background-color: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 300ms ease;
+        }
+
+        .pill:hover {
+            border-color: var(--primary-600);
+            color: var(--primary-600);
+        }
+
+        .pill.active {
+            background-color: var(--primary-500);
+            color: white;
+            border-color: var(--primary-500);
+        }
+
+        .view-divider {
+            width: 1px;
+            height: 24px;
+            background-color: var(--border-default);
+        }
+
+        .view-toggle {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 1px solid var(--border-default);
+            background-color: transparent;
+            color: var(--text-secondary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 300ms ease;
+        }
+
+        .view-toggle.active {
+            background-color: var(--primary-500);
+            color: white;
+            border-color: var(--primary-500);
+        }
+
+        .view-toggle:hover {
+            border-color: var(--primary-600);
+            color: var(--primary-600);
+        }
+
+        /* Products Grid */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            animation: fadeIn 500ms ease-in;
+        }
+
+        .product-card {
+            background-color: var(--bg-surface);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            transition: all 300ms ease;
+            border: 1px solid var(--border-light);
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .product-image-container {
+            position: relative;
+            overflow: hidden;
+            height: 240px;
+        }
+
+        .product-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 300ms ease;
+        }
+
+        .product-card:hover .product-image {
+            transform: scale(1.05);
+        }
+
+        .product-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-hot {
+            background-color: var(--error-500);
+            color: white;
+        }
+
+        .badge-new {
+            background-color: var(--warning-500);
+            color: var(--text-inverse);
+        }
+
+        .badge-seasonal {
+            background-color: var(--success-500);
+            color: white;
+        }
+
+        .product-info {
+            padding: 16px;
+        }
+
+        .product-category {
+            font-size: 12px;
+            color: var(--primary-600);
+            margin-bottom: 8px;
+        }
+
+        .product-name {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-600);
+            margin-bottom: 12px;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-cart {
+            flex: 1;
+            padding: 10px 16px;
+            background-color: var(--primary-500);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 300ms ease;
+            font-weight: 600;
+        }
+
+        .btn-cart:hover {
+            background-color: var(--primary-600);
+        }
+
+        .btn-favorite {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--border-default);
+            background-color: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 300ms ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-favorite:hover {
+            border-color: var(--primary-600);
+            color: var(--primary-600);
+        }
+
+        .btn-favorite.liked {
+            background-color: var(--primary-100);
+            border-color: var(--primary-500);
+            color: var(--primary-600);
+        }
+
+        /* Editorial View */
+        .product-showcase {
+            display: flex;
+            flex-direction: column;
+            gap: 120px;
+            animation: fadeIn 500ms ease-in;
+        }
+
+        .editorial-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .editorial-item.right-text {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .editorial-item.right-text .editorial-image {
+            order: 2;
+        }
+
+        .editorial-image img {
+            width: 100%;
+            height: 500px;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .editorial-content h3 {
+            font-size: 28px;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .editorial-category {
+            font-size: 12px;
+            color: var(--primary-600);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .editorial-description {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.8;
+        }
+
+        .editorial-specs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .spec-item {
+            text-align: center;
+        }
+
+        .spec-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+
+        .spec-value {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .editorial-price {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary-600);
+            margin-bottom: 24px;
+        }
+
+        .editorial-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            padding: 14px 24px;
+            background: var(--checkout-gradient);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 300ms ease;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Process Section */
+        .process-section {
+            background: var(--process-bg);
+            padding: 80px 24px;
+            margin: 80px -24px;
+            margin-top: 120px;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 60px;
+            color: var(--text-primary);
+        }
+
+        .process-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .process-item {
+            text-align: center;
+        }
+
+        .process-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .process-title {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .process-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Story Section */
+        .story-section {
+            background-color: var(--primary-50);
+            padding: 60px 24px;
+            margin: 40px auto;
+            border-radius: 16px;
+            max-width: 1200px;
+            transition: background-color 400ms ease-in-out;
+        }
+
+        .story-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .story-content h2 {
+            font-size: 28px;
+            color: var(--primary-800);
+            margin-bottom: 16px;
+        }
+
+        .story-content p {
+            font-size: 17px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            line-height: 1.75;
+        }
+
+        .story-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--bg-footer);
+            color: var(--text-inverse);
+            padding: 60px 24px 24px;
+            margin-top: 120px;
+            transition: background-color 400ms ease-in-out;
+        }
+
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-col h4 {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: var(--text-inverse);
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col li {
+            margin-bottom: 10px;
+        }
+
+        .footer-col a {
+            color: rgba(253, 251, 249, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 300ms ease;
+        }
+
+        .footer-col a:hover {
+            color: var(--text-inverse);
+        }
+
+        .footer-divider {
+            border-top: 1px solid rgba(253, 251, 249, 0.1);
+            padding-top: 24px;
+        }
+
+        .footer-copyright {
+            text-align: center;
+            font-size: 13px;
+            color: rgba(253, 251, 249, 0.6);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background-color: var(--success-500);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            animation: slideInRight 300ms ease-out, slideOutRight 300ms ease-out 2.7s forwards;
+            z-index: 1000;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero {
+                height: 500px;
+            }
+
+            .editorial-item {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .editorial-item.right-text .editorial-image {
+                order: 1;
+            }
+
+            .process-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+
+            nav {
+                flex-basis: 100%;
+                gap: 20px;
+                font-size: 13px;
+            }
+
+            .hero {
+                height: 400px;
+            }
+
+            .hero-content h1 {
+                font-size: 36px;
+            }
+
+            .hero-content p {
+                font-size: 16px;
+            }
+
+            main {
+                padding: 40px 16px;
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+            .process-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .story-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .story-image {
+                height: 250px;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .editorial-specs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header-container {
+                padding: 12px 16px;
+            }
+
+            .logo {
+                font-size: 20px;
+            }
+
+            nav {
+                order: 3;
+                flex-basis: 100%;
+            }
+
+            .nav-actions {
+                gap: 8px;
+            }
+
+            .btn-ghost {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+
+            .hero {
+                height: 300px;
+            }
+
+            .hero-content h1 {
+                font-size: 24px;
+            }
+
+            .hero-content p {
+                font-size: 14px;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-title {
+                font-size: 24px;
+                margin-bottom: 32px;
+            }
+
+            .product-actions {
+                flex-direction: column;
+            }
+
+            .btn-favorite {
+                width: 100%;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .view-divider {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">周爸烘焙坊</div>
+            <nav>
+                <a href="#home">首頁</a>
+                <a href="#about">關於我們</a>
+                <a href="#contact">聯絡我們</a>
+            </nav>
+            <div class="nav-actions">
+                <button class="btn-ghost" onclick="toggleLanguage()">EN</button>
+                <button class="dark-toggle" id="darkToggle" onclick="toggleDarkMode()">🌙</button>
+                <button class="btn-ghost" onclick="handleAuth()">登入/註冊</button>
+                <div class="cart-icon" onclick="goToCart()">
+                    🛒
+                    <div class="cart-badge" id="cartBadge" style="display: none;">0</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Seasonal Banner -->
+    <div class="seasonal-banner">
+        🎉 限時優惠：滿NT$500享免運
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>周爸烘焙坊</h1>
+            <p>用心烘焙，傳遞幸福</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Filter Controls -->
+        <div class="filter-controls">
+            <div class="category-pills" id="categoryPills">
+                <button class="pill active" onclick="filterCategory('all')">全部</button>
+                <button class="pill" onclick="filterCategory('吐司')">吐司</button>
+                <button class="pill" onclick="filterCategory('蛋糕')">蛋糕</button>
+                <button class="pill" onclick="filterCategory('餅乾')">餅乾</button>
+                <button class="pill" onclick="filterCategory('麵包')">麵包</button>
+                <button class="pill" onclick="filterCategory('其他')">其他</button>
+            </div>
+            <div class="view-divider"></div>
+            <button class="view-toggle" id="viewToggle" onclick="toggleViewMode()">介紹</button>
+        </div>
+
+        <!-- Products Grid (Default View) -->
+        <div class="products-grid" id="productsGrid"></div>
+
+        <!-- Product Showcase (Editorial View) -->
+        <div class="product-showcase" id="productShowcase" style="display: none;"></div>
+    </main>
+
+    <!-- Process Section -->
+    <section class="process-section">
+        <h2 class="section-title">製作過程</h2>
+        <div class="process-grid">
+            <div class="process-item">
+                <div class="process-icon">🌾</div>
+                <div class="process-title">嚴選原料</div>
+                <div class="process-desc">選用全球頂級食材，確保每份產品的品質</div>
+            </div>
+            <div class="process-item">
+                <div class="process-icon">👨‍🍳</div>
+                <div class="process-title">精心製作</div>
+                <div class="process-desc">資深烘焙師傅手工製作，用心打造每一份</div>
+            </div>
+            <div class="process-item">
+                <div class="process-icon">⏰</div>
+                <div class="process-title">耐心發酵</div>
+                <div class="process-desc">遵循傳統工藝，充分發酵帶出最佳風味</div>
+            </div>
+            <div class="process-item">
+                <div class="process-icon">🔥</div>
+                <div class="process-title">每日現烤</div>
+                <div class="process-desc">清晨現烤，保證最新鮮的品質和風味</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Story Section -->
+    <section class="story-section">
+        <div class="story-grid">
+            <div class="story-content">
+                <h2>周爸的故事</h2>
+                <p>
+                    在台灣中部一個安靜的小鎮，周爸用30年的烘焙經驗，打造出「周爸烘焙坊」。每一份麵包都是用心與傳統工法製作，只為了將最道地的歐洲村莊烘焙文化帶到您的餐桌。
+                </p>
+                <p>
+                    選用進口麵粉與天然酵種，每一口都能嘗到新鮮與誠意。不趕時間，只堅持品質—這就是周爸的承諾。
+                </p>
+            </div>
+            <img src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop" alt="周爸的故事" class="story-image">
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-content">
+                <div class="footer-col">
+                    <h4>關於周爸</h4>
+                    <ul>
+                        <li><a href="#story">我們的故事</a></li>
+                        <li><a href="#mission">使命與願景</a></li>
+                        <li><a href="#team">團隊介紹</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>服務</h4>
+                    <ul>
+                        <li><a href="#shipping">運送資訊</a></li>
+                        <li><a href="#returns">退貨政策</a></li>
+                        <li><a href="#faq">常見問題</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>聯絡我們</h4>
+                    <ul>
+                        <li><a href="mailto:hello@papabakery.com">hello@papabakery.com</a></li>
+                        <li><a href="tel:+886-2-1234-5678">+886-2-1234-5678</a></li>
+                        <li><a href="#address">台北市信義區</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-divider"></div>
+            <div class="footer-copyright">
+                <p>&copy; 2024 周爸烘焙坊. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Product Data
+        const products = [
+            { id: 1, name: '香濃奶油吐司', category: '吐司', price: 120, image: 'https://images.unsplash.com/photo-1598373182133-52452f7691ef?w=400', badge: null, description: '採用進口麵粉和天然奶油，每一片都軟綿綿。清晨現烤，香氣撲鼻，咬下去酥脆外殼與嫩滑內心完美融合。', specs: [{label:'重量',value:'450g'},{label:'保鮮期',value:'3天'},{label:'製作時間',value:'12小時'}] },
+            { id: 2, name: '草莓蛋糕', category: '蛋糕', price: 380, image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400', badge: { type: 'seasonal', text: '季節限定' }, description: '新鮮草莓搭配輕盈海綿蛋糕，層次豐富，酸酸甜甜。選用當季最飽滿的草莓，保證每一口都是驚喜。', specs: [{label:'尺寸',value:'6吋'},{label:'保鮮期',value:'2天'},{label:'適用',value:'4-6人'}] },
+            { id: 3, name: '手工曲奇餅乾', category: '餅乾', price: 180, image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400', badge: { type: 'hot', text: 'HOT' }, description: '黃油香氣濃郁，手工成形的曲奇餅乾，入口即化。每一塊都展現烘焙師的細膩手藝，是下午茶的完美搭配。', specs: [{label:'數量',value:'12片'},{label:'保鮮期',value:'7天'},{label:'包裝',value:'禮盒'}] },
+            { id: 4, name: '法式可頌', category: '麵包', price: 65, image: 'https://images.unsplash.com/photo-1555507036-ab1f4038024a?w=400', badge: null, description: '法式傳統配方，層層酥脆。精選進口黃油，經過精心折疊，烤出來的可頌酥到掉渣，香氣能飄滿整間屋子。', specs: [{label:'重量',value:'85g'},{label:'製作',value:'每日現做'},{label:'最佳享用',value:'當日'}] },
+            { id: 5, name: '巧克力布朗尼', category: '其他', price: 220, image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400', badge: { type: 'new', text: 'NEW' }, description: '濃郁的比利時巧克力，外酥內軟的口感。每一口都是純粹的巧克力享受，適合搭配咖啡或茶。', specs: [{label:'重量',value:'200g'},{label:'保鮮期',value:'5天'},{label:'口感',value:'外酥內軟'}] },
+            { id: 6, name: '肉鬆麵包', category: '麵包', price: 55, image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400', badge: null, description: '台式經典口味，鬆軟麵包搭配香酥肉鬆和美乃滋。是小朋友最愛的下午點心，充滿記憶中的味道。', specs: [{label:'重量',value:'120g'},{label:'保鮮期',value:'2天'},{label:'風味',value:'台式經典'}] }
+        ];
+
+        let cart = [];
+        let currentCategory = 'all';
+        let viewMode = 'cards';
+
+        // Initialize
+        function init() {
+            loadDarkModePreference();
+            renderProducts();
+            updateCartBadge();
+        }
+
+        // Dark Mode
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('darkMode', isDark);
+            updateDarkToggleIcon();
+        }
+
+        function loadDarkModePreference() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            }
+            updateDarkToggleIcon();
+        }
+
+        function updateDarkToggleIcon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('darkToggle').textContent = isDark ? '☀️' : '🌙';
+        }
+
+        // Product Rendering
+        function renderProducts() {
+            const filtered = currentCategory === 'all' ? products : products.filter(p => p.category === currentCategory);
+
+            if (viewMode === 'cards') {
+                renderCardView(filtered);
+            } else {
+                renderEditorialView(filtered);
+            }
+        }
+
+        function renderCardView(filtered) {
+            const grid = document.getElementById('productsGrid');
+            const showcase = document.getElementById('productShowcase');
+            grid.style.display = 'grid';
+            showcase.style.display = 'none';
+
+            grid.innerHTML = filtered.map(p => `
+                <div class="product-card">
+                    <div class="product-image-container">
+                        <img src="${p.image}?w=400" alt="${p.name}" class="product-image">
+                        ${p.badge ? `<div class="product-badge badge-${p.badge.type}">${p.badge.text}</div>` : ''}
+                    </div>
+                    <div class="product-info">
+                        <div class="product-category">${p.category}</div>
+                        <h3 class="product-name">${p.name}</h3>
+                        <div class="product-price">NT$${p.price}</div>
+                        <div class="product-actions">
+                            <button class="btn-cart" onclick="addToCart(${p.id})">加入購物車</button>
+                            <button class="btn-favorite" onclick="toggleFavorite(this)">♡</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderEditorialView(filtered) {
+            const grid = document.getElementById('productsGrid');
+            const showcase = document.getElementById('productShowcase');
+            grid.style.display = 'none';
+            showcase.style.display = 'flex';
+
+            showcase.innerHTML = filtered.map((p, idx) => `
+                <div class="editorial-item ${idx % 2 === 1 ? 'right-text' : ''}">
+                    <div class="editorial-image">
+                        <img src="${p.image}?w=500&h=600&fit=crop" alt="${p.name}">
+                    </div>
+                    <div class="editorial-content">
+                        <div class="editorial-category">${p.category}</div>
+                        <h3>${p.name}</h3>
+                        <div class="editorial-description">${p.description}</div>
+                        <div class="editorial-specs">
+                            ${p.specs.map(s => `
+                                <div class="spec-item">
+                                    <div class="spec-label">${s.label}</div>
+                                    <div class="spec-value">${s.value}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="editorial-price">NT$${p.price}</div>
+                        <div class="editorial-actions">
+                            <button class="btn-primary" onclick="addToCart(${p.id})">加入購物車</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Category Filter
+        function filterCategory(category) {
+            currentCategory = category;
+            document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            renderProducts();
+        }
+
+        // View Toggle
+        function toggleViewMode() {
+            viewMode = viewMode === 'cards' ? 'editorial' : 'cards';
+            const toggle = document.getElementById('viewToggle');
+            toggle.classList.toggle('active');
+            renderProducts();
+        }
+
+        // Cart
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existing = cart.find(c => c.id === productId);
+
+            if (existing) {
+                existing.quantity += 1;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+
+            updateCartBadge();
+            showNotification(`${product.name} 已加入購物車`);
+        }
+
+        function updateCartBadge() {
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            const badge = document.getElementById('cartBadge');
+            if (totalItems > 0) {
+                badge.textContent = totalItems;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function goToCart() {
+            localStorage.setItem('cart', JSON.stringify(cart));
+            window.location.href = 'demo-f-var2-cart.html';
+        }
+
+        // Favorites
+        function toggleFavorite(btn) {
+            btn.classList.toggle('liked');
+        }
+
+        // Notifications
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Placeholder Functions
+        function toggleLanguage() {
+            alert('語言切換功能待實現');
+        }
+
+        function handleAuth() {
+            alert('登入/註冊功能待實現');
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

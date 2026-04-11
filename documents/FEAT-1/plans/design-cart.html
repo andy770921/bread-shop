@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>購物車 | 周爸烘焙坊 — Papa Bakery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-50: #FFFBF5;
+            --primary-100: #FEF5E8;
+            --primary-200: #FDE8D4;
+            --primary-300: #F9D4B0;
+            --primary-400: #F5BB87;
+            --primary-500: #D4885A;
+            --primary-600: #C07545;
+            --primary-700: #9D5F31;
+            --primary-800: #7A4620;
+            --primary-900: #5C3D1E;
+
+            --neutral-50: #FDFBF9;
+            --neutral-100: #FAF8F5;
+            --neutral-200: #F5F1EC;
+            --neutral-300: #E8E2D9;
+            --neutral-400: #D6CCC0;
+            --neutral-500: #B8ADA0;
+            --neutral-600: #9A8E83;
+            --neutral-700: #6F645A;
+            --neutral-800: #3D281A;
+            --neutral-900: #1A110B;
+
+            --success-500: #52B788;
+            --warning-500: #F5A623;
+            --error-500: #DC2626;
+
+            --text-primary: #1A110B;
+            --text-secondary: #6F645A;
+            --text-tertiary: #A89E92;
+            --text-inverse: #FDFBF9;
+
+            --border-light: #E8E2D9;
+            --border-default: #D6CCC0;
+            --border-strong: #9A8E83;
+
+            --bg-body: #FDFBF9;
+            --bg-surface: #FFFFFF;
+            --bg-elevated: #FAF8F5;
+            --bg-footer: #3D281A;
+
+            --shadow-sm: 0 1px 3px rgba(26,17,11,0.10);
+            --shadow-md: 0 4px 12px rgba(26,17,11,0.08);
+            --shadow-lg: 0 10px 24px rgba(26,17,11,0.12);
+            --shadow-xl: 0 20px 40px rgba(26,17,11,0.15);
+            --shadow-header: 0 1px 3px rgba(26,17,11,0.10);
+
+            --checkout-gradient: linear-gradient(135deg, #D4885A 0%, #C07545 100%);
+        }
+
+        html.dark {
+            --primary-50: #2A1E14;
+            --primary-100: #3A2A1C;
+            --primary-200: #4D3825;
+            --primary-300: #6B4E34;
+            --primary-400: #D49A6A;
+            --primary-500: #E0965F;
+            --primary-600: #C8824E;
+            --primary-700: #F0B080;
+            --primary-800: #F5C8A0;
+            --primary-900: #FAE0C8;
+
+            --neutral-50: #161110;
+            --neutral-100: #1E1712;
+            --neutral-200: #2A2018;
+            --neutral-300: #3D3028;
+            --neutral-400: #5A4D42;
+            --neutral-500: #7A6E62;
+            --neutral-600: #9A8E83;
+            --neutral-700: #C4B8AB;
+            --neutral-800: #E8DDD2;
+            --neutral-900: #FAF5F0;
+
+            --success-500: #6BCCA0;
+            --warning-500: #F5B840;
+            --error-500: #EF4444;
+
+            --text-primary: #FAF5F0;
+            --text-secondary: #C4B8AB;
+            --text-tertiary: #8A7E72;
+            --text-inverse: #161110;
+
+            --border-light: #3D3028;
+            --border-default: #5A4D42;
+            --border-strong: #7A6E62;
+
+            --bg-body: #161110;
+            --bg-surface: #1E1712;
+            --bg-elevated: #2A2018;
+            --bg-footer: #0E0A08;
+
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.30);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+            --shadow-lg: 0 10px 24px rgba(0,0,0,0.35);
+            --shadow-xl: 0 20px 40px rgba(0,0,0,0.45);
+            --shadow-header: 0 2px 8px rgba(0,0,0,0.35);
+
+            --checkout-gradient: linear-gradient(135deg, #E0965F 0%, #C8824E 100%);
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            transition: background-color 400ms, color 400ms;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 600;
+            transition: color 400ms;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-color: var(--bg-surface);
+            border-bottom: 1px solid var(--border-light);
+            box-shadow: var(--shadow-header);
+            transition: background-color 400ms, border-color 400ms;
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 70px;
+        }
+
+        .logo {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-600);
+            text-decoration: none;
+            transition: color 400ms;
+            white-space: nowrap;
+        }
+
+        .logo:hover {
+            color: var(--primary-700);
+        }
+
+        .nav-middle {
+            display: flex;
+            gap: 30px;
+            flex: 1;
+            justify-content: center;
+            margin: 0 40px;
+        }
+
+        .nav-middle a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 400ms;
+            position: relative;
+        }
+
+        .nav-middle a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-middle a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--primary-600);
+            transition: width 300ms;
+        }
+
+        .nav-middle a:hover::after {
+            width: 100%;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 16px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 300ms;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+
+        .header-btn:hover {
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .cart-icon {
+            position: relative;
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: var(--error-500);
+            color: white;
+            font-size: 11px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            transition: all 300ms;
+        }
+
+        .auth-btn {
+            color: white;
+            background-color: var(--primary-600);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 300ms;
+            font-family: 'Noto Serif TC', serif;
+        }
+
+        .auth-btn:hover {
+            background-color: var(--primary-700);
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .page-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: var(--text-primary);
+        }
+
+        .cart-container {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 40px;
+        }
+
+        /* Cart Items */
+        .cart-items {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .cart-item {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 20px;
+            transition: all 400ms;
+        }
+
+        .cart-item:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-default);
+        }
+
+        .item-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 6px;
+            object-fit: cover;
+            background-color: var(--bg-elevated);
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .item-category {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .item-name {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .item-price {
+            color: var(--primary-600);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .item-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-default);
+            border-radius: 4px;
+            overflow: hidden;
+            background-color: var(--bg-elevated);
+        }
+
+        .qty-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 300ms;
+        }
+
+        .qty-btn:hover {
+            background-color: var(--bg-body);
+        }
+
+        .qty-input {
+            width: 50px;
+            border: none;
+            text-align: center;
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 14px;
+            padding: 0;
+        }
+
+        .qty-input:focus {
+            outline: none;
+        }
+
+        .item-subtotal {
+            font-size: 14px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .item-subtotal-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: var(--error-500);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+            transition: all 300ms;
+        }
+
+        .remove-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* Empty Cart */
+        .empty-cart {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-cart h2 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .empty-cart p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .continue-shop-btn {
+            display: inline-block;
+            background-color: var(--primary-600);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 600;
+            transition: all 300ms;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .continue-shop-btn:hover {
+            background-color: var(--primary-700);
+        }
+
+        /* Customer Form */
+        .customer-form {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 40px;
+            transition: all 400ms;
+        }
+
+        .customer-form h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            font-family: 'Noto Serif TC', serif;
+        }
+
+        .form-input {
+            padding: 10px 12px;
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            background-color: var(--bg-elevated);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 300ms;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            box-shadow: 0 0 0 3px rgba(212, 136, 90, 0.1);
+        }
+
+        html.dark .form-input:focus {
+            box-shadow: 0 0 0 3px rgba(224, 150, 95, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .form-input textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Order Summary Sidebar */
+        .order-summary {
+            position: sticky;
+            top: 120px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 24px;
+            transition: all 400ms;
+        }
+
+        .summary-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+
+        .summary-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .summary-item-name {
+            color: var(--text-secondary);
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .summary-item-price {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+
+        .summary-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .summary-line-label {
+            color: var(--text-secondary);
+        }
+
+        .summary-line-value {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .summary-shipping {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: -8px;
+            margin-bottom: 12px;
+        }
+
+        .summary-total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding-top: 16px;
+            border-top: 2px solid var(--border-light);
+            margin-bottom: 20px;
+        }
+
+        .checkout-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--checkout-gradient);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-family: 'Noto Serif TC', serif;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 300ms;
+            box-shadow: var(--shadow-md);
+        }
+
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .checkout-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 90px;
+            right: 20px;
+            background-color: var(--bg-surface);
+            color: var(--text-primary);
+            padding: 16px 20px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-600);
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 300ms ease-out;
+            z-index: 200;
+            transition: all 400ms;
+        }
+
+        .notification.success {
+            border-left-color: var(--success-500);
+        }
+
+        .notification.error {
+            border-left-color: var(--error-500);
+        }
+
+        .notification.warning {
+            border-left-color: var(--warning-500);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--bg-footer);
+            color: var(--text-inverse);
+            padding: 40px 20px;
+            margin-top: 60px;
+            transition: background-color 400ms;
+        }
+
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-inverse);
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section li {
+            margin-bottom: 10px;
+        }
+
+        .footer-section a {
+            color: var(--text-inverse);
+            text-decoration: none;
+            font-size: 13px;
+            transition: opacity 300ms;
+            opacity: 0.9;
+        }
+
+        .footer-section a:hover {
+            opacity: 1;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(253, 251, 249, 0.1);
+            padding-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        html.dark .footer-bottom {
+            border-top-color: rgba(26, 17, 11, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .cart-container {
+                grid-template-columns: 1fr;
+            }
+
+            .order-summary {
+                position: static;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                height: auto;
+                padding: 12px 20px;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .logo {
+                font-size: 18px;
+            }
+
+            .nav-middle {
+                flex: 1 1 100%;
+                margin: 0;
+                gap: 20px;
+                order: 3;
+            }
+
+            .nav-right {
+                gap: 10px;
+            }
+
+            .page-title {
+                font-size: 28px;
+            }
+
+            .cart-item {
+                grid-template-columns: 100px 1fr;
+                gap: 16px;
+                padding: 16px;
+            }
+
+            .item-image {
+                width: 100px;
+                height: 100px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header-container {
+                padding: 10px 16px;
+            }
+
+            .nav-middle {
+                gap: 16px;
+                font-size: 13px;
+            }
+
+            .page-title {
+                font-size: 24px;
+                margin-bottom: 24px;
+            }
+
+            .cart-item {
+                grid-template-columns: 80px 1fr;
+                gap: 12px;
+                padding: 12px;
+            }
+
+            .item-image {
+                width: 80px;
+                height: 80px;
+            }
+
+            .item-controls {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            main {
+                padding: 24px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <a href="demo-f-var2-home.html" class="logo">周爸烘焙坊</a>
+            <nav class="nav-middle">
+                <a href="demo-f-var2-home.html">首頁</a>
+                <a href="#about">關於我們</a>
+                <a href="#contact">聯絡我們</a>
+            </nav>
+            <div class="nav-right">
+                <button class="header-btn" id="langToggle" title="切換語言">中/EN</button>
+                <button class="header-btn cart-icon" id="cartBtn" title="購物車">
+                    <span style="font-size: 20px;">🛒</span>
+                    <span class="cart-badge" id="cartBadge">0</span>
+                </button>
+                <button class="header-btn" id="darkModeToggle" title="深色模式" style="font-size: 18px;">☀️</button>
+                <button class="auth-btn" id="authBtn">登入/註冊</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <h1 class="page-title">購物車</h1>
+
+        <div class="cart-container">
+            <!-- Cart Items Section -->
+            <div>
+                <div class="cart-items" id="cartItems"></div>
+
+                <!-- Customer Form -->
+                <form class="customer-form" id="customerForm" onsubmit="submitOrder(event)">
+                    <h3>訂購資訊</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">姓名</label>
+                            <input type="text" class="form-input" name="name" placeholder="請輸入您的姓名" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">電話</label>
+                            <input type="tel" class="form-input" name="phone" placeholder="請輸入您的電話" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">電子郵件</label>
+                            <input type="email" class="form-input" name="email" placeholder="請輸入您的電子郵件" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">地址</label>
+                            <input type="text" class="form-input" name="address" placeholder="請輸入送貨地址" required>
+                        </div>
+                        <div class="form-group full">
+                            <label class="form-label">備註</label>
+                            <textarea class="form-input" name="notes" placeholder="有特殊需求嗎？請在此輸入..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Order Summary Sidebar -->
+            <div class="order-summary">
+                <h3 class="summary-title">訂單摘要</h3>
+                <div class="summary-items" id="summaryItems"></div>
+
+                <div class="summary-line">
+                    <span class="summary-line-label">小計</span>
+                    <span class="summary-line-value" id="subtotal">NT$0</span>
+                </div>
+
+                <div class="summary-line">
+                    <span class="summary-line-label">運費</span>
+                    <span class="summary-line-value" id="shipping">NT$60</span>
+                </div>
+                <div class="summary-shipping" id="shippingNote"></div>
+
+                <div class="summary-total">
+                    <span>總計</span>
+                    <span id="total">NT$0</span>
+                </div>
+
+                <button type="submit" class="checkout-btn" form="customerForm">透過 LINE Pay 結帳</button>
+
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="demo-f-var2-home.html" class="continue-shop-btn">繼續購物</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h4>周爸烘焙坊</h4>
+                <ul>
+                    <li><a href="#">新鮮產品</a></li>
+                    <li><a href="#">特色蛋糕</a></li>
+                    <li><a href="#">季節限定</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>關於我們</h4>
+                <ul>
+                    <li><a href="#">我們的故事</a></li>
+                    <li><a href="#">品質承諾</a></li>
+                    <li><a href="#">團隊</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>客戶服務</h4>
+                <ul>
+                    <li><a href="#">聯絡我們</a></li>
+                    <li><a href="#">常見問題</a></li>
+                    <li><a href="#">運費政策</a></li>
+                    <li><a href="#">退貨政策</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>社群媒體</h4>
+                <ul>
+                    <li><a href="#">Facebook</a></li>
+                    <li><a href="#">Instagram</a></li>
+                    <li><a href="#">LINE</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 周爸烘焙坊 Papa Bakery. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Cart data
+        let cart = [
+            {
+                id: 1,
+                name: '香濃奶油吐司',
+                category: '吐司',
+                price: 120,
+                image: 'https://images.unsplash.com/photo-1598373182133-52452f7691ef?w=140',
+                qty: 2
+            },
+            {
+                id: 2,
+                name: '草莓蛋糕',
+                category: '蛋糕',
+                price: 380,
+                image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=140',
+                qty: 1
+            }
+        ];
+
+        // Dark mode initialization
+        function initDarkMode() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                updateDarkModeButton(true);
+            } else {
+                updateDarkModeButton(false);
+            }
+        }
+
+        function updateDarkModeButton(isDark) {
+            const btn = document.getElementById('darkModeToggle');
+            btn.textContent = isDark ? '🌙' : '☀️';
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', isDark);
+            updateDarkModeButton(isDark);
+        }
+
+        // Render cart items
+        function renderCart() {
+            const container = document.getElementById('cartItems');
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-cart">
+                        <h2>購物車是空的</h2>
+                        <p>探索我們的烘焙產品，找到您喜歡的商品。</p>
+                        <a href="demo-f-var2-home.html" class="continue-shop-btn">開始購物</a>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <img src="${item.image}" alt="${item.name}" class="item-image" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Crect fill=%22%23E8E2D9%22 width=%22120%22 height=%22120%22/%3E%3C/svg%3E'">
+                    <div class="item-info">
+                        <div>
+                            <div class="item-header">
+                                <div>
+                                    <div class="item-category">${item.category}</div>
+                                    <h3 class="item-name">${item.name}</h3>
+                                </div>
+                                <button type="button" class="remove-btn" onclick="removeItem(${index})" title="移除">×</button>
+                            </div>
+                            <div class="item-price">NT$${item.price.toLocaleString()}</div>
+                        </div>
+                        <div class="item-controls">
+                            <div class="qty-control">
+                                <button type="button" class="qty-btn" onclick="updateQty(${index}, -1)">−</button>
+                                <input type="number" class="qty-input" value="${item.qty}" min="1" onchange="setQty(${index}, this.value)">
+                                <button type="button" class="qty-btn" onclick="updateQty(${index}, 1)">+</button>
+                            </div>
+                            <div class="item-subtotal">
+                                小計：<span class="item-subtotal-value">NT$${(item.price * item.qty).toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            updateSummary();
+        }
+
+        // Update quantity
+        function updateQty(index, change) {
+            cart[index].qty = Math.max(1, cart[index].qty + change);
+            renderCart();
+        }
+
+        // Set quantity from input
+        function setQty(index, value) {
+            const qty = Math.max(1, parseInt(value) || 1);
+            cart[index].qty = qty;
+            renderCart();
+        }
+
+        // Remove item
+        function removeItem(index) {
+            if (confirm('確定要移除此項目嗎？')) {
+                cart.splice(index, 1);
+                renderCart();
+                showNotification('已移除商品', 'success');
+            }
+        }
+
+        // Update cart badge
+        function updateCartBadge() {
+            const total = cart.reduce((sum, item) => sum + item.qty, 0);
+            document.getElementById('cartBadge').textContent = total;
+        }
+
+        // Update order summary
+        function updateSummary() {
+            const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+            const shipping = subtotal >= 500 ? 0 : 60;
+            const total = subtotal + shipping;
+
+            // Summary items
+            const summaryContainer = document.getElementById('summaryItems');
+            summaryContainer.innerHTML = cart.map(item => `
+                <div class="summary-item">
+                    <span class="summary-item-name">${item.name} × ${item.qty}</span>
+                    <span class="summary-item-price">NT$${(item.price * item.qty).toLocaleString()}</span>
+                </div>
+            `).join('');
+
+            // Summary totals
+            document.getElementById('subtotal').textContent = `NT$${subtotal.toLocaleString()}`;
+            document.getElementById('shipping').textContent = `NT$${shipping.toLocaleString()}`;
+            document.getElementById('total').textContent = `NT$${total.toLocaleString()}`;
+
+            // Shipping note
+            const shippingNote = document.getElementById('shippingNote');
+            if (shipping === 0) {
+                shippingNote.textContent = '免運費 ✓';
+                shippingNote.style.color = 'var(--success-500)';
+            } else {
+                shippingNote.textContent = `滿NT$500免運費`;
+                shippingNote.style.color = 'var(--text-tertiary)';
+            }
+
+            updateCartBadge();
+        }
+
+        // Submit order
+        function submitOrder(e) {
+            e.preventDefault();
+
+            if (cart.length === 0) {
+                showNotification('購物車是空的，請先選擇商品', 'error');
+                return;
+            }
+
+            const formData = new FormData(document.getElementById('customerForm'));
+            const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+            const shipping = subtotal >= 500 ? 0 : 60;
+            const total = subtotal + shipping;
+
+            const orderSummary = `
+訂單摘要：
+${cart.map(item => `${item.name} × ${item.qty} = NT$${(item.price * item.qty).toLocaleString()}`).join('\n')}
+
+小計：NT$${subtotal.toLocaleString()}
+運費：NT$${shipping.toLocaleString()}
+總計：NT$${total.toLocaleString()}
+
+訂購資訊：
+姓名：${formData.get('name')}
+電話：${formData.get('phone')}
+電子郵件：${formData.get('email')}
+地址：${formData.get('address')}
+備註：${formData.get('notes') || '無'}
+
+即將透過 LINE Pay 結帳...`;
+
+            alert(orderSummary);
+            showNotification('訂單已提交！即將導向至 LINE Pay 結帳', 'success');
+
+            // In production, redirect to LINE Pay
+            // window.location.href = '/checkout/line-pay';
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Navigation
+        function goHome() {
+            window.location.href = 'demo-f-var2-home.html';
+        }
+
+        function goToAuth() {
+            showNotification('登入功能即將推出', 'info');
+        }
+
+        function toggleLanguage() {
+            showNotification('語言切換功能即將推出', 'info');
+        }
+
+        // Event listeners
+        document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+        document.getElementById('langToggle').addEventListener('click', toggleLanguage);
+        document.getElementById('authBtn').addEventListener('click', goToAuth);
+        document.getElementById('cartBtn').addEventListener('click', () => {
+            showNotification('已在購物車頁面', 'info');
+        });
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            initDarkMode();
+            renderCart();
+        });
+    </script>
+</body>
+</html>

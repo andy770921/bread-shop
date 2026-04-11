@@ -1,0 +1,120 @@
+'use client';
+
+import Image from 'next/image';
+import { ShoppingCart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import type { ProductWithCategory } from '@repo/shared';
+
+interface ProductEditorialProps {
+  product: ProductWithCategory;
+  locale: string;
+  index: number;
+  onAddToCart: (productId: number) => void;
+}
+
+export function ProductEditorial({ product, locale, index, onAddToCart }: ProductEditorialProps) {
+  const name = locale === 'zh' ? product.name_zh : product.name_en;
+  const description = locale === 'zh' ? product.description_zh : product.description_en;
+  const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
+  const imageUrl = product.image_url || '/placeholder-product.jpg';
+  const isEven = index % 2 === 0;
+
+  return (
+    <div
+      className={`flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-16 ${
+        !isEven ? 'lg:flex-row-reverse' : ''
+      }`}
+    >
+      {/* Image */}
+      <div className="relative h-[360px] w-full overflow-hidden rounded-2xl lg:h-[500px] lg:w-1/2">
+        <Image
+          src={imageUrl}
+          alt={name}
+          fill
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          className="object-cover"
+        />
+        {product.badge_type && (
+          <Badge
+            className="absolute left-4 top-4 rounded-md px-3 py-1 text-sm font-semibold"
+            style={
+              product.badge_type === 'hot'
+                ? { backgroundColor: '#DC2626', color: '#fff' }
+                : product.badge_type === 'new'
+                  ? { backgroundColor: '#F59E0B', color: '#fff' }
+                  : { backgroundColor: '#10B981', color: '#fff' }
+            }
+          >
+            {locale === 'zh' ? product.badge_text_zh : product.badge_text_en}
+          </Badge>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex w-full flex-col gap-4 lg:w-1/2">
+        <span className="text-sm font-medium" style={{ color: 'var(--primary-500)' }}>
+          {categoryName}
+        </span>
+        <h2
+          className="font-heading text-2xl font-bold leading-tight lg:text-3xl"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {name}
+        </h2>
+        {description && (
+          <p className="text-base leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            {description}
+          </p>
+        )}
+
+        {/* Specs Grid */}
+        {product.specs && product.specs.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            {product.specs.map((spec, i) => (
+              <div
+                key={i}
+                className="rounded-lg p-3"
+                style={{ backgroundColor: 'var(--bg-elevated)' }}
+              >
+                <span
+                  className="block text-xs font-medium"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {locale === 'zh' ? spec.label_zh : spec.label_en}
+                </span>
+                <span
+                  className="mt-1 block text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {locale === 'zh' ? spec.value_zh : spec.value_en}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-6 pt-2">
+          <span
+            className="font-heading text-2xl font-bold lg:text-3xl"
+            style={{ color: 'var(--primary-700)' }}
+          >
+            NT${product.price}
+          </span>
+          <Button
+            size="lg"
+            className="gap-2 rounded-full px-8"
+            style={{
+              background: 'var(--checkout-gradient)',
+              color: '#fff',
+            }}
+            onClick={() => onAddToCart(product.id)}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            {locale === 'zh' ? '加入購物車' : 'Add to Cart'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

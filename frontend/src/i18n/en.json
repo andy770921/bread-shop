@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact",
+    "login": "Login/Register",
+    "logout": "Logout",
+    "cart": "Cart",
+    "profile": "Profile",
+    "orders": "Orders"
+  },
+  "home": {
+    "title": "Papa Bakery",
+    "subtitle": "Baked with heart, shared with love",
+    "allCategories": "All",
+    "editorialToggle": "Intro",
+    "addToCart": "Add to Cart",
+    "addedToCart": "Added to Cart"
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "empty": "Your cart is empty",
+    "emptyDesc": "Explore our bakery products and find something you like.",
+    "startShopping": "Start Shopping",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "freeShipping": "Free Shipping",
+    "freeShippingNote": "Free shipping on orders over NT$500",
+    "total": "Total",
+    "orderSummary": "Order Summary",
+    "customerInfo": "Customer Info",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "notes": "Notes",
+    "creditCard": "Pay with Credit Card",
+    "linePay": "Contact via LINE",
+    "continueShopping": "Continue Shopping",
+    "remove": "Remove"
+  },
+  "process": {
+    "title": "Our Process",
+    "step1Title": "Premium Ingredients",
+    "step1Desc": "Selecting top-tier ingredients from around the world",
+    "step2Title": "Handcrafted",
+    "step2Desc": "Made by experienced bakers with care and precision",
+    "step3Title": "Patient Fermentation",
+    "step3Desc": "Traditional techniques for the best flavor",
+    "step4Title": "Freshly Baked Daily",
+    "step4Desc": "Baked every morning for guaranteed freshness"
+  },
+  "story": {
+    "title": "Papa's Story",
+    "p1": "In a quiet town in central Taiwan, Papa built Papa Bakery with 30 years of baking experience. Every loaf is made with heart and traditional methods, bringing European village bakery culture to your table.",
+    "p2": "Using imported flour and natural starters, every bite is full of freshness and sincerity. No rushing, only quality — that's Papa's promise."
+  },
+  "banner": {
+    "text": "Limited Offer: Free Shipping on Orders Over NT$500"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "loginWithLine": "Login with LINE",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "profile": {
+    "title": "Profile",
+    "save": "Save",
+    "saved": "Saved"
+  },
+  "orders": {
+    "title": "Order History",
+    "empty": "No orders yet",
+    "orderNumber": "Order Number",
+    "status": "Status",
+    "total": "Total",
+    "date": "Date"
+  },
+  "checkout": {
+    "successTitle": "Order Placed!",
+    "successDesc": "Thank you for your order. We'll process it shortly.",
+    "backHome": "Back to Home"
+  },
+  "status": {
+    "pending": "Pending",
+    "paid": "Paid",
+    "preparing": "Preparing",
+    "shipping": "Shipping",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled"
+  }
+}

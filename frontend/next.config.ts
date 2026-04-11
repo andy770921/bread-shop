@@ -4,6 +4,12 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../'),
   transpilePackages: ['lodash-es'],
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'wqgaujuapacxuhvfatii.supabase.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+    ],
+  },
   eslint: {
     // Linting is handled at the monorepo root via `npm run lint`.
     // next build should not duplicate it (root .eslintrc.js paths don't
