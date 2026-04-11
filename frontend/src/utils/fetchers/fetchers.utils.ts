@@ -25,6 +25,9 @@ export const getFetchQueryOptions = <TRequestBody>({
     method,
     credentials: 'include' as RequestCredentials,
     headers: {
+      ...(body && !(body instanceof Blob) && !(body instanceof FormData)
+        ? { 'Content-Type': 'application/json' }
+        : {}),
       Accept: 'application/json',
       ...headers,
     },

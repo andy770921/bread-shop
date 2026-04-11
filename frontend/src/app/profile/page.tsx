@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,22 +13,17 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { useUpdateProfile } from '@/queries/use-profile';
 
 export default function ProfilePage() {
   const { t } = useLocale();
-  const { user, isLoading: authLoading, refreshUser } = useAuth();
-  const router = useRouter();
+  const { refreshUser } = useAuth();
+  const { user, isLoading: authLoading } = useAuthGuard();
   const updateProfile = useUpdateProfile();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-    }
-  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (user) {

@@ -1,47 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Package } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
-import { useAuth } from '@/lib/auth-context';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { useOrders } from '@/queries/use-orders';
-import type { OrderStatus } from '@repo/shared';
-
-function getStatusColor(status: OrderStatus): React.CSSProperties {
-  switch (status) {
-    case 'pending':
-      return { backgroundColor: '#FEF3C7', color: '#92400E' };
-    case 'paid':
-      return { backgroundColor: '#D1FAE5', color: '#065F46' };
-    case 'preparing':
-      return { backgroundColor: '#DBEAFE', color: '#1E40AF' };
-    case 'shipping':
-      return { backgroundColor: '#E0E7FF', color: '#3730A3' };
-    case 'delivered':
-      return { backgroundColor: '#D1FAE5', color: '#065F46' };
-    case 'cancelled':
-      return { backgroundColor: '#FEE2E2', color: '#991B1B' };
-    default:
-      return {};
-  }
-}
+import { getStatusColor } from '@/utils/order';
 
 export default function OrdersPage() {
   const { locale, t } = useLocale();
-  const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-    }
-  }, [authLoading, user, router]);
+  const { user, isLoading: authLoading } = useAuthGuard();
 
   const { data, isLoading } = useOrders(!!user);
 

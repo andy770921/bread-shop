@@ -1,11 +1,9 @@
 'use client';
 
-import { toast } from 'sonner';
 import { ProductCard } from './product-card';
 import { useAuth } from '@/lib/auth-context';
-import { useAddToCart } from '@/queries/use-cart';
 import { useToggleFavorite } from '@/queries/use-favorites';
-import { useLocale } from '@/hooks/use-locale';
+import { useAddToCartHandler } from '@/hooks/use-add-to-cart-handler';
 import type { ProductWithCategory } from '@repo/shared';
 
 interface ProductGridProps {
@@ -16,18 +14,8 @@ interface ProductGridProps {
 
 export function ProductGrid({ products, favoriteIds, locale }: ProductGridProps) {
   const { user } = useAuth();
-  const { t } = useLocale();
-  const { addToCart } = useAddToCart({
-    onError: () => toast.error('Failed to add to cart'),
-  });
+  const handleAddToCart = useAddToCartHandler(products);
   const toggleFavorite = useToggleFavorite();
-
-  const handleAddToCart = (productId: number) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-    addToCart(productId, product.price);
-    toast.success(t('home.addedToCart'));
-  };
 
   const handleToggleFavorite = (productId: number, isFavorited: boolean) => {
     toggleFavorite.mutate({ productId, isFavorited });

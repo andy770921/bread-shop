@@ -1,9 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-
-interface OrderListResponse {
-  orders: any[];
-}
+import type { Order, OrderListResponse } from '@repo/shared';
 
 export function useOrders(enabled: boolean) {
   return useQuery<OrderListResponse>({
@@ -14,9 +11,9 @@ export function useOrders(enabled: boolean) {
 }
 
 export function useOrder(orderId: string, enabled: boolean) {
-  return useQuery({
+  return useQuery<Order>({
     queryKey: ['order', orderId],
-    queryFn: () => authedFetchFn(`api/orders/${orderId}`),
+    queryFn: () => authedFetchFn<Order>(`api/orders/${orderId}`),
     enabled,
   });
 }

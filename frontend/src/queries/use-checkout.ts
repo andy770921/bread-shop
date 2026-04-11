@@ -1,17 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
+import type { CreateOrderRequest, Order } from '@repo/shared';
 
-interface CreateOrderBody {
-  customer_name: string;
-  customer_phone: string;
-  customer_email?: string;
-  customer_address: string;
-  notes?: string;
-  payment_method: 'lemon_squeezy' | 'line';
-  skip_cart_clear?: boolean;
-}
+type CreateOrderBody = CreateOrderRequest & { skip_cart_clear?: boolean };
 
-interface LineSendResponse {
+export interface LineSendResponse {
   success: boolean;
   needs_friend?: boolean;
   add_friend_url?: string;
@@ -21,7 +14,7 @@ interface LineSendResponse {
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (body: CreateOrderBody) =>
-      authedFetchFn<any>('api/orders', { method: 'POST', body }),
+      authedFetchFn<Order & { checkout_url?: string }>('api/orders', { method: 'POST', body }),
   });
 }
 
@@ -35,6 +28,6 @@ export function useLineSend() {
 export function useConfirmOrder() {
   return useMutation({
     mutationFn: (orderId: number) =>
-      authedFetchFn<any>(`api/orders/${orderId}/confirm`, { method: 'POST' }),
+      authedFetchFn<Order>(`api/orders/${orderId}/confirm`, { method: 'POST' }),
   });
 }

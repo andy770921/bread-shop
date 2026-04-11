@@ -1,14 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-
-interface UpdateProfileBody {
-  name: string;
-  phone: string;
-}
+import type { UpdateProfileRequest, UserProfile } from '@repo/shared';
 
 export function useUpdateProfile() {
   return useMutation({
-    mutationFn: (body: UpdateProfileBody) =>
-      authedFetchFn<any>('api/user/profile', { method: 'PATCH', body }),
+    mutationFn: (body: UpdateProfileRequest) =>
+      authedFetchFn<UserProfile>('api/user/profile', { method: 'PATCH', body }),
   });
 }

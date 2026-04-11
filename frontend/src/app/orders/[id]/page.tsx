@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -11,48 +10,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
-import { useAuth } from '@/lib/auth-context';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { useOrder } from '@/queries/use-orders';
-import type { Order, OrderStatus } from '@repo/shared';
+import { getStatusColor } from '@/utils/order';
+import type { OrderStatus } from '@repo/shared';
 
 const statusSteps: OrderStatus[] = ['pending', 'paid', 'preparing', 'shipping', 'delivered'];
-
-function getStatusColor(status: OrderStatus): React.CSSProperties {
-  switch (status) {
-    case 'pending':
-      return { backgroundColor: '#FEF3C7', color: '#92400E' };
-    case 'paid':
-      return { backgroundColor: '#D1FAE5', color: '#065F46' };
-    case 'preparing':
-      return { backgroundColor: '#DBEAFE', color: '#1E40AF' };
-    case 'shipping':
-      return { backgroundColor: '#E0E7FF', color: '#3730A3' };
-    case 'delivered':
-      return { backgroundColor: '#D1FAE5', color: '#065F46' };
-    case 'cancelled':
-      return { backgroundColor: '#FEE2E2', color: '#991B1B' };
-    default:
-      return {};
-  }
-}
 
 export default function OrderDetailPage() {
   const params = useParams();
   const { locale, t } = useLocale();
-  const { user, isLoading: authLoading } = useAuth();
-  const router = useRouter();
+  const { user, isLoading: authLoading } = useAuthGuard();
   const orderId = params.id as string;
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/auth/login');
-    }
-  }, [authLoading, user, router]);
-
-  const { data: order, isLoading } = useOrder(orderId, !!user && !!orderId) as {
-    data: Order | undefined;
-    isLoading: boolean;
-  };
+  const { data: order, isLoading } = useOrder(orderId, !!user && !!orderId);
 
   if (authLoading || isLoading) {
     return (
