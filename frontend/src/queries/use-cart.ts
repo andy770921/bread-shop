@@ -175,19 +175,83 @@ export function useAddToCart(options?: { onError?: () => void }) {
   return { addToCart };
 }
 
+function applyPendingUpdates(
+  cart: CartResponse,
+  pending: Map<number, PendingEntry>,
+): CartResponse {
+  if (pending.size === 0) return cart;
+  const items = cart.items.map((item) => {
+    const p = pending.get(item.id);
+    if (p) {
+      return { ...item, quantity: p.quantity, line_total: p.quantity * item.product.price };
+    }
+    return item;
+  });
+  return recalcCartTotals(items);
+}
+
 export function useUpdateCartItem() {
   const queryClient = useQueryClient();
+  const pendingRef = useRef<Map<number, PendingEntry>>(new Map());
+  const serverCartRef = useRef<CartResponse | null>(null);
 
-  return useMutation({
-    mutationFn: ({ itemId, quantity }: { itemId: number; quantity: number }) =>
-      authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
-        method: 'PATCH',
-        body: { quantity },
-      }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['cart'], data);
+  const updateItem = useCallback(
+    (itemId: number, newQuantity: number) => {
+      // Save server state before first optimistic update in this burst
+      if (!serverCartRef.current) {
+        serverCartRef.current =
+          queryClient.getQueryData<CartResponse>(['cart']) ?? { ...EMPTY_CART, items: [] };
+      }
+
+      // 1. Optimistic cache update — immediately reflect new quantity
+      queryClient.setQueryData<CartResponse>(['cart'], (old) => {
+        if (!old) return old;
+        const newItems = old.items.map((item) =>
+          item.id === itemId
+            ? { ...item, quantity: newQuantity, line_total: newQuantity * item.product.price }
+            : item,
+        );
+        return recalcCartTotals(newItems);
+      });
+
+      // 2. Set target quantity + reset debounce timer
+      const pending = pendingRef.current;
+      const entry = pending.get(itemId);
+      if (entry) {
+        clearTimeout(entry.timer);
+        entry.quantity = newQuantity;
+      } else {
+        pending.set(itemId, {
+          quantity: newQuantity,
+          timer: undefined as unknown as ReturnType<typeof setTimeout>,
+        });
+      }
+
+      const p = pending.get(itemId)!;
+      p.timer = setTimeout(async () => {
+        const qty = p.quantity;
+        pending.delete(itemId);
+
+        try {
+          const serverCart = await authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
+            method: 'PATCH',
+            body: { quantity: qty },
+          });
+          serverCartRef.current = serverCart;
+          queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
+          if (pending.size === 0) serverCartRef.current = null;
+        } catch {
+          // Rollback to last known server state + re-apply remaining pending
+          const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
+          queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
+          if (pending.size === 0) serverCartRef.current = null;
+        }
+      }, 500);
     },
-  });
+    [queryClient],
+  );
+
+  return { updateItem };
 }
 
 export function useRemoveCartItem() {
@@ -196,6 +260,20 @@ export function useRemoveCartItem() {
   return useMutation({
     mutationFn: (itemId: number) =>
       authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, { method: 'DELETE' }),
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: ['cart'] });
+      const previousCart = queryClient.getQueryData<CartResponse>(['cart']);
+      queryClient.setQueryData<CartResponse>(['cart'], (old) => {
+        if (!old) return old;
+        return recalcCartTotals(old.items.filter((item) => item.id !== itemId));
+      });
+      return { previousCart };
+    },
+    onError: (_err, _itemId, context) => {
+      if (context?.previousCart) {
+        queryClient.setQueryData(['cart'], context.previousCart);
+      }
+    },
     onSuccess: (data) => {
       queryClient.setQueryData(['cart'], data);
     },

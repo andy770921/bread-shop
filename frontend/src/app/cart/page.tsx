@@ -25,7 +25,7 @@ export default function CartPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: cart, isLoading } = useCart();
-  const updateCartItem = useUpdateCartItem();
+  const { updateItem } = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
   const createOrder = useCreateOrder();
   const lineSend = useLineSend();
@@ -45,7 +45,7 @@ export default function CartPage() {
 
   const handleQuantityChange = (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
-    updateCartItem.mutate({ itemId, quantity: newQuantity });
+    updateItem(itemId, newQuantity);
   };
 
   const handleRemove = (itemId: number) => {
