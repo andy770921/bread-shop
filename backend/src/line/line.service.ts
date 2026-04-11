@@ -16,6 +16,29 @@ export class LineService {
     });
   }
 
+  async sendOrderToAdmin(orderId: number): Promise<void> {
+    const adminUserId = this.configService.get('LINE_ADMIN_USER_ID');
+    if (!adminUserId) {
+      throw new BadRequestException('LINE_ADMIN_USER_ID is not configured');
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('id', orderId)
+      .single();
+
+    if (!order) throw new BadRequestException('Order not found');
+
+    const flexMessage = this.buildOrderFlexMessage(order);
+
+    await this.messagingClient.pushMessage({
+      to: adminUserId,
+      messages: [flexMessage],
+    });
+  }
+
   async sendOrderMessage(orderId: number, lineUserId: string): Promise<void> {
     const supabase = this.supabaseService.getClient();
 

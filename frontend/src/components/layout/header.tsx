@@ -110,7 +110,7 @@ export function Header() {
                 </div>
               ) : (
                 <Link href="/auth/login" className="hidden md:block">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="min-w-[7.5rem]">
                     {t('nav.login')}
                   </Button>
                 </Link>

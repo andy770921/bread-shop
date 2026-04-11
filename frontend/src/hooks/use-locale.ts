@@ -1,13 +1,21 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { createElement, createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import zhMessages from '../i18n/zh.json';
 import enMessages from '../i18n/en.json';
 import { Locale } from '../i18n/config';
 
 const messages: Record<Locale, typeof zhMessages> = { zh: zhMessages, en: enMessages };
 
-export function useLocale() {
+interface LocaleContextType {
+  locale: Locale;
+  t: (key: string) => string;
+  toggleLocale: () => void;
+}
+
+const LocaleContext = createContext<LocaleContextType | null>(null);
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('locale') as Locale) || 'zh';
@@ -33,5 +41,13 @@ export function useLocale() {
     localStorage.setItem('locale', next);
   }, [locale]);
 
-  return { locale, t, toggleLocale };
+  return createElement(LocaleContext.Provider, { value: { locale, t, toggleLocale } }, children);
+}
+
+export function useLocale() {
+  const ctx = useContext(LocaleContext);
+  if (!ctx) {
+    throw new Error('useLocale must be used within a LocaleProvider');
+  }
+  return ctx;
 }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class CreateOrderDto {
   @ApiProperty({ example: '周小明' })
@@ -27,4 +27,9 @@ export class CreateOrderDto {
   @ApiProperty({ enum: ['lemon_squeezy', 'line'] })
   @IsIn(['lemon_squeezy', 'line'])
   payment_method: 'lemon_squeezy' | 'line';
+
+  @ApiPropertyOptional({ description: 'Skip clearing cart (for LINE flow where cart is cleared after confirmation)' })
+  @IsOptional()
+  @IsBoolean()
+  skip_cart_clear?: boolean;
 }

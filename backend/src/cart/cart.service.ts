@@ -81,21 +81,13 @@ export class CartService {
 
     if (!product) throw new BadRequestException('Product not found or inactive');
 
-    const { data: existing } = await supabase
-      .from('cart_items')
-      .select('id, quantity')
-      .eq('session_id', sessionId)
-      .eq('product_id', productId)
-      .single();
+    const { error } = await supabase.rpc('upsert_cart_item', {
+      p_session_id: sessionId,
+      p_product_id: productId,
+      p_quantity: quantity,
+    });
 
-    if (existing) {
-      const newQty = Math.min(existing.quantity + quantity, 99);
-      await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
-    } else {
-      await supabase
-        .from('cart_items')
-        .insert({ session_id: sessionId, product_id: productId, quantity });
-    }
+    if (error) throw error;
 
     return this.getCart(sessionId);
   }

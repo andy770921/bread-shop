@@ -19,6 +19,7 @@ export class OrderService {
       customer_address: string;
       notes?: string;
       payment_method: 'lemon_squeezy' | 'line';
+      skip_cart_clear?: boolean;
     },
   ) {
     const supabase = this.supabaseService.getClient();
@@ -78,9 +79,29 @@ export class OrderService {
     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
     if (itemsError) throw new BadRequestException('Failed to create order items');
 
-    await this.cartService.clearCart(sessionId, userId || undefined);
+    if (!dto.skip_cart_clear) {
+      await this.cartService.clearCart(sessionId, userId || undefined);
+    }
 
     return this.getOrderById(order.id, userId);
+  }
+
+  async confirmOrder(orderId: number, sessionId: string, userId: string | null) {
+    const supabase = this.supabaseService.getClient();
+
+    let query = supabase.from('orders').select('id').eq('id', orderId);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      query = query.eq('session_id', sessionId);
+    }
+
+    const { data: order } = await query.single();
+    if (!order) throw new NotFoundException('Order not found');
+
+    await this.cartService.clearCart(sessionId, userId || undefined);
+
+    return { success: true };
   }
 
   async getOrderById(orderId: number, userId?: string | null) {

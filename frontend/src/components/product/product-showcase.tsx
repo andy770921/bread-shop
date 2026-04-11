@@ -12,21 +12,16 @@ interface ProductShowcaseProps {
 }
 
 export function ProductShowcase({ products, locale }: ProductShowcaseProps) {
-  const addToCart = useAddToCart();
+  const { addToCart } = useAddToCart({
+    onError: () => toast.error('Failed to add to cart'),
+  });
   const { t } = useLocale();
 
   const handleAddToCart = (productId: number) => {
-    addToCart.mutate(
-      { productId, quantity: 1 },
-      {
-        onSuccess: () => {
-          toast.success(t('home.addedToCart'));
-        },
-        onError: () => {
-          toast.error('Failed to add to cart');
-        },
-      },
-    );
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    addToCart(productId, product.price);
+    toast.success(t('home.addedToCart'));
   };
 
   return (

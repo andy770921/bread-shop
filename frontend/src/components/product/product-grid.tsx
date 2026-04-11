@@ -17,21 +17,16 @@ interface ProductGridProps {
 export function ProductGrid({ products, favoriteIds, locale }: ProductGridProps) {
   const { user } = useAuth();
   const { t } = useLocale();
-  const addToCart = useAddToCart();
+  const { addToCart } = useAddToCart({
+    onError: () => toast.error('Failed to add to cart'),
+  });
   const toggleFavorite = useToggleFavorite();
 
   const handleAddToCart = (productId: number) => {
-    addToCart.mutate(
-      { productId, quantity: 1 },
-      {
-        onSuccess: () => {
-          toast.success(t('home.addedToCart'));
-        },
-        onError: () => {
-          toast.error('Failed to add to cart');
-        },
-      },
-    );
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    addToCart(productId, product.price);
+    toast.success(t('home.addedToCart'));
   };
 
   const handleToggleFavorite = (productId: number, isFavorited: boolean) => {

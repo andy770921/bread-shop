@@ -17,6 +17,7 @@ import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
 
 const API_URL = '';
@@ -25,6 +26,7 @@ export default function CartPage() {
   const { locale, t } = useLocale();
   const { token } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: cart, isLoading } = useCart();
   const updateCartItem = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
@@ -62,6 +64,8 @@ export default function CartPage() {
 
     setSubmitting(true);
     try {
+      const isLine = paymentMethod === 'line';
+
       const res = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: {
@@ -76,6 +80,7 @@ export default function CartPage() {
           customer_address: customerAddress,
           notes: notes || undefined,
           payment_method: paymentMethod,
+          skip_cart_clear: isLine,
         }),
       });
 
@@ -86,7 +91,7 @@ export default function CartPage() {
 
       const orderData = await res.json();
 
-      if (paymentMethod === 'line') {
+      if (isLine) {
         const lineRes = await fetch(`${API_URL}/api/orders/${orderData.id}/line-send`, {
           method: 'POST',
           headers: {
@@ -96,14 +101,33 @@ export default function CartPage() {
           credentials: 'include',
         });
 
-        if (!lineRes.ok) {
+        const lineData = await lineRes.json().catch(() => null);
+
+        if (!lineRes.ok || !lineData?.success) {
           toast.error(
             locale === 'zh'
-              ? 'LINE 傳送失敗，但訂單已建立'
-              : 'LINE send failed, but order was created',
+              ? 'LINE 傳送失敗，請稍後再試'
+              : 'LINE send failed, please try again',
           );
+          return;
         }
+
+        // LINE send succeeded — clear cart via confirm endpoint
+        await fetch(`${API_URL}/api/orders/${orderData.id}/confirm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+        });
+
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
+        router.push(`/checkout/success?order=${orderData.order_number}`);
+        return;
       }
+
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
 
       if (paymentMethod === 'lemon_squeezy' && orderData.checkout_url) {
         window.location.href = orderData.checkout_url;

@@ -18,6 +18,12 @@ export class OrderController {
     return this.orderService.createOrder(req.sessionId!, req.user?.id || null, dto);
   }
 
+  @Post(':id/confirm')
+  @UseGuards(OptionalAuthGuard)
+  confirm(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
+    return this.orderService.confirmOrder(id, req.sessionId!, req.user?.id || null);
+  }
+
   @Get()
   @UseGuards(AuthGuard)
   findAll(@CurrentUser() user: any) {
