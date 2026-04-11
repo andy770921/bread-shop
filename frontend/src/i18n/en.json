@@ -37,7 +37,10 @@
     "creditCard": "Pay with Credit Card",
     "linePay": "Contact via LINE",
     "continueShopping": "Continue Shopping",
-    "remove": "Remove"
+    "remove": "Remove",
+    "requiredFields": "Please fill in required fields",
+    "lineSendFailed": "LINE send failed, please try again",
+    "lineAddFriend": "Please add our LINE Official Account as a friend first"
   },
   "process": {
     "title": "Our Process",
@@ -79,7 +82,11 @@
     "orderNumber": "Order Number",
     "status": "Status",
     "total": "Total",
-    "date": "Date"
+    "date": "Date",
+    "product": "Product",
+    "price": "Price",
+    "quantity": "Qty",
+    "itemSubtotal": "Subtotal"
   },
   "checkout": {
     "successTitle": "Order Placed!",

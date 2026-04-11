@@ -176,25 +176,25 @@ export default function OrderDetailPage() {
                   className="px-4 py-3 text-left text-xs font-medium uppercase"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {locale === 'zh' ? '商品' : 'Product'}
+                  {t('orders.product')}
                 </th>
                 <th
                   className="px-4 py-3 text-center text-xs font-medium uppercase"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {locale === 'zh' ? '單價' : 'Price'}
+                  {t('orders.price')}
                 </th>
                 <th
                   className="px-4 py-3 text-center text-xs font-medium uppercase"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {locale === 'zh' ? '數量' : 'Qty'}
+                  {t('orders.quantity')}
                 </th>
                 <th
                   className="px-4 py-3 text-right text-xs font-medium uppercase"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {locale === 'zh' ? '小計' : 'Subtotal'}
+                  {t('orders.itemSubtotal')}
                 </th>
               </tr>
             </thead>

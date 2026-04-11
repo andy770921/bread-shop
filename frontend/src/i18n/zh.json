@@ -37,7 +37,10 @@
     "creditCard": "信用卡付款",
     "linePay": "透過 LINE 聯繫",
     "continueShopping": "繼續購物",
-    "remove": "移除"
+    "remove": "移除",
+    "requiredFields": "請填寫必要的訂購資訊",
+    "lineSendFailed": "LINE 傳送失敗，請稍後再試",
+    "lineAddFriend": "請先加入我們的 LINE 官方帳號為好友，再重新送出"
   },
   "process": {
     "title": "製作過程",
@@ -79,7 +82,11 @@
     "orderNumber": "訂單編號",
     "status": "狀態",
     "total": "總計",
-    "date": "日期"
+    "date": "日期",
+    "product": "商品",
+    "price": "單價",
+    "quantity": "數量",
+    "itemSubtotal": "小計"
   },
   "checkout": {
     "successTitle": "訂單已成立！",

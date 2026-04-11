@@ -37,6 +37,51 @@ npm run dev
 # Backend:  http://localhost:3000 (Swagger UI)
 ```
 
+## Environment Setup
+
+### Backend (`backend/.env`)
+
+Copy `backend/.env.example` to `backend/.env` and fill in credentials. Key variables:
+
+| Variable | Description |
+| --- | --- |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project credentials |
+| `FRONTEND_URL` | Frontend origin (e.g. `http://localhost:3001`) |
+| `LINE_LOGIN_CHANNEL_ID` / `LINE_LOGIN_CHANNEL_SECRET` | LINE Login channel credentials |
+| `LINE_CHANNEL_ACCESS_TOKEN` | LINE Messaging API channel token |
+| `LINE_ADMIN_USER_ID` | LINE user ID of the shop admin (see below) |
+
+### Frontend (`frontend/.env.local`)
+
+Copy `frontend/.env.example` to `frontend/.env.local`. The only required variable is `NEXT_PUBLIC_API_URL=http://localhost:3000`.
+
+### LINE Configuration
+
+This project uses two LINE channels:
+
+1. **LINE Login** (for OAuth2 sign-in)
+2. **LINE Messaging API** (for pushing order summaries)
+
+#### LINE Login — Callback URLs
+
+In the [LINE Developers Console](https://developers.line.biz/console/), go to your **LINE Login channel** → **LINE Login** tab → **Callback URL**, and add **both** URLs (one per line):
+
+```
+http://localhost:3000/api/auth/line/callback
+https://papa-bread-api.vercel.app/api/auth/line/callback
+```
+
+The first is for local development, the second for Vercel production. The backend dynamically derives the callback URL from request headers (`X-Forwarded-Proto` + `Host`), but LINE Login requires the URL to be whitelisted exactly.
+
+#### LINE Messaging API — Admin User ID
+
+The "透過 LINE 聯繫" (Contact via LINE) feature pushes order details to the shop admin's LINE account. To set this up:
+
+1. Go to [LINE Developers Console](https://developers.line.biz/console/) → your **Messaging API channel** → **Basic settings** tab.
+2. Copy the **"Your user ID"** value (format: `U` + 32 hex characters).
+3. Set it as `LINE_ADMIN_USER_ID` in `backend/.env`.
+4. **Important**: The LINE account corresponding to this user ID must have added the LINE Official Account (bot) as a friend. If not, push messages will fail with HTTP 400 and the frontend will prompt the user to add the OA as a friend.
+
 ## Key Features
 
 ### Shopping

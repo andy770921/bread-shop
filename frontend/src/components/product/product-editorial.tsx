@@ -5,6 +5,7 @@ import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { ProductWithCategory } from '@repo/shared';
+import { useLocale } from '@/hooks/use-locale';
 
 interface ProductEditorialProps {
   product: ProductWithCategory;
@@ -14,6 +15,7 @@ interface ProductEditorialProps {
 }
 
 export function ProductEditorial({ product, locale, index, onAddToCart }: ProductEditorialProps) {
+  const { t } = useLocale();
   const name = locale === 'zh' ? product.name_zh : product.name_en;
   const description = locale === 'zh' ? product.description_zh : product.description_en;
   const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
@@ -111,7 +113,7 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
             onClick={() => onAddToCart(product.id)}
           >
             <ShoppingCart className="h-4 w-4" />
-            {locale === 'zh' ? '加入購物車' : 'Add to Cart'}
+            {t('home.addToCart')}
           </Button>
         </div>
       </div>

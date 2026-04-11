@@ -58,7 +58,7 @@ export default function CartPage() {
 
   const handleCheckout = async (paymentMethod: 'lemon_squeezy' | 'line') => {
     if (!customerName || !customerPhone || !customerAddress) {
-      toast.error(locale === 'zh' ? '請填寫必要的訂購資訊' : 'Please fill in required fields');
+      toast.error(t('cart.requiredFields'));
       return;
     }
 
@@ -104,11 +104,12 @@ export default function CartPage() {
         const lineData = await lineRes.json().catch(() => null);
 
         if (!lineRes.ok || !lineData?.success) {
-          toast.error(
-            locale === 'zh'
-              ? 'LINE 傳送失敗，請稍後再試'
-              : 'LINE send failed, please try again',
-          );
+          if (lineData?.needs_friend && lineData?.add_friend_url) {
+            toast.error(t('cart.lineAddFriend'));
+            window.open(lineData.add_friend_url, '_blank');
+          } else {
+            toast.error(t('cart.lineSendFailed'));
+          }
           return;
         }
 

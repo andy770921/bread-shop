@@ -28,7 +28,9 @@ export class CreateOrderDto {
   @IsIn(['lemon_squeezy', 'line'])
   payment_method: 'lemon_squeezy' | 'line';
 
-  @ApiPropertyOptional({ description: 'Skip clearing cart (for LINE flow where cart is cleared after confirmation)' })
+  @ApiPropertyOptional({
+    description: 'Skip clearing cart (for LINE flow where cart is cleared after confirmation)',
+  })
   @IsOptional()
   @IsBoolean()
   skip_cart_clear?: boolean;

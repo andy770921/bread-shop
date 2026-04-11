@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import type { Category } from '@repo/shared';
+import { useLocale } from '@/hooks/use-locale';
 
 interface CategoryPillsProps {
   categories: Category[];
@@ -11,7 +12,8 @@ interface CategoryPillsProps {
 }
 
 export function CategoryPills({ categories, selected, onSelect, locale }: CategoryPillsProps) {
-  const allLabel = locale === 'zh' ? '全部' : 'All';
+  const { t } = useLocale();
+  const allLabel = t('home.allCategories');
 
   return (
     <div className="flex flex-wrap gap-2">

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { ProductWithCategory, BadgeType } from '@repo/shared';
+import { useLocale } from '@/hooks/use-locale';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -37,6 +38,7 @@ export function ProductCard({
   onToggleFavorite,
   isLoggedIn,
 }: ProductCardProps) {
+  const { t } = useLocale();
   const name = locale === 'zh' ? product.name_zh : product.name_en;
   const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
   const badgeText = product.badge_type
@@ -114,7 +116,7 @@ export function ProductCard({
             onClick={() => onAddToCart(product.id)}
           >
             <ShoppingCart className="h-3.5 w-3.5" />
-            {locale === 'zh' ? '加入購物車' : 'Add to Cart'}
+            {t('home.addToCart')}
           </Button>
         </div>
       </div>
