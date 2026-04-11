@@ -1,5 +1,5 @@
 {
-  "name": "claude-code-fullstack-boilerplate",
+  "name": "bread-shop",
   "private": true,
   "version": "1.0.0",
   "description": "Fullstack boilerplate with Next.js frontend and NestJS backend",
