@@ -23,6 +23,7 @@ export const getFetchQueryOptions = <TRequestBody>({
 }: FetchOptions<TRequestBody>): RequestInit => {
   return {
     method,
+    credentials: 'include' as RequestCredentials,
     headers: {
       Accept: 'application/json',
       ...headers,

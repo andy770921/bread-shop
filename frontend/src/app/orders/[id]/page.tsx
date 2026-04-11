@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +12,8 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { useOrder } from '@/queries/use-orders';
 import type { Order, OrderStatus } from '@repo/shared';
-
-const API_URL = '';
 
 const statusSteps: OrderStatus[] = ['pending', 'paid', 'preparing', 'shipping', 'delivered'];
 
@@ -41,7 +39,7 @@ function getStatusColor(status: OrderStatus): React.CSSProperties {
 export default function OrderDetailPage() {
   const params = useParams();
   const { locale, t } = useLocale();
-  const { user, token, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const orderId = params.id as string;
 
@@ -51,18 +49,10 @@ export default function OrderDetailPage() {
     }
   }, [authLoading, user, router]);
 
-  const { data: order, isLoading } = useQuery<Order>({
-    queryKey: ['order', orderId],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/orders/${orderId}`, {
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error('Failed to fetch order');
-      return res.json();
-    },
-    enabled: !!user && !!orderId,
-  });
+  const { data: order, isLoading } = useOrder(orderId, !!user && !!orderId) as {
+    data: Order | undefined;
+    isLoading: boolean;
+  };
 
   if (authLoading || isLoading) {
     return (

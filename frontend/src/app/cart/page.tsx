@@ -16,20 +16,20 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
-import { useAuth } from '@/lib/auth-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
-
-const API_URL = '';
+import { useCreateOrder, useLineSend, useConfirmOrder } from '@/queries/use-checkout';
 
 export default function CartPage() {
   const { locale, t } = useLocale();
-  const { token } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: cart, isLoading } = useCart();
   const updateCartItem = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
+  const createOrder = useCreateOrder();
+  const lineSend = useLineSend();
+  const confirmOrder = useConfirmOrder();
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -66,44 +66,20 @@ export default function CartPage() {
     try {
       const isLine = paymentMethod === 'line';
 
-      const res = await fetch(`${API_URL}/api/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_email: customerEmail || undefined,
-          customer_address: customerAddress,
-          notes: notes || undefined,
-          payment_method: paymentMethod,
-          skip_cart_clear: isLine,
-        }),
+      const orderData = await createOrder.mutateAsync({
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        customer_email: customerEmail || undefined,
+        customer_address: customerAddress,
+        notes: notes || undefined,
+        payment_method: paymentMethod,
+        skip_cart_clear: isLine,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Checkout failed');
-      }
-
-      const orderData = await res.json();
-
       if (isLine) {
-        const lineRes = await fetch(`${API_URL}/api/orders/${orderData.id}/line-send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: 'include',
-        });
+        const lineData = await lineSend.mutateAsync(orderData.id);
 
-        const lineData = await lineRes.json().catch(() => null);
-
-        if (!lineRes.ok || !lineData?.success) {
+        if (!lineData?.success) {
           if (lineData?.needs_friend && lineData?.add_friend_url) {
             toast.error(t('cart.lineAddFriend'));
             window.open(lineData.add_friend_url, '_blank');
@@ -113,16 +89,7 @@ export default function CartPage() {
           return;
         }
 
-        // LINE send succeeded — clear cart via confirm endpoint
-        await fetch(`${API_URL}/api/orders/${orderData.id}/confirm`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: 'include',
-        });
-
+        await confirmOrder.mutateAsync(orderData.id);
         queryClient.invalidateQueries({ queryKey: ['cart'] });
         router.push(`/checkout/success?order=${orderData.order_number}`);
         return;

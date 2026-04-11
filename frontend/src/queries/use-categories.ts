@@ -1,16 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { CategoryListResponse } from '@repo/shared';
+import { defaultFetchFn } from '@/utils/fetchers/fetchers.client';
 
 export function useCategories() {
   return useQuery<CategoryListResponse>({
     queryKey: ['categories'],
-    queryFn: async () => {
-      const res = await fetch(`/api/categories`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch categories');
-      return res.json();
-    },
+    queryFn: () => defaultFetchFn<CategoryListResponse>('api/categories'),
     staleTime: 5 * 60 * 1000,
   });
 }

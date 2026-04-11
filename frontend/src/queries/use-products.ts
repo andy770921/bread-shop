@@ -1,18 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { ProductListResponse } from '@repo/shared';
+import { defaultFetchFn } from '@/utils/fetchers/fetchers.client';
 
 export function useProducts(category?: string) {
   const params = category ? `?category=${category}` : '';
 
   return useQuery<ProductListResponse>({
     queryKey: ['products', category || 'all'],
-    queryFn: async () => {
-      const res = await fetch(`/api/products${params}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to fetch products');
-      return res.json();
-    },
+    queryFn: () => defaultFetchFn<ProductListResponse>(`api/products${params}`),
     staleTime: 60 * 1000,
   });
 }

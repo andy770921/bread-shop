@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useCallback } from 'react';
 import { CartResponse } from '@repo/shared';
-import { getAuthHeaders } from '@/lib/api';
+import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 
 const EMPTY_CART: CartResponse = Object.freeze({
   items: [],
@@ -15,13 +15,12 @@ export function useCart() {
   return useQuery<CartResponse>({
     queryKey: ['cart'],
     queryFn: async () => {
-      const res = await fetch(`/api/cart`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      });
-      // Return empty cart if no session yet (first visit)
-      if (!res.ok) return EMPTY_CART;
-      return res.json();
+      try {
+        return await authedFetchFn<CartResponse>('api/cart');
+      } catch {
+        // Return empty cart if no session yet (first visit)
+        return EMPTY_CART;
+      }
     },
   });
 }
@@ -151,14 +150,10 @@ export function useAddToCart(options?: { onError?: () => void }) {
         pending.delete(productId);
 
         try {
-          const res = await fetch('/api/cart/items', {
+          const serverCart = await authedFetchFn<CartResponse>('api/cart/items', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            credentials: 'include',
-            body: JSON.stringify({ product_id: productId, quantity: qty }),
+            body: { product_id: productId, quantity: qty },
           });
-          if (!res.ok) throw new Error('Failed to add to cart');
-          const serverCart: CartResponse = await res.json();
           serverCartRef.current = serverCart;
           const currentCache = queryClient.getQueryData<CartResponse>(['cart']);
           queryClient.setQueryData(
@@ -184,16 +179,11 @@ export function useUpdateCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ itemId, quantity }: { itemId: number; quantity: number }) => {
-      const res = await fetch(`/api/cart/items/${itemId}`, {
+    mutationFn: ({ itemId, quantity }: { itemId: number; quantity: number }) =>
+      authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
-        body: JSON.stringify({ quantity }),
-      });
-      if (!res.ok) throw new Error('Failed to update cart');
-      return res.json();
-    },
+        body: { quantity },
+      }),
     onSuccess: (data) => {
       queryClient.setQueryData(['cart'], data);
     },
@@ -204,15 +194,8 @@ export function useRemoveCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (itemId: number) => {
-      const res = await fetch(`/api/cart/items/${itemId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error('Failed to remove item');
-      return res.json();
-    },
+    mutationFn: (itemId: number) =>
+      authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, { method: 'DELETE' }),
     onSuccess: (data) => {
       queryClient.setQueryData(['cart'], data);
     },

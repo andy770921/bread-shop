@@ -14,17 +14,16 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
-
-const API_URL = '';
+import { useUpdateProfile } from '@/queries/use-profile';
 
 export default function ProfilePage() {
   const { t } = useLocale();
-  const { user, token, isLoading: authLoading, refreshUser } = useAuth();
+  const { user, isLoading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
+  const updateProfile = useUpdateProfile();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -41,29 +40,12 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/user/profile`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include',
-        body: JSON.stringify({ name, phone }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Save failed');
-      }
-
+      await updateProfile.mutateAsync({ name, phone });
       await refreshUser();
       toast.success(t('profile.saved'));
     } catch (err: any) {
       toast.error(err.message || 'Save failed');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -124,9 +106,9 @@ export default function ProfilePage() {
             type="submit"
             className="rounded-full px-8"
             style={{ backgroundColor: 'var(--primary-500)', color: '#fff' }}
-            disabled={saving}
+            disabled={updateProfile.isPending}
           >
-            {saving ? '...' : t('profile.save')}
+            {updateProfile.isPending ? '...' : t('profile.save')}
           </Button>
         </form>
 
