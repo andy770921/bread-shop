@@ -1,6 +1,7 @@
-import { Body, Controller, Post, Req, RawBodyRequest, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { PaymentService } from './payment.service';
 import { OptionalAuthGuard } from '../auth/guards/optional-auth.guard';
 
