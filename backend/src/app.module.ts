@@ -36,9 +36,6 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(SessionMiddleware)
-      .exclude('api/webhooks/(.*)')
-      .forRoutes('api/*path');
+    consumer.apply(SessionMiddleware).exclude('api/webhooks/(.*)').forRoutes('api/*path');
   }
 }

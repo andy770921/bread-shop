@@ -22,7 +22,11 @@ export function CategoryPills({ categories, selected, onSelect, locale }: Catego
         className="rounded-full px-4 transition-all"
         style={
           selected === null
-            ? { backgroundColor: 'var(--primary-500)', color: '#fff', borderColor: 'var(--primary-500)' }
+            ? {
+                backgroundColor: 'var(--primary-500)',
+                color: '#fff',
+                borderColor: 'var(--primary-500)',
+              }
             : {}
         }
       >
@@ -37,7 +41,11 @@ export function CategoryPills({ categories, selected, onSelect, locale }: Catego
           className="rounded-full px-4 transition-all"
           style={
             selected === cat.slug
-              ? { backgroundColor: 'var(--primary-500)', color: '#fff', borderColor: 'var(--primary-500)' }
+              ? {
+                  backgroundColor: 'var(--primary-500)',
+                  color: '#fff',
+                  borderColor: 'var(--primary-500)',
+                }
               : {}
           }
         >

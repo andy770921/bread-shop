@@ -8,10 +8,7 @@ export class FavoriteService {
   async getAll(userId: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data } = await supabase
-      .from('favorites')
-      .select('product_id')
-      .eq('user_id', userId);
+    const { data } = await supabase.from('favorites').select('product_id').eq('user_id', userId);
 
     return { product_ids: data?.map((f) => f.product_id) || [] };
   }
@@ -21,10 +18,7 @@ export class FavoriteService {
 
     await supabase
       .from('favorites')
-      .upsert(
-        { user_id: userId, product_id: productId },
-        { onConflict: 'user_id,product_id' },
-      );
+      .upsert({ user_id: userId, product_id: productId }, { onConflict: 'user_id,product_id' });
 
     return { success: true };
   }
@@ -32,11 +26,7 @@ export class FavoriteService {
   async remove(userId: string, productId: number) {
     const supabase = this.supabaseService.getClient();
 
-    await supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('product_id', productId);
+    await supabase.from('favorites').delete().eq('user_id', userId).eq('product_id', productId);
 
     return { success: true };
   }

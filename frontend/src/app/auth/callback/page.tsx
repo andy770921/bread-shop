@@ -9,11 +9,13 @@ const API_URL = '';
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <Skeleton className="h-8 w-8 rounded-full" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Skeleton className="h-8 w-8 rounded-full" />
+        </div>
+      }
+    >
       <CallbackContent />
     </Suspense>
   );
@@ -60,7 +62,10 @@ function CallbackContent() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: 'var(--bg-body)' }}>
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: 'var(--bg-body)' }}
+      >
         <div className="text-center">
           <p className="text-lg font-medium text-destructive">{error}</p>
           <button
@@ -76,7 +81,10 @@ function CallbackContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: 'var(--bg-body)' }}>
+    <div
+      className="flex min-h-screen items-center justify-center"
+      style={{ backgroundColor: 'var(--bg-body)' }}
+    >
       <div className="flex flex-col items-center gap-4">
         <Skeleton className="h-8 w-8 rounded-full" />
         <p style={{ color: 'var(--text-secondary)' }}>Authenticating...</p>

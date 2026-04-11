@@ -4,6 +4,7 @@ import { SupabaseService } from '../../supabase/supabase.service';
 import { randomUUID } from 'crypto';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       sessionId?: string;
@@ -48,9 +49,7 @@ export class SessionMiddleware implements NestMiddleware {
         supabase
           .from('sessions')
           .update({
-            expires_at: new Date(
-              Date.now() + 90 * 24 * 60 * 60 * 1000,
-            ).toISOString(),
+            expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
           })
           .eq('id', sessionId)
           .then();

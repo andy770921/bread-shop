@@ -54,7 +54,10 @@ export class ErrorBoundary extends Component<Props, State> {
               />
             </svg>
           </div>
-          <h2 className="font-heading text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            className="font-heading text-xl font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Something went wrong
           </h2>
           <p className="max-w-md text-center text-sm" style={{ color: 'var(--text-secondary)' }}>

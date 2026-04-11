@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-  Req,
-  RawBodyRequest,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req, RawBodyRequest, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { PaymentService } from './payment.service';
@@ -18,10 +11,7 @@ export class PaymentController {
 
   @Post('payments/checkout')
   @UseGuards(OptionalAuthGuard)
-  async createCheckout(
-    @Body() body: { order_id: number },
-    @Req() req: Request,
-  ) {
+  async createCheckout(@Body() body: { order_id: number }, @Req() req: Request) {
     const checkoutUrl = await this.paymentService.createCheckout(
       body.order_id,
       req.sessionId,

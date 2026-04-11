@@ -1,25 +1,15 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
 export class CartService {
   constructor(private supabaseService: SupabaseService) {}
 
-  private async getSessionIds(
-    sessionId: string,
-    userId?: string,
-  ): Promise<string[]> {
+  private async getSessionIds(sessionId: string, userId?: string): Promise<string[]> {
     if (!userId) return [sessionId];
 
     const supabase = this.supabaseService.getClient();
-    const { data } = await supabase
-      .from('sessions')
-      .select('id')
-      .eq('user_id', userId);
+    const { data } = await supabase.from('sessions').select('id').eq('user_id', userId);
 
     return data?.map((s) => s.id) || [sessionId];
   }
@@ -67,10 +57,7 @@ export class CartService {
       line_total: item.quantity * item.product.price,
     }));
 
-    const subtotal = cartItems.reduce(
-      (sum: number, item: any) => sum + item.line_total,
-      0,
-    );
+    const subtotal = cartItems.reduce((sum: number, item: any) => sum + item.line_total, 0);
     const shipping_fee = subtotal >= 500 ? 0 : subtotal === 0 ? 0 : 60;
 
     return {
@@ -78,10 +65,7 @@ export class CartService {
       subtotal,
       shipping_fee,
       total: subtotal + shipping_fee,
-      item_count: cartItems.reduce(
-        (sum: number, item: any) => sum + item.quantity,
-        0,
-      ),
+      item_count: cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
     };
   }
 
@@ -95,8 +79,7 @@ export class CartService {
       .eq('is_active', true)
       .single();
 
-    if (!product)
-      throw new BadRequestException('Product not found or inactive');
+    if (!product) throw new BadRequestException('Product not found or inactive');
 
     const { data: existing } = await supabase
       .from('cart_items')
@@ -107,10 +90,7 @@ export class CartService {
 
     if (existing) {
       const newQty = Math.min(existing.quantity + quantity, 99);
-      await supabase
-        .from('cart_items')
-        .update({ quantity: newQty })
-        .eq('id', existing.id);
+      await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
     } else {
       await supabase
         .from('cart_items')
@@ -120,12 +100,7 @@ export class CartService {
     return this.getCart(sessionId);
   }
 
-  async updateItem(
-    sessionId: string,
-    cartItemId: number,
-    quantity: number,
-    userId?: string,
-  ) {
+  async updateItem(sessionId: string, cartItemId: number, quantity: number, userId?: string) {
     const supabase = this.supabaseService.getClient();
     const sessionIds = await this.getSessionIds(sessionId, userId);
 

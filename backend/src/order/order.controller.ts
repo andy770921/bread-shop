@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { OrderService } from './order.service';
@@ -24,11 +15,7 @@ export class OrderController {
   @Post()
   @UseGuards(OptionalAuthGuard)
   create(@Req() req: Request, @Body() dto: CreateOrderDto) {
-    return this.orderService.createOrder(
-      req.sessionId!,
-      req.user?.id || null,
-      dto,
-    );
+    return this.orderService.createOrder(req.sessionId!, req.user?.id || null, dto);
   }
 
   @Get()

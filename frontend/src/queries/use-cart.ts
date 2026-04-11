@@ -2,7 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CartResponse } from '@repo/shared';
 import { getAuthHeaders } from '@/lib/api';
 
-const EMPTY_CART: CartResponse = Object.freeze({ items: [], subtotal: 0, shipping_fee: 0, total: 0, item_count: 0 });
+const EMPTY_CART: CartResponse = Object.freeze({
+  items: [],
+  subtotal: 0,
+  shipping_fee: 0,
+  total: 0,
+  item_count: 0,
+});
 
 export function useCart() {
   return useQuery<CartResponse>({

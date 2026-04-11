@@ -54,17 +54,12 @@ export default function Home() {
             sizes="100vw"
             className="object-cover"
           />
-          <div
-            className="absolute inset-0"
-            style={{ backgroundColor: 'var(--bg-overlay)' }}
-          />
+          <div className="absolute inset-0" style={{ backgroundColor: 'var(--bg-overlay)' }} />
           <div className="relative z-10 flex flex-col items-center gap-4 px-4 text-center">
             <h1 className="font-heading text-4xl font-bold text-white sm:text-5xl lg:text-6xl">
               {t('home.title')}
             </h1>
-            <p className="max-w-lg text-lg text-white/90 sm:text-xl">
-              {t('home.subtitle')}
-            </p>
+            <p className="max-w-lg text-lg text-white/90 sm:text-xl">{t('home.subtitle')}</p>
           </div>
         </section>
 

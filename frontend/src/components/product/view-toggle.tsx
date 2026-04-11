@@ -19,7 +19,11 @@ export function ViewToggle({ active, onToggle }: ViewToggleProps) {
       className="rounded-full px-4 transition-all"
       style={
         active
-          ? { backgroundColor: 'var(--primary-500)', color: '#fff', borderColor: 'var(--primary-500)' }
+          ? {
+              backgroundColor: 'var(--primary-500)',
+              color: '#fff',
+              borderColor: 'var(--primary-500)',
+            }
           : {}
       }
     >

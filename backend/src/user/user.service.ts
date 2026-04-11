@@ -8,11 +8,7 @@ export class UserService {
   async getProfile(userId: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
     const {
       data: { user },

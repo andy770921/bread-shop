@@ -9,17 +9,10 @@ export class PaymentService {
     private supabaseService: SupabaseService,
   ) {}
 
-  async createCheckout(
-    orderId: number,
-    sessionId?: string,
-    userId?: string,
-  ): Promise<string> {
+  async createCheckout(orderId: number, sessionId?: string, userId?: string): Promise<string> {
     const supabase = this.supabaseService.getClient();
 
-    let query = supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId);
+    let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
 
     if (userId) {
       query = query.eq('user_id', userId);
@@ -29,23 +22,17 @@ export class PaymentService {
 
     const { data: order } = await query.single();
 
-    if (!order)
-      throw new BadRequestException('Order not found or access denied');
-    if (order.status !== 'pending')
-      throw new BadRequestException('Order already processed');
+    if (!order) throw new BadRequestException('Order not found or access denied');
+    if (order.status !== 'pending') throw new BadRequestException('Order already processed');
 
     const apiKey = this.configService.get('LEMON_SQUEEZY_API_KEY');
     if (!apiKey) {
-      throw new BadRequestException(
-        'Payment service not configured. Please contact the shop.',
-      );
+      throw new BadRequestException('Payment service not configured. Please contact the shop.');
     }
 
     // Lemon Squeezy checkout creation will be implemented when API key is available
     // For now, return a placeholder
-    throw new BadRequestException(
-      'Lemon Squeezy payment is not yet configured.',
-    );
+    throw new BadRequestException('Lemon Squeezy payment is not yet configured.');
   }
 
   async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
@@ -96,10 +83,7 @@ export class PaymentService {
     if (eventName === 'order_refunded') {
       if (orderId) {
         const supabase = this.supabaseService.getClient();
-        await supabase
-          .from('orders')
-          .update({ status: 'cancelled' })
-          .eq('id', parseInt(orderId));
+        await supabase.from('orders').update({ status: 'cancelled' }).eq('id', parseInt(orderId));
       }
     }
   }

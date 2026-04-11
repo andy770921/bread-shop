@@ -118,7 +118,9 @@ export default function OrdersPage() {
                       {t('orders.orderNumber')}: {order.order_number}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {new Date(order.created_at).toLocaleDateString(locale === 'zh' ? 'zh-TW' : 'en-US')}
+                      {new Date(order.created_at).toLocaleDateString(
+                        locale === 'zh' ? 'zh-TW' : 'en-US',
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -128,10 +130,7 @@ export default function OrdersPage() {
                     >
                       {t(`status.${order.status}`)}
                     </Badge>
-                    <span
-                      className="text-sm font-semibold"
-                      style={{ color: 'var(--primary-700)' }}
-                    >
+                    <span className="text-sm font-semibold" style={{ color: 'var(--primary-700)' }}>
                       NT${order.total}
                     </span>
                   </div>

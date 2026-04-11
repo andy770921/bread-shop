@@ -10,11 +10,7 @@ export function StorySection() {
   const { t } = useLocale();
 
   return (
-    <section
-      id="story"
-      className="py-16 lg:py-24"
-      style={{ backgroundColor: 'var(--primary-50)' }}
-    >
+    <section id="story" className="py-16 lg:py-24" style={{ backgroundColor: 'var(--primary-50)' }}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
           {/* Text Content */}

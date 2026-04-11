@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CartService } from '../cart/cart.service';
 
@@ -27,10 +23,7 @@ export class OrderService {
   ) {
     const supabase = this.supabaseService.getClient();
 
-    const cart = await this.cartService.getCart(
-      sessionId,
-      userId || undefined,
-    );
+    const cart = await this.cartService.getCart(sessionId, userId || undefined);
 
     if (cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
@@ -44,9 +37,7 @@ export class OrderService {
       .in('id', productIds)
       .eq('is_active', true);
     const activeIds = new Set(activeProducts?.map((p) => p.id) || []);
-    const inactiveItems = cart.items.filter(
-      (i) => !activeIds.has(i.product_id),
-    );
+    const inactiveItems = cart.items.filter((i) => !activeIds.has(i.product_id));
     if (inactiveItems.length > 0) {
       throw new BadRequestException(
         `Some products are no longer available: ${inactiveItems.map((i) => i.product.name_zh).join(', ')}`,
@@ -95,10 +86,7 @@ export class OrderService {
   async getOrderById(orderId: number, userId?: string | null) {
     const supabase = this.supabaseService.getClient();
 
-    let query = supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId);
+    let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
 
     if (userId) {
       query = query.eq('user_id', userId);
@@ -116,9 +104,7 @@ export class OrderService {
 
     const { data, error } = await supabase
       .from('orders')
-      .select(
-        'id, order_number, status, total, payment_method, created_at',
-      )
+      .select('id, order_number, status, total, payment_method, created_at')
       .eq('order_number', orderNumber)
       .single();
 

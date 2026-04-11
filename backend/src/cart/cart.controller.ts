@@ -42,12 +42,7 @@ export class CartController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCartItemDto,
   ) {
-    return this.cartService.updateItem(
-      req.sessionId!,
-      id,
-      dto.quantity,
-      req.user?.id,
-    );
+    return this.cartService.updateItem(req.sessionId!, id, dto.quantity, req.user?.id);
   }
 
   @Delete('items/:id')

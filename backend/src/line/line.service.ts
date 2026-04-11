@@ -12,9 +12,7 @@ export class LineService {
     private supabaseService: SupabaseService,
   ) {
     this.messagingClient = new messagingApi.MessagingApiClient({
-      channelAccessToken: this.configService.getOrThrow(
-        'LINE_CHANNEL_ACCESS_TOKEN',
-      ),
+      channelAccessToken: this.configService.getOrThrow('LINE_CHANNEL_ACCESS_TOKEN'),
     });
   }
 
@@ -29,10 +27,7 @@ export class LineService {
 
     if (!order) throw new BadRequestException('Order not found');
 
-    await supabase
-      .from('orders')
-      .update({ line_user_id: lineUserId })
-      .eq('id', orderId);
+    await supabase.from('orders').update({ line_user_id: lineUserId }).eq('id', orderId);
 
     const flexMessage = this.buildOrderFlexMessage(order);
 

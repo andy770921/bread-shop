@@ -99,7 +99,12 @@ export function Header() {
                       <span className="max-w-[80px] truncate">{user.name || user.email}</span>
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon-sm" onClick={logout} aria-label={t('nav.logout')}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={logout}
+                    aria-label={t('nav.logout')}
+                  >
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </div>

@@ -14,7 +14,7 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
   },
-  ignorePatterns: ['node_modules/', 'dist/', 'build/', 'coverage/', '.next/'],
+  ignorePatterns: ['node_modules/', 'dist/', 'build/', 'coverage/', '.next/', 'next-env.d.ts'],
   overrides: [
     // TypeScript files
     {
@@ -40,6 +40,7 @@ module.exports = {
       parser: '@typescript-eslint/parser',
       parserOptions: {
         project: './backend/tsconfig.json',
+        tsconfigRootDir: __dirname,
         sourceType: 'module',
       },
       env: {

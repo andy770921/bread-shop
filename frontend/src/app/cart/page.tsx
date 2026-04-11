@@ -97,7 +97,11 @@ export default function CartPage() {
         });
 
         if (!lineRes.ok) {
-          toast.error(locale === 'zh' ? 'LINE 傳送失敗，但訂單已建立' : 'LINE send failed, but order was created');
+          toast.error(
+            locale === 'zh'
+              ? 'LINE 傳送失敗，但訂單已建立'
+              : 'LINE send failed, but order was created',
+          );
         }
       }
 
@@ -361,7 +365,11 @@ export default function CartPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span style={{ color: 'var(--text-secondary)' }}>{t('cart.shipping')}</span>
-                      <span style={{ color: shippingFee === 0 ? 'var(--success-500)' : 'var(--text-primary)' }}>
+                      <span
+                        style={{
+                          color: shippingFee === 0 ? 'var(--success-500)' : 'var(--text-primary)',
+                        }}
+                      >
                         {shippingFee === 0 ? t('cart.freeShipping') : `NT$${shippingFee}`}
                       </span>
                     </div>

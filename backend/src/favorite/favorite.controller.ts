@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { FavoriteService } from './favorite.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -24,18 +16,12 @@ export class FavoriteController {
   }
 
   @Post(':productId')
-  add(
-    @CurrentUser() user: any,
-    @Param('productId', ParseIntPipe) productId: number,
-  ) {
+  add(@CurrentUser() user: any, @Param('productId', ParseIntPipe) productId: number) {
     return this.favoriteService.add(user.id, productId);
   }
 
   @Delete(':productId')
-  remove(
-    @CurrentUser() user: any,
-    @Param('productId', ParseIntPipe) productId: number,
-  ) {
+  remove(@CurrentUser() user: any, @Param('productId', ParseIntPipe) productId: number) {
     return this.favoriteService.remove(user.id, productId);
   }
 }

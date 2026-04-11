@@ -39,12 +39,11 @@ export function ProductCard({
 }: ProductCardProps) {
   const name = locale === 'zh' ? product.name_zh : product.name_en;
   const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
-  const badgeText =
-    product.badge_type
-      ? locale === 'zh'
-        ? product.badge_text_zh
-        : product.badge_text_en
-      : null;
+  const badgeText = product.badge_type
+    ? locale === 'zh'
+      ? product.badge_text_zh
+      : product.badge_text_en
+    : null;
   const imageUrl = product.image_url || '/placeholder-product.jpg';
 
   return (

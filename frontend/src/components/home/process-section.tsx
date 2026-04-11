@@ -14,11 +14,7 @@ export function ProcessSection() {
   const { t } = useLocale();
 
   return (
-    <section
-      id="process"
-      className="py-16 lg:py-24"
-      style={{ background: 'var(--process-bg)' }}
-    >
+    <section id="process" className="py-16 lg:py-24" style={{ background: 'var(--process-bg)' }}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2
           className="font-heading mb-12 text-center text-2xl font-bold lg:text-3xl"

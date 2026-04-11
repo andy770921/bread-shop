@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Param,
-  ParseIntPipe,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { LineService } from './line.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -21,10 +15,7 @@ export class LineController {
 
   @Post(':id/line-send')
   @UseGuards(AuthGuard)
-  async sendViaLine(
-    @Param('id', ParseIntPipe) orderId: number,
-    @CurrentUser() user: any,
-  ) {
+  async sendViaLine(@Param('id', ParseIntPipe) orderId: number, @CurrentUser() user: any) {
     const supabase = this.supabaseService.getClient();
 
     const { data: profile } = await supabase
@@ -62,8 +53,7 @@ export class LineController {
       if (error?.statusCode === 400) {
         return {
           success: false,
-          message:
-            'Please add our LINE Official Account as a friend first.',
+          message: 'Please add our LINE Official Account as a friend first.',
         };
       }
       throw error;

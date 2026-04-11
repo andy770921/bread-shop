@@ -94,8 +94,7 @@ export default function OrderDetailPage() {
     );
   }
 
-  const currentStepIndex =
-    order.status === 'cancelled' ? -1 : statusSteps.indexOf(order.status);
+  const currentStepIndex = order.status === 'cancelled' ? -1 : statusSteps.indexOf(order.status);
 
   return (
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: 'var(--bg-body)' }}>
@@ -128,10 +127,7 @@ export default function OrderDetailPage() {
               })}
             </p>
           </div>
-          <Badge
-            className="rounded-md px-3 py-1 text-sm"
-            style={getStatusColor(order.status)}
-          >
+          <Badge className="rounded-md px-3 py-1 text-sm" style={getStatusColor(order.status)}>
             {t(`status.${order.status}`)}
           </Badge>
         </div>

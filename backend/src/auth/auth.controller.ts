@@ -51,10 +51,7 @@ export class AuthController {
   async logout(@Req() req: Request) {
     const supabase = this.supabaseService.getClient();
     if (req.sessionId) {
-      await supabase
-        .from('sessions')
-        .update({ user_id: null })
-        .eq('id', req.sessionId);
+      await supabase.from('sessions').update({ user_id: null }).eq('id', req.sessionId);
     }
     return { success: true };
   }
@@ -78,10 +75,7 @@ export class AuthController {
     const result = await this.authService.handleLineLogin(code, backendOrigin);
 
     if (req.sessionId) {
-      await this.authService.mergeSessionOnLogin(
-        req.sessionId,
-        result.user.id,
-      );
+      await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
     }
 
     const oneTimeCode = randomUUID();
