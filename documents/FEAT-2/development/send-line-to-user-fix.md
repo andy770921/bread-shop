@@ -168,29 +168,29 @@ Now instead of a black screen with `{"statusCode":500}`:
 
 ### Fix 4: Express `res.redirect()` Encodes `#` to `%23` — Bypass with Raw Header
 
-**Deployed Fix 2 後的新問題：** 500 錯誤修復後，前端 callback 頁面短暫顯示 "No authorization code provided"，然後跳回購物車頁，使用者未登入，LINE 訊息也未發送。
+**New issue after deploying Fix 2:** After the 500 error was resolved, the frontend callback page briefly showed "No authorization code provided", then redirected to the cart page. The user was not logged in and no LINE message was sent.
 
-**Root Cause:** Express 的 `res.redirect(url)` 內部呼叫 `encodeUrl()`（來自 `encodeurl` npm 套件），此函式會將 `#` 編碼為 `%23`。
+**Root Cause:** Express's `res.redirect(url)` internally calls `encodeUrl()` (from the `encodeurl` npm package), which encodes `#` to `%23`.
 
 ```
-// 程式碼意圖送出：
+// What the code intended to send:
 Location: https://papa-bread.vercel.app/auth/callback#access_token=eyJ...
 
-// Express 實際送出：
+// What Express actually sent:
 Location: https://papa-bread.vercel.app/auth/callback%23access_token=eyJ...
 ```
 
-瀏覽器將 `%23` 視為路徑中的字面字元，而非 fragment 分隔符。前端 callback 頁面載入時 `window.location.hash` 為空字串，因此 `hashParams.get('access_token')` 回傳 `null`，最終落入 legacy fallback 顯示 "No authorization code provided"。
+The browser treats `%23` as a literal character in the path, not a fragment separator. The frontend callback page loads with an empty `window.location.hash`, so `hashParams.get('access_token')` returns `null`, and the code falls through to the legacy fallback which displays "No authorization code provided".
 
-**驗證方式：** `encodeurl` 套件的 `ENCODE_CHARS_REGEXP` 定義了允許的字元集：
+**Verification:** The `encodeurl` package's `ENCODE_CHARS_REGEXP` defines the allowed character set:
 
 ```
 \x21 \x25 \x26-\x3B \x3D \x3F-\x5B \x5D \x5F \x61-\x7A \x7E
 ```
 
-`#` 是 `\x23`，不在允許範圍內 → 被編碼為 `%23`。
+`#` is `\x23`, which is NOT in the allowed range — so it gets encoded to `%23`.
 
-**Fix:** 不使用 `res.redirect()`，直接設定 `Location` header：
+**Fix:** Bypass `res.redirect()` and set the `Location` header directly:
 
 ```typescript
 // Before (broken — # encoded to %23):
@@ -202,7 +202,7 @@ res.setHeader('Location', successUrl);
 res.status(302).end();
 ```
 
-同樣修正 error redirect：
+Same fix for the error redirect:
 ```typescript
 const errorUrl = `${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`;
 res.setHeader('Location', errorUrl);
@@ -210,15 +210,15 @@ res.status(302).end();
 ```
 
 **References:**
-- Express `res.redirect()` source code: 內部呼叫 `res.location(url)` → `encodeUrl(url)` → 編碼 `#`
+- Express `res.redirect()` source code: internally calls `res.location(url)` → `encodeUrl(url)` → encodes `#`
 - `encodeurl` npm package: https://www.npmjs.com/package/encodeurl
-- Express 已知行為：`res.redirect()` 不適用於包含 hash fragment 的 URL
+- Known Express behavior: `res.redirect()` is not compatible with URLs containing hash fragments
 
-### Fix 5: `FRONTEND_URL` 環境變數檢查移入 try-catch
+### Fix 5: Move `FRONTEND_URL` Env Var Check Inside try-catch
 
-原本 `configService.getOrThrow('FRONTEND_URL')` 位於 try-catch **外部**。如果 Vercel 上未設定此環境變數，`getOrThrow` 拋出的 plain `Error` 不會被 try-catch 捕獲，NestJS 全域 exception filter 會回傳 `500 Internal server error`，沒有任何有用資訊。
+The original `configService.getOrThrow('FRONTEND_URL')` was placed **outside** the try-catch block. If this env var is not set on Vercel, `getOrThrow` throws a plain `Error` that is not caught by the try-catch. NestJS's global exception filter then returns `500 Internal server error` with no useful information.
 
-**Fix:** 使用 `configService.get()` 取代 `getOrThrow()`，提前檢查並回傳明確錯誤訊息：
+**Fix:** Replace `getOrThrow()` with `get()` and add an explicit check with a descriptive error response:
 
 ```typescript
 const frontendUrl = this.configService.get<string>('FRONTEND_URL');
@@ -232,7 +232,7 @@ if (!frontendUrl) {
 }
 ```
 
-同時增加診斷 logging（在 Vercel Function Logs 可見）：
+Also added diagnostic logging (visible in Vercel Function Logs):
 ```typescript
 console.log('LINE callback: env check', {
   FRONTEND_URL: frontendUrl ?? 'NOT SET',
@@ -241,41 +241,41 @@ console.log('LINE callback: env check', {
 });
 ```
 
-## Supabase 日誌分析
+## Supabase Log Analysis
 
-透過 Supabase MCP 工具查詢 auth logs 與 API logs，發現以下關鍵事實：
+Queried Supabase auth logs and API logs via Supabase MCP tools. Key findings:
 
-### Auth Logs 時間線
+### Auth Logs Timeline
 
-| 時間 (UTC) | 事件 | 來源 | 結果 |
+| Time (UTC) | Event | Origin | Result |
 |---|---|---|---|
 | 18:25:24 | `POST /admin/users` | localhost | **500 — panic: bcrypt password length exceeds 72 bytes** |
-| 18:39:51 | `POST /admin/users` | localhost | 200 — 用 SHA-256 hash 密碼成功建立用戶 |
-| 18:39:51 | `POST /token` | localhost | 200 — 登入成功 |
-| 18:40:15 | `POST /admin/users` | localhost | 422 — email already exists (重複嘗試) |
-| 18:48:30 | `POST /admin/users` + `POST /token` | localhost | 422 + 200 — 用戶已存在，登入成功 |
+| 18:39:51 | `POST /admin/users` | localhost | 200 — User created successfully with SHA-256 hashed password |
+| 18:39:51 | `POST /token` | localhost | 200 — Login successful |
+| 18:40:15 | `POST /admin/users` | localhost | 422 — Email already exists (retry attempt) |
+| 18:48:30 | `POST /admin/users` + `POST /token` | localhost | 422 + 200 — User already exists, login successful |
 
-**關鍵發現：所有 auth 操作的 referer 都是 `http://localhost:3000`。Vercel 部署從未成功呼叫 Supabase Auth API。** 這證實 500 錯誤發生在 `handleLineLogin` 內的 Supabase 呼叫之前（env var 缺失或其他前置錯誤）。
+**Key finding: ALL auth operations had referer `http://localhost:3000`. The Vercel deployment never successfully called the Supabase Auth API.** This confirms the 500 error occurred before the Supabase calls inside `handleLineLogin` (missing env var or other pre-condition failure).
 
-### Profiles 表問題
+### Profiles Table Issue
 
 ```sql
 SELECT line_user_id, name FROM profiles WHERE id = 'e49d4d74-...';
--- 結果: line_user_id = null, name = null
--- updated_at = created_at（表示 PATCH 從未真正修改此列）
+-- Result: line_user_id = null, name = null
+-- updated_at = created_at (PATCH never actually modified the row)
 ```
 
-儘管 API logs 顯示 `PATCH /rest/v1/profiles → 204`，但 `line_user_id` 仍為 `null`。
+Despite API logs showing `PATCH /rest/v1/profiles → 204`, `line_user_id` remained `null`.
 
-**原因分析：** RLS 已啟用但無任何 policy（`pg_policies` 回傳空集合）。`service_role` 的 `rolbypassrls = true` 理論上應該繞過 RLS，但 PATCH 204 不代表資料已更新 — PostgREST 對 0 行影響也回傳 204。
+**Analysis:** RLS is enabled but no policies exist (`pg_policies` returned empty set). `service_role` has `rolbypassrls = true` which should bypass RLS, but PATCH 204 does not guarantee rows were updated — PostgREST returns 204 even for 0 affected rows.
 
-**暫時修復：** 透過 Supabase MCP 直接執行 SQL 更新：
+**Temporary fix:** Updated the profile directly via SQL through Supabase MCP:
 ```sql
 UPDATE profiles SET line_user_id = 'U8622391bfc0a71e36e95d739a75e5fd2', name = 'Andy Chou'
 WHERE id = 'e49d4d74-0bb9-4297-a13d-73ce01f27044';
 ```
 
-此問題需要後續調查 `supabase.from('profiles').update(...)` 為何在 PostgREST 層級靜默失敗。
+This issue requires further investigation into why `supabase.from('profiles').update(...)` silently fails at the PostgREST level.
 
 ## Files Modified
 
@@ -289,7 +289,7 @@ WHERE id = 'e49d4d74-0bb9-4297-a13d-73ce01f27044';
 ## LINE OAuth Flow (Updated)
 
 ```
-1. User clicks "透過 LINE 聯繫" on /cart
+1. User clicks the LINE CTA on /cart
 2. Frontend redirects to /api/auth/line (proxied to backend)
 3. Backend constructs LINE OAuth URL:
    redirect_uri = https://papa-bread-api.vercel.app/api/auth/line/callback
@@ -335,6 +335,6 @@ WHERE id = 'e49d4d74-0bb9-4297-a13d-73ce01f27044';
 - NestJS Cookies (cookie-parser integration): https://docs.nestjs.com/techniques/cookies
 - NestJS Validation Pipes: https://docs.nestjs.com/pipes
 - Express cookie-parser: https://expressjs.com/en/resources/middleware/cookie-parser.html
-- `encodeurl` npm package (Express 內部使用): https://www.npmjs.com/package/encodeurl
-  - `ENCODE_CHARS_REGEXP` 不包含 `#` (`\x23`)，因此 `res.redirect()` 會將 `#` 編碼為 `%23`
-  - 需要在 redirect URL 包含 hash fragment 時，必須繞過 `res.redirect()` 直接設定 `Location` header
+- `encodeurl` npm package (used internally by Express): https://www.npmjs.com/package/encodeurl
+  - `ENCODE_CHARS_REGEXP` does not include `#` (`\x23`), so `res.redirect()` encodes `#` to `%23`
+  - When the redirect URL contains a hash fragment, `res.redirect()` must be bypassed — set the `Location` header directly instead
