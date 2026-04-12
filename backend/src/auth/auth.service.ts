@@ -106,18 +106,26 @@ export class AuthService {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
     const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
 
+    const redirectUri = `${backendOrigin}/api/auth/line/callback`;
+    console.log('handleLineLogin: token exchange with redirect_uri =', redirectUri);
+
     const tokenResponse = await fetch('https://api.line.me/oauth2/v2.1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${backendOrigin}/api/auth/line/callback`,
+        redirect_uri: redirectUri,
         client_id: channelId,
         client_secret: channelSecret,
       }),
     });
     const lineTokens = await tokenResponse.json();
+    console.log(
+      'handleLineLogin: token response status =',
+      tokenResponse.status,
+      lineTokens.error ? `error: ${lineTokens.error_description}` : 'OK',
+    );
 
     if (lineTokens.error) {
       throw new BadRequestException(`LINE token exchange failed: ${lineTokens.error_description}`);
@@ -127,6 +135,7 @@ export class AuthService {
       headers: { Authorization: `Bearer ${lineTokens.access_token}` },
     });
     const lineProfile = await profileResponse.json();
+    console.log('handleLineLogin: profile userId =', lineProfile.userId);
 
     const supabase = this.supabaseService.getClient();
 

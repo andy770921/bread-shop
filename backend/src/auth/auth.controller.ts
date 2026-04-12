@@ -82,7 +82,27 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const frontendUrl = this.configService.getOrThrow('FRONTEND_URL');
+    // Diagnose env vars on every call (visible in Vercel Function Logs)
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const hasChannelId = !!this.configService.get('LINE_LOGIN_CHANNEL_ID');
+    const hasChannelSecret = !!this.configService.get('LINE_LOGIN_CHANNEL_SECRET');
+    console.log('LINE callback: env check', {
+      FRONTEND_URL: frontendUrl ?? 'NOT SET',
+      LINE_LOGIN_CHANNEL_ID: hasChannelId,
+      LINE_LOGIN_CHANNEL_SECRET: hasChannelSecret,
+      host: req.get('host'),
+      proto: req.headers['x-forwarded-proto'],
+      code: code ? `${code.substring(0, 4)}...` : 'MISSING',
+    });
+
+    if (!frontendUrl) {
+      console.error('LINE callback: FRONTEND_URL is not set');
+      res.status(500).json({
+        error: 'Server misconfiguration',
+        detail: 'FRONTEND_URL environment variable is not set',
+      });
+      return;
+    }
 
     try {
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
@@ -90,7 +110,10 @@ export class AuthController {
       // sent in GET /api/auth/line (must be identical for LINE token exchange)
       const host = req.get('host');
       const backendOrigin = `${protocol}://${host}`;
+      console.log('LINE callback: exchanging code with backendOrigin =', backendOrigin);
+
       const result = await this.authService.handleLineLogin(code, backendOrigin);
+      console.log('LINE callback: handleLineLogin succeeded, userId =', result.user.id);
 
       if (req.sessionId) {
         await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
