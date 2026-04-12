@@ -28,6 +28,11 @@ export class CreateOrderDto {
   @IsIn(['lemon_squeezy', 'line'])
   payment_method: 'lemon_squeezy' | 'line';
 
+  @ApiPropertyOptional({ example: '@john123', description: 'Customer LINE ID handle for admin contact' })
+  @IsOptional()
+  @IsString()
+  customer_line_id?: string;
+
   @ApiPropertyOptional({
     description: 'Skip clearing cart (for LINE flow where cart is cleared after confirmation)',
   })

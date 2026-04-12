@@ -8,6 +8,7 @@ export interface CreateOrderRequest {
   customer_address: string;
   notes?: string;
   payment_method: PaymentMethod;
+  customer_line_id?: string;
 }
 
 export interface OrderItem {
@@ -33,6 +34,7 @@ export interface Order {
   customer_address: string;
   notes: string | null;
   payment_method: PaymentMethod | null;
+  customer_line_id: string | null;
   items: OrderItem[];
   created_at: string;
   updated_at: string;

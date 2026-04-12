@@ -185,6 +185,17 @@ export class LineService {
                   color: '#6F645A',
                   wrap: true,
                 },
+                ...(order.customer_line_id
+                  ? [
+                      {
+                        type: 'text' as const,
+                        text: `LINE ID: ${order.customer_line_id}`,
+                        size: 'xs' as const,
+                        color: '#06C755',
+                        wrap: true,
+                      },
+                    ]
+                  : []),
                 ...(order.notes
                   ? [
                       {

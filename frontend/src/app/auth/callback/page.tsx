@@ -51,7 +51,9 @@ function CallbackContent() {
         const data = await res.json();
         localStorage.setItem('access_token', data.access_token);
         await refreshUser();
-        router.push('/');
+        const returnUrl = localStorage.getItem('line_login_return_url') || '/';
+        localStorage.removeItem('line_login_return_url');
+        router.push(returnUrl);
       } catch (err: any) {
         setError(err.message || 'Authentication failed');
       }

@@ -19,6 +19,7 @@ export class OrderService {
       customer_address: string;
       notes?: string;
       payment_method: 'lemon_squeezy' | 'line';
+      customer_line_id?: string;
       skip_cart_clear?: boolean;
     },
   ) {
@@ -60,6 +61,7 @@ export class OrderService {
         customer_address: dto.customer_address,
         notes: dto.notes,
         payment_method: dto.payment_method,
+        customer_line_id: dto.customer_line_id,
       })
       .select()
       .single();

@@ -1,29 +1,72 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Minus, Trash2, ShoppingBag, CreditCard, MessageCircle } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag, CreditCard, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from '@/components/ui/form';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/lib/auth-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
 import { useCreateOrder, useLineSend, useConfirmOrder } from '@/queries/use-checkout';
+
+const paymentMethods = ['credit_card', 'line_transfer'] as const;
+type PaymentMethod = (typeof paymentMethods)[number];
+
+const cartFormSchema = z
+  .object({
+    customerName: z.string().min(1, 'required'),
+    customerPhone: z.string().min(1, 'required'),
+    customerEmail: z.string().email().or(z.literal('')).optional(),
+    customerAddress: z.string().min(1, 'required'),
+    notes: z.string().optional(),
+    paymentMethod: z.enum(paymentMethods, { required_error: 'required' }),
+    cardNumber: z.string().optional(),
+    cardExpiry: z.string().optional(),
+    cardCvv: z.string().optional(),
+    cardholderName: z.string().optional(),
+    lineId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const addRequired = (path: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message: 'required' });
+    if (data.paymentMethod === 'credit_card') {
+      if (!data.cardNumber) addRequired('cardNumber');
+      if (!data.cardExpiry) addRequired('cardExpiry');
+      if (!data.cardCvv) addRequired('cardCvv');
+      if (!data.cardholderName) addRequired('cardholderName');
+    }
+    // lineId validation is handled outside zod — conditional on auth state (line_user_id)
+  });
+
+type CartFormValues = z.infer<typeof cartFormSchema>;
 
 export default function CartPage() {
   const { locale, t } = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data: cart, isLoading } = useCart();
   const { updateItem } = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
@@ -31,12 +74,50 @@ export default function CartPage() {
   const lineSend = useLineSend();
   const confirmOrder = useConfirmOrder();
 
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const form = useForm<CartFormValues>({
+    resolver: zodResolver(cartFormSchema),
+    mode: 'onChange',
+    defaultValues: {
+      customerName: '',
+      customerPhone: '',
+      customerEmail: '',
+      customerAddress: '',
+      notes: '',
+      paymentMethod: undefined,
+      cardNumber: '',
+      cardExpiry: '',
+      cardCvv: '',
+      cardholderName: '',
+      lineId: '',
+    },
+  });
+
+  const selectedPayment = form.watch('paymentMethod');
+
+  // Restore form data after LINE Login redirect
+  useEffect(() => {
+    const saved = localStorage.getItem('cart_form_data');
+    if (saved) {
+      localStorage.removeItem('cart_form_data');
+      try {
+        form.reset(JSON.parse(saved));
+      } catch {}
+    }
+  }, [form]);
+
+  // Reset conditional fields when payment method changes
+  useEffect(() => {
+    if (selectedPayment === 'credit_card') {
+      form.setValue('lineId', '');
+      form.clearErrors('lineId');
+    } else if (selectedPayment === 'line_transfer') {
+      form.setValue('cardNumber', '');
+      form.setValue('cardExpiry', '');
+      form.setValue('cardCvv', '');
+      form.setValue('cardholderName', '');
+      form.clearErrors(['cardNumber', 'cardExpiry', 'cardCvv', 'cardholderName']);
+    }
+  }, [selectedPayment, form]);
 
   const items = cart?.items ?? [];
   const subtotal = cart?.subtotal ?? 0;
@@ -56,23 +137,27 @@ export default function CartPage() {
     });
   };
 
-  const handleCheckout = async (paymentMethod: 'lemon_squeezy' | 'line') => {
-    if (!customerName || !customerPhone || !customerAddress) {
-      toast.error(t('cart.requiredFields'));
+  const onSubmit = async (values: CartFormValues) => {
+    const isLine = values.paymentMethod === 'line_transfer';
+    const apiPaymentMethod = isLine ? 'line' : 'lemon_squeezy';
+
+    // LINE transfer without LINE Login → save form & redirect to LINE OAuth
+    if (isLine && !hasLineUserId) {
+      localStorage.setItem('cart_form_data', JSON.stringify(values));
+      localStorage.setItem('line_login_return_url', '/cart');
+      window.location.href = '/api/auth/line';
       return;
     }
 
-    setSubmitting(true);
     try {
-      const isLine = paymentMethod === 'line';
-
       const orderData = await createOrder.mutateAsync({
-        customer_name: customerName,
-        customer_phone: customerPhone,
-        customer_email: customerEmail || undefined,
-        customer_address: customerAddress,
-        notes: notes || undefined,
-        payment_method: paymentMethod,
+        customer_name: values.customerName,
+        customer_phone: values.customerPhone,
+        customer_email: values.customerEmail || undefined,
+        customer_address: values.customerAddress,
+        notes: values.notes || undefined,
+        payment_method: apiPaymentMethod,
+        customer_line_id: isLine ? values.lineId : undefined,
         skip_cart_clear: isLine,
       });
 
@@ -97,17 +182,18 @@ export default function CartPage() {
 
       queryClient.invalidateQueries({ queryKey: ['cart'] });
 
-      if (paymentMethod === 'lemon_squeezy' && orderData.checkout_url) {
+      if (apiPaymentMethod === 'lemon_squeezy' && orderData.checkout_url) {
         window.location.href = orderData.checkout_url;
       } else {
         router.push(`/checkout/success?order=${orderData.order_number}`);
       }
     } catch (error: any) {
       toast.error(error.message || 'Checkout failed');
-    } finally {
-      setSubmitting(false);
     }
   };
+
+  const submitting = form.formState.isSubmitting;
+  const hasLineUserId = !!user?.line_user_id;
 
   // Empty state
   if (!isLoading && items.length === 0) {
@@ -162,7 +248,7 @@ export default function CartPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-8 lg:flex-row">
-              {/* Left Column: Items + Customer Form */}
+              {/* Left Column: Items + Form */}
               <div className="flex-1 space-y-6">
                 {/* Cart Items */}
                 <div className="space-y-4">
@@ -241,73 +327,282 @@ export default function CartPage() {
                   })}
                 </div>
 
-                {/* Customer Info Form */}
-                <div
-                  className="space-y-4 rounded-xl border p-6"
-                  style={{
-                    backgroundColor: 'var(--bg-surface)',
-                    borderColor: 'var(--border-light)',
-                  }}
-                >
-                  <h2
-                    className="font-heading text-lg font-semibold"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {t('cart.customerInfo')}
-                  </h2>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="customer-name">{t('cart.name')} *</Label>
-                      <Input
-                        id="customer-name"
-                        value={customerName}
-                        onChange={(e) => setCustomerName(e.target.value)}
-                        placeholder={t('cart.name')}
-                        required
+                {/* Form: Customer Info + Payment Info */}
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Customer Info Section */}
+                    <div
+                      className="space-y-4 rounded-xl border p-6"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        borderColor: 'var(--border-light)',
+                      }}
+                    >
+                      <h2
+                        className="font-heading text-lg font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {t('cart.customerInfo')}
+                      </h2>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name="customerName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('cart.name')} *</FormLabel>
+                              <FormControl>
+                                <Input placeholder={t('cart.name')} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="customerPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('cart.phone')} *</FormLabel>
+                              <FormControl>
+                                <Input placeholder={t('cart.phone')} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="customerEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('cart.email')}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="email"
+                                  placeholder={t('cart.email')}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="customerAddress"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('cart.address')} *</FormLabel>
+                              <FormControl>
+                                <Input placeholder={t('cart.address')} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('cart.notes')}</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder={t('cart.notes')} rows={3} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="customer-phone">{t('cart.phone')} *</Label>
-                      <Input
-                        id="customer-phone"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        placeholder={t('cart.phone')}
-                        required
+
+                    {/* Payment Info Section */}
+                    <div
+                      className="space-y-4 rounded-xl border p-6"
+                      style={{
+                        backgroundColor: 'var(--bg-surface)',
+                        borderColor: 'var(--border-light)',
+                      }}
+                    >
+                      <h2
+                        className="font-heading text-lg font-semibold"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {t('cart.paymentInfo')}
+                      </h2>
+
+                      {/* Payment Method Dropdown */}
+                      <FormField
+                        control={form.control}
+                        name="paymentMethod"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('cart.paymentMethod')} *</FormLabel>
+                            <FormControl>
+                              <select
+                                value={field.value ?? ''}
+                                onChange={(e) => field.onChange(e.target.value || undefined)}
+                                onBlur={field.onBlur}
+                                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2"
+                                style={{
+                                  backgroundColor: 'var(--bg-surface)',
+                                  borderColor: 'var(--border-default)',
+                                  color: field.value ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                }}
+                              >
+                                <option value="">{t('cart.paymentMethodPlaceholder')}</option>
+                                <option value="credit_card">{t('cart.paymentCreditCard')}</option>
+                                <option value="line_transfer">{t('cart.paymentLineTransfer')}</option>
+                              </select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
+
+                      {/* Credit Card Fields */}
+                      {selectedPayment === 'credit_card' && (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <FormField
+                            control={form.control}
+                            name="cardNumber"
+                            render={({ field }) => (
+                              <FormItem className="sm:col-span-2">
+                                <FormLabel>{t('cart.cardNumber')} *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder={t('cart.cardNumberPlaceholder')}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="cardExpiry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t('cart.cardExpiry')} *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder={t('cart.cardExpiryPlaceholder')}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="cardCvv"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t('cart.cardCvv')} *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder={t('cart.cardCvvPlaceholder')}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="cardholderName"
+                            render={({ field }) => (
+                              <FormItem className="sm:col-span-2">
+                                <FormLabel>{t('cart.cardholderName')} *</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder={t('cart.cardholderNamePlaceholder')}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+
+                      {/* LINE Transfer Fields */}
+                      {selectedPayment === 'line_transfer' && (
+                        <>
+                          {/* Green notice when LINE account is linked */}
+                          {hasLineUserId && (
+                            <div
+                              className="flex items-center gap-2 rounded-lg p-3 text-sm"
+                              style={{ backgroundColor: 'var(--success-50, #f0fdf4)', color: 'var(--success-700, #15803d)' }}
+                            >
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              {t('cart.lineLinked')}
+                            </div>
+                          )}
+
+                          {/* LINE ID field — optional when linked, for admin reference */}
+                          <FormField
+                            control={form.control}
+                            name="lineId"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {hasLineUserId ? t('cart.lineIdOptional') : t('cart.lineId')}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder={t('cart.lineIdPlaceholder')}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+
+                      {/* CTA Button */}
+                      {selectedPayment === 'credit_card' && (
+                        <Button
+                          type="submit"
+                          className="w-full gap-2 rounded-full"
+                          size="lg"
+                          style={{ background: 'var(--checkout-gradient)', color: '#fff' }}
+                          disabled={!form.formState.isValid || submitting}
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          {t('cart.creditCard')}
+                        </Button>
+                      )}
+                      {selectedPayment === 'line_transfer' && (
+                        <>
+                          <Button
+                            type="submit"
+                            variant="outline"
+                            className="w-full gap-2 rounded-full"
+                            size="lg"
+                            style={{ borderColor: '#06C755', color: '#06C755' }}
+                            disabled={!form.formState.isValid || submitting}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            {t('cart.linePay')}
+                          </Button>
+                          {!hasLineUserId && (
+                            <p className="text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                              {t('cart.lineLoginHint')}
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="customer-email">{t('cart.email')}</Label>
-                      <Input
-                        id="customer-email"
-                        type="email"
-                        value={customerEmail}
-                        onChange={(e) => setCustomerEmail(e.target.value)}
-                        placeholder={t('cart.email')}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="customer-address">{t('cart.address')} *</Label>
-                      <Input
-                        id="customer-address"
-                        value={customerAddress}
-                        onChange={(e) => setCustomerAddress(e.target.value)}
-                        placeholder={t('cart.address')}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="notes">{t('cart.notes')}</Label>
-                    <Textarea
-                      id="notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder={t('cart.notes')}
-                      rows={3}
-                    />
-                  </div>
-                </div>
+                  </form>
+                </Form>
 
                 {/* Continue Shopping */}
                 <Link href="/">
@@ -387,31 +682,6 @@ export default function CartPage() {
                     >
                       NT${total}
                     </span>
-                  </div>
-
-                  {/* Checkout Buttons */}
-                  <div className="space-y-3 pt-2">
-                    <Button
-                      className="w-full gap-2 rounded-full"
-                      size="lg"
-                      style={{ background: 'var(--checkout-gradient)', color: '#fff' }}
-                      onClick={() => handleCheckout('lemon_squeezy')}
-                      disabled={submitting}
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      {t('cart.creditCard')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2 rounded-full"
-                      size="lg"
-                      style={{ borderColor: '#06C755', color: '#06C755' }}
-                      onClick={() => handleCheckout('line')}
-                      disabled={submitting}
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      {t('cart.linePay')}
-                    </Button>
                   </div>
                 </div>
               </div>
