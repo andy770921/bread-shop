@@ -150,7 +150,7 @@ export default function CartPage() {
     const isLine = values.paymentMethod === 'line_transfer';
     const apiPaymentMethod = isLine ? 'line' : 'lemon_squeezy';
 
-    // LINE transfer without LINE Login → save form & redirect to LINE OAuth
+    // LINE transfer requires LINE Login to get internal userId for messaging
     if (isLine && !hasLineUserId) {
       localStorage.setItem('cart_form_data', JSON.stringify(values));
       localStorage.setItem('line_login_return_url', '/cart');

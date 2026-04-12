@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthResponse } from '@repo/shared';
 
@@ -136,7 +137,11 @@ export class AuthService {
       .single();
 
     const lineEmail = `line_${lineProfile.userId}@line.local`;
-    const linePassword = `line_pw_${lineProfile.userId}_${channelSecret}`;
+    // bcrypt has a 72-byte limit; hash the secret material to stay within it
+    const hash = createHash('sha256')
+      .update(`${lineProfile.userId}_${channelSecret}`)
+      .digest('hex');
+    const linePassword = hash.slice(0, 64);
 
     if (existingProfile) {
       const { data, error } = await supabase.auth.signInWithPassword({
