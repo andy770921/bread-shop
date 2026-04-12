@@ -121,17 +121,23 @@ export class AuthController {
 
       // Pass tokens via URL hash fragment — serverless-safe (no in-memory state).
       // Hash fragments are never sent to servers (RFC 3986), same pattern as OAuth implicit flow.
+      // IMPORTANT: Cannot use res.redirect() — Express's encodeUrl() encodes # to %23,
+      // which breaks the fragment. Set the Location header directly instead.
       const params = new URLSearchParams({
         access_token: result.access_token,
         refresh_token: result.refresh_token,
         user_id: result.user.id,
         email: result.user.email,
       });
-      res.redirect(`${frontendUrl}/auth/callback#${params.toString()}`);
+      const successUrl = `${frontendUrl}/auth/callback#${params.toString()}`;
+      res.setHeader('Location', successUrl);
+      res.status(302).end();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'LINE login failed';
       console.error('LINE callback error:', err);
-      res.redirect(`${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`);
+      const errorUrl = `${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`;
+      res.setHeader('Location', errorUrl);
+      res.status(302).end();
     }
   }
 
