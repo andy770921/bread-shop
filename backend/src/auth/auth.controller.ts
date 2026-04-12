@@ -83,7 +83,9 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.headers['x-forwarded-host'] || req.get('host');
+    // Use req.get('host') — NOT X-Forwarded-Host — to match the redirect_uri
+    // sent in GET /api/auth/line (must be identical for LINE token exchange)
+    const host = req.get('host');
     const backendOrigin = `${protocol}://${host}`;
     const result = await this.authService.handleLineLogin(code, backendOrigin);
 
