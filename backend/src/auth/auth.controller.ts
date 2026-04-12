@@ -62,6 +62,17 @@ export class AuthController {
     return this.authService.getMe(user.id);
   }
 
+  @Get('line')
+  async lineLogin(@Req() req: Request, @Res() res: Response) {
+    const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
+    const state = randomUUID();
+    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
+    res.redirect(lineAuthUrl);
+  }
+
   @Get('line/callback')
   async lineCallback(
     @Query('code') code: string,
