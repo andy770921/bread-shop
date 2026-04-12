@@ -84,9 +84,20 @@ They use separate reconciliation helpers because the semantics differ:
 - `reconcileWithPending()` (addToCart): pending quantities are **deltas** to add; must handle items not yet on server
 - `applyPendingUpdates()` (updateCartItem): pending quantities are **absolute targets**; items always exist on server
 
+## Follow-Up Fix: Header Badge Temporary Drop
+
+After the initial optimistic+debounce implementation, a secondary race condition was discovered: when updating **two different items** in close succession, the header badge number could temporarily drop before restoring.
+
+**Root cause:** `pending.delete(itemId)` was called before the async API call. When two items' debounce timers fired close together, both deleted their entries from `pending` before either response arrived. The first response's reconciliation couldn't find the second item's pending entry, causing a momentary drop.
+
+**Fix:** Moved `pending.delete()` to after the API response, guarded by a `sentQty` check to handle clicks during in-flight requests. Applied to both `useUpdateCartItem` and `useAddToCart`.
+
+See full analysis: `documents/FIX-1/plans/race-condition-deep-analysis.md`
+See implementation details: `documents/FIX-1/development/race-condition-deep-implementation.md`
+
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `frontend/src/queries/use-cart.ts` | Rewrote `useUpdateCartItem` with optimistic+debounce; added `applyPendingUpdates` helper; added optimistic update to `useRemoveCartItem` |
+| `frontend/src/queries/use-cart.ts` | Rewrote `useUpdateCartItem` with optimistic+debounce; added `applyPendingUpdates` helper; added optimistic update to `useRemoveCartItem`; fixed `pending.delete` timing in both `useUpdateCartItem` and `useAddToCart` |
 | `frontend/src/app/cart/page.tsx` | Updated to use `{ updateItem }` destructured API |

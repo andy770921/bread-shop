@@ -146,22 +146,29 @@ export function useAddToCart(options?: { onError?: () => void }) {
 
       const p = pending.get(productId)!;
       p.timer = setTimeout(async () => {
-        const qty = p.quantity;
-        pending.delete(productId);
+        const sentQty = p.quantity;
 
         try {
           const serverCart = await authedFetchFn<CartResponse>('api/cart/items', {
             method: 'POST',
-            body: { product_id: productId, quantity: qty },
+            body: { product_id: productId, quantity: sentQty },
           });
           serverCartRef.current = serverCart;
+
+          // Only delete if user hasn't clicked again during the request
+          if (pending.get(productId)?.quantity === sentQty) {
+            pending.delete(productId);
+          }
+
           const currentCache = queryClient.getQueryData<CartResponse>(['cart']);
           queryClient.setQueryData(
             ['cart'],
             reconcileWithPending(serverCart, pending, currentCache),
           );
         } catch {
-          // Rollback to last known server state + re-apply remaining pending deltas
+          if (pending.get(productId)?.quantity === sentQty) {
+            pending.delete(productId);
+          }
           const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
           const cache = queryClient.getQueryData<CartResponse>(['cart']);
           queryClient.setQueryData(['cart'], reconcileWithPending(rollback, pending, cache));
@@ -175,10 +182,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
   return { addToCart };
 }
 
-function applyPendingUpdates(
-  cart: CartResponse,
-  pending: Map<number, PendingEntry>,
-): CartResponse {
+function applyPendingUpdates(cart: CartResponse, pending: Map<number, PendingEntry>): CartResponse {
   if (pending.size === 0) return cart;
   const items = cart.items.map((item) => {
     const p = pending.get(item.id);
@@ -199,8 +203,10 @@ export function useUpdateCartItem() {
     (itemId: number, newQuantity: number) => {
       // Save server state before first optimistic update in this burst
       if (!serverCartRef.current) {
-        serverCartRef.current =
-          queryClient.getQueryData<CartResponse>(['cart']) ?? { ...EMPTY_CART, items: [] };
+        serverCartRef.current = queryClient.getQueryData<CartResponse>(['cart']) ?? {
+          ...EMPTY_CART,
+          items: [],
+        };
       }
 
       // 1. Optimistic cache update — immediately reflect new quantity
@@ -229,19 +235,26 @@ export function useUpdateCartItem() {
 
       const p = pending.get(itemId)!;
       p.timer = setTimeout(async () => {
-        const qty = p.quantity;
-        pending.delete(itemId);
+        const sentQty = p.quantity;
 
         try {
           const serverCart = await authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
             method: 'PATCH',
-            body: { quantity: qty },
+            body: { quantity: sentQty },
           });
           serverCartRef.current = serverCart;
+
+          // Only delete if user hasn't clicked again during the request
+          if (pending.get(itemId)?.quantity === sentQty) {
+            pending.delete(itemId);
+          }
+
           queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
           if (pending.size === 0) serverCartRef.current = null;
         } catch {
-          // Rollback to last known server state + re-apply remaining pending
+          if (pending.get(itemId)?.quantity === sentQty) {
+            pending.delete(itemId);
+          }
           const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
           queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
           if (pending.size === 0) serverCartRef.current = null;
