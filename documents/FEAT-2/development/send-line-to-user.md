@@ -38,6 +38,10 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_line_id text;
 - `backend/src/line/line.service.ts`
   - Updated `buildOrderFlexMessage()` to include a green-colored `LINE ID: <value>` row in the customer details section when `order.customer_line_id` is present
 
+- `backend/src/auth/auth.controller.ts`
+  - Added missing `GET /api/auth/line` endpoint to initiate LINE OAuth flow (was 404 before)
+  - Uses `req.get('host')` instead of `X-Forwarded-Host` to construct `redirect_uri` (see Step 5b)
+
 ### Frontend Changes
 
 - `frontend/src/app/cart/page.tsx`
@@ -122,6 +126,48 @@ customer_line_id?: string;
 ```
 
 **Rationale:** The admin sees the customer's LINE ID in the order notification and can search for them in the LINE app.
+
+---
+
+### Step 5b: Add Missing `GET /api/auth/line` Endpoint
+
+**File:** `backend/src/auth/auth.controller.ts`
+
+**Problem:** The frontend redirects to `/api/auth/line` to initiate LINE OAuth, but this endpoint did not exist. The backend only had `GET /api/auth/line/callback` (receives LINE's redirect) and `POST /api/auth/line/exchange` (one-time code exchange). Requests to `/api/auth/line` returned 404.
+
+**Changes:** Added a new `GET /api/auth/line` endpoint:
+
+```typescript
+@Get('line')
+async lineLogin(@Req() req: Request, @Res() res: Response) {
+  const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.get('host');  // NOT X-Forwarded-Host
+  const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
+  const state = randomUUID();
+  const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
+  res.redirect(lineAuthUrl);
+}
+```
+
+**Critical: `req.get('host')` vs `X-Forwarded-Host`**
+
+The `redirect_uri` must match a URL registered in the LINE Developer Console. The registered callback URLs are backend URLs (e.g., `https://papa-bread-api.vercel.app/api/auth/line/callback`).
+
+When this endpoint is called through the frontend's Next.js rewrite proxy (`papa-bread.vercel.app` → `papa-bread-api.vercel.app`), the `X-Forwarded-Host` header contains the **frontend** host (`papa-bread.vercel.app`). Using it would produce a redirect_uri like `https://papa-bread.vercel.app/api/auth/line/callback` — which is NOT registered in LINE Console, causing a `400 Bad Request: Invalid redirect_uri` error.
+
+Using `req.get('host')` returns the backend's actual host (`papa-bread-api.vercel.app`), which matches the registered callback URL.
+
+| Header | Value (via frontend proxy) | Value (direct to backend) |
+|--------|---------------------------|--------------------------|
+| `X-Forwarded-Host` | `papa-bread.vercel.app` (frontend) | `papa-bread-api.vercel.app` |
+| `Host` (`req.get('host')`) | `papa-bread-api.vercel.app` (backend) | `papa-bread-api.vercel.app` |
+
+The existing `line/callback` endpoint is not affected because LINE redirects the user's browser directly to the backend URL — no frontend proxy involved.
+
+**LINE Developer Console callback URLs required:**
+- `http://localhost:3000/api/auth/line/callback` (local dev)
+- `https://papa-bread-api.vercel.app/api/auth/line/callback` (production)
 
 ---
 

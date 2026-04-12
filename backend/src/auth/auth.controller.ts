@@ -66,7 +66,9 @@ export class AuthController {
   async lineLogin(@Req() req: Request, @Res() res: Response) {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.headers['x-forwarded-host'] || req.get('host');
+    // Use req.get('host') — NOT X-Forwarded-Host — to get the backend's actual host.
+    // The redirect_uri must match what's registered in LINE Developer Console (backend URLs).
+    const host = req.get('host');
     const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
     const state = randomUUID();
     const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
