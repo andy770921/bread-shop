@@ -162,7 +162,11 @@ export class AuthService {
         email_confirm: true,
         user_metadata: { name: lineProfile.displayName },
       });
-      if (createError) throw new BadRequestException('LINE signup failed: ' + createError.message);
+      // Ignore "already registered" — user may exist from a previous partial attempt
+      // where auth.users was created but profiles.line_user_id was never set
+      if (createError && !createError.message.includes('already been registered')) {
+        throw new BadRequestException('LINE signup failed: ' + createError.message);
+      }
 
       const { data: createdUser, error: signInError } = await supabase.auth.signInWithPassword({
         email: lineEmail,
