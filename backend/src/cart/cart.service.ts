@@ -11,7 +11,9 @@ export class CartService {
     const supabase = this.supabaseService.getClient();
     const { data } = await supabase.from('sessions').select('id').eq('user_id', userId);
 
-    return data?.map((s) => s.id) || [sessionId];
+    const ids = new Set(data?.map((s) => s.id) || []);
+    ids.add(sessionId); // Always include current session (may not be linked to user yet)
+    return [...ids];
   }
 
   async getCart(sessionId: string, userId?: string) {
