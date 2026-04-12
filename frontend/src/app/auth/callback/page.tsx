@@ -28,6 +28,31 @@ function CallbackContent() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Read tokens from URL hash fragment (serverless-safe flow).
+    // Backend passes tokens in the hash so they're never sent to servers.
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+
+    const hashError = hashParams.get('error');
+    if (hashError) {
+      setError(hashError);
+      return;
+    }
+
+    const accessToken = hashParams.get('access_token');
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
+      // Clear hash from URL to avoid token exposure in browser history
+      window.history.replaceState(null, '', window.location.pathname);
+      refreshUser().then(() => {
+        const returnUrl = localStorage.getItem('line_login_return_url') || '/';
+        localStorage.removeItem('line_login_return_url');
+        router.push(returnUrl);
+      });
+      return;
+    }
+
+    // Legacy fallback: one-time code exchange (for non-serverless environments)
     const code = searchParams.get('code');
     if (!code) {
       setError('No authorization code provided');

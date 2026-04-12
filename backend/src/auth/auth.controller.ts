@@ -82,22 +82,34 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    // Use req.get('host') — NOT X-Forwarded-Host — to match the redirect_uri
-    // sent in GET /api/auth/line (must be identical for LINE token exchange)
-    const host = req.get('host');
-    const backendOrigin = `${protocol}://${host}`;
-    const result = await this.authService.handleLineLogin(code, backendOrigin);
-
-    if (req.sessionId) {
-      await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
-    }
-
-    const oneTimeCode = randomUUID();
-    await this.authService.storeOneTimeCode(oneTimeCode, result);
-
     const frontendUrl = this.configService.getOrThrow('FRONTEND_URL');
-    res.redirect(`${frontendUrl}/auth/callback?code=${oneTimeCode}`);
+
+    try {
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      // Use req.get('host') — NOT X-Forwarded-Host — to match the redirect_uri
+      // sent in GET /api/auth/line (must be identical for LINE token exchange)
+      const host = req.get('host');
+      const backendOrigin = `${protocol}://${host}`;
+      const result = await this.authService.handleLineLogin(code, backendOrigin);
+
+      if (req.sessionId) {
+        await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
+      }
+
+      // Pass tokens via URL hash fragment — serverless-safe (no in-memory state).
+      // Hash fragments are never sent to servers (RFC 3986), same pattern as OAuth implicit flow.
+      const params = new URLSearchParams({
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        user_id: result.user.id,
+        email: result.user.email,
+      });
+      res.redirect(`${frontendUrl}/auth/callback#${params.toString()}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'LINE login failed';
+      console.error('LINE callback error:', err);
+      res.redirect(`${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`);
+    }
   }
 
   @Post('line/exchange')
