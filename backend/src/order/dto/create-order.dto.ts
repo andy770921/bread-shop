@@ -28,7 +28,10 @@ export class CreateOrderDto {
   @IsIn(['lemon_squeezy', 'line'])
   payment_method: 'lemon_squeezy' | 'line';
 
-  @ApiPropertyOptional({ example: '@john123', description: 'Customer LINE ID handle for admin contact' })
+  @ApiPropertyOptional({
+    example: '@john123',
+    description: 'Customer LINE ID handle for admin contact',
+  })
   @IsOptional()
   @IsString()
   customer_line_id?: string;

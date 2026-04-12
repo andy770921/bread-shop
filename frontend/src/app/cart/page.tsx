@@ -4,7 +4,15 @@ import { useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Minus, Trash2, ShoppingBag, CreditCard, MessageCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingBag,
+  CreditCard,
+  MessageCircle,
+  CheckCircle2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,7 +40,6 @@ import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-car
 import { useCreateOrder, useLineSend, useConfirmOrder } from '@/queries/use-checkout';
 
 const paymentMethods = ['credit_card', 'line_transfer'] as const;
-type PaymentMethod = (typeof paymentMethods)[number];
 
 const cartFormSchema = z
   .object({
@@ -101,7 +108,9 @@ export default function CartPage() {
       localStorage.removeItem('cart_form_data');
       try {
         form.reset(JSON.parse(saved));
-      } catch {}
+      } catch {
+        // ignore malformed JSON
+      }
     }
   }, [form]);
 
@@ -285,35 +294,37 @@ export default function CartPage() {
                             NT${item.product.price}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon-xs"
-                            onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                            disabled={item.quantity <= 1}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon-xs"
+                              onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span
+                              className="w-8 text-center text-sm font-medium"
+                              style={{ color: 'var(--text-primary)' }}
+                            >
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon-xs"
+                              onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
                           <span
-                            className="w-8 text-center text-sm font-medium"
+                            className="text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
                           >
-                            {item.quantity}
+                            NT${item.line_total}
                           </span>
-                          <Button
-                            variant="outline"
-                            size="icon-xs"
-                            onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
                         </div>
-                        <span
-                          className="min-w-[80px] text-right text-sm font-semibold"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          NT${item.line_total}
-                        </span>
                         <Button
                           variant="ghost"
                           size="icon-xs"
@@ -378,11 +389,7 @@ export default function CartPage() {
                             <FormItem>
                               <FormLabel>{t('cart.email')}</FormLabel>
                               <FormControl>
-                                <Input
-                                  type="email"
-                                  placeholder={t('cart.email')}
-                                  {...field}
-                                />
+                                <Input type="email" placeholder={t('cart.email')} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -448,12 +455,16 @@ export default function CartPage() {
                                 style={{
                                   backgroundColor: 'var(--bg-surface)',
                                   borderColor: 'var(--border-default)',
-                                  color: field.value ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                  color: field.value
+                                    ? 'var(--text-primary)'
+                                    : 'var(--text-tertiary)',
                                 }}
                               >
                                 <option value="">{t('cart.paymentMethodPlaceholder')}</option>
                                 <option value="credit_card">{t('cart.paymentCreditCard')}</option>
-                                <option value="line_transfer">{t('cart.paymentLineTransfer')}</option>
+                                <option value="line_transfer">
+                                  {t('cart.paymentLineTransfer')}
+                                </option>
                               </select>
                             </FormControl>
                             <FormMessage />
@@ -471,10 +482,7 @@ export default function CartPage() {
                               <FormItem className="sm:col-span-2">
                                 <FormLabel>{t('cart.cardNumber')} *</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    placeholder={t('cart.cardNumberPlaceholder')}
-                                    {...field}
-                                  />
+                                  <Input placeholder={t('cart.cardNumberPlaceholder')} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -487,10 +495,7 @@ export default function CartPage() {
                               <FormItem>
                                 <FormLabel>{t('cart.cardExpiry')} *</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    placeholder={t('cart.cardExpiryPlaceholder')}
-                                    {...field}
-                                  />
+                                  <Input placeholder={t('cart.cardExpiryPlaceholder')} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -503,10 +508,7 @@ export default function CartPage() {
                               <FormItem>
                                 <FormLabel>{t('cart.cardCvv')} *</FormLabel>
                                 <FormControl>
-                                  <Input
-                                    placeholder={t('cart.cardCvvPlaceholder')}
-                                    {...field}
-                                  />
+                                  <Input placeholder={t('cart.cardCvvPlaceholder')} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -538,7 +540,10 @@ export default function CartPage() {
                           {hasLineUserId && (
                             <div
                               className="flex items-center gap-2 rounded-lg p-3 text-sm"
-                              style={{ backgroundColor: 'var(--success-50, #f0fdf4)', color: 'var(--success-700, #15803d)' }}
+                              style={{
+                                backgroundColor: 'var(--success-50, #f0fdf4)',
+                                color: 'var(--success-700, #15803d)',
+                              }}
                             >
                               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                               {t('cart.lineLinked')}
@@ -555,10 +560,7 @@ export default function CartPage() {
                                   {hasLineUserId ? t('cart.lineIdOptional') : t('cart.lineId')}
                                 </FormLabel>
                                 <FormControl>
-                                  <Input
-                                    placeholder={t('cart.lineIdPlaceholder')}
-                                    {...field}
-                                  />
+                                  <Input placeholder={t('cart.lineIdPlaceholder')} {...field} />
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -594,7 +596,10 @@ export default function CartPage() {
                             {t('cart.linePay')}
                           </Button>
                           {!hasLineUserId && (
-                            <p className="text-center text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                            <p
+                              className="text-center text-xs"
+                              style={{ color: 'var(--text-tertiary)' }}
+                            >
                               {t('cart.lineLoginHint')}
                             </p>
                           )}
