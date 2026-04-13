@@ -39,6 +39,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
 import { useCreateOrder, useLineSend, useConfirmOrder } from '@/queries/use-checkout';
+import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 
 const paymentMethods = ['credit_card', 'line_transfer'] as const;
 
@@ -172,11 +173,19 @@ function CartContent() {
     const isLine = values.paymentMethod === 'line_transfer';
     const apiPaymentMethod = isLine ? 'line' : 'lemon_squeezy';
 
-    // LINE transfer requires LINE Login to get internal userId for messaging
+    // LINE transfer requires LINE Login to get internal userId for messaging.
+    // Store form data on the server (not localStorage — unreliable in LINE's in-app browser)
+    // then redirect to LINE OAuth. The backend callback will create the order server-side.
     if (isLine && !hasLineUserId) {
-      localStorage.setItem('cart_form_data', JSON.stringify(values));
-      localStorage.setItem('line_login_return_url', '/cart');
-      window.location.href = '/api/auth/line';
+      try {
+        const { pendingId } = await authedFetchFn<{ pendingId: string }>('api/auth/line/start', {
+          method: 'POST',
+          body: { form_data: values },
+        });
+        window.location.href = `/api/auth/line?pending=${pendingId}`;
+      } catch {
+        toast.error('Failed to start LINE login. Please try again.');
+      }
       return;
     }
 

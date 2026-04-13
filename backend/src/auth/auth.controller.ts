@@ -13,12 +13,15 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { createHmac } from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SupabaseService } from '../supabase/supabase.service';
+import { OrderService } from '../order/order.service';
+import { LineService } from '../line/line.service';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -27,6 +30,8 @@ export class AuthController {
     private authService: AuthService,
     private supabaseService: SupabaseService,
     private configService: ConfigService,
+    private orderService: OrderService,
+    private lineService: LineService,
   ) {}
 
   @Post('register')
@@ -62,16 +67,43 @@ export class AuthController {
     return this.authService.getMe(user.id);
   }
 
+  /**
+   * Store form data on the server before LINE Login redirect.
+   * Returns a pendingId that the frontend passes to GET /api/auth/line.
+   */
+  @Post('line/start')
+  async lineStart(@Req() req: Request, @Body() body: { form_data: Record<string, unknown> }) {
+    const sessionId = req.sessionId;
+    if (!sessionId) {
+      // Create a session if none exists (this is a POST, so middleware should have created one)
+      throw new UnauthorizedException('No session');
+    }
+    const pendingId = await this.authService.storePendingOrder(sessionId, body.form_data);
+    return { pendingId };
+  }
+
   @Get('line')
-  async lineLogin(@Req() req: Request, @Res() res: Response) {
+  async lineLogin(
+    @Query('pending') pendingId: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
+    const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    // Use req.get('host') — NOT X-Forwarded-Host — to get the backend's actual host.
-    // The redirect_uri must match what's registered in LINE Developer Console (backend URLs).
     const host = req.get('host');
     const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
-    const state = randomUUID();
-    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
+
+    // Encode pendingId in the state using HMAC signature for integrity
+    let state: string;
+    if (pendingId) {
+      const sig = createHmac('sha256', channelSecret).update(pendingId).digest('hex').slice(0, 16);
+      state = `${pendingId}.${sig}`;
+    } else {
+      state = randomUUID();
+    }
+
+    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}&scope=profile%20openid`;
     res.redirect(lineAuthUrl);
   }
 
@@ -82,47 +114,47 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    // Diagnose env vars on every call (visible in Vercel Function Logs)
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    const hasChannelId = !!this.configService.get('LINE_LOGIN_CHANNEL_ID');
-    const hasChannelSecret = !!this.configService.get('LINE_LOGIN_CHANNEL_SECRET');
-    console.log('LINE callback: env check', {
-      FRONTEND_URL: frontendUrl ?? 'NOT SET',
-      LINE_LOGIN_CHANNEL_ID: hasChannelId,
-      LINE_LOGIN_CHANNEL_SECRET: hasChannelSecret,
-      host: req.get('host'),
-      proto: req.headers['x-forwarded-proto'],
-      code: code ? `${code.substring(0, 4)}...` : 'MISSING',
-    });
-
     if (!frontendUrl) {
-      console.error('LINE callback: FRONTEND_URL is not set');
-      res.status(500).json({
-        error: 'Server misconfiguration',
-        detail: 'FRONTEND_URL environment variable is not set',
-      });
+      res.status(500).json({ error: 'FRONTEND_URL not set' });
       return;
     }
 
     try {
       const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-      // Use req.get('host') — NOT X-Forwarded-Host — to match the redirect_uri
-      // sent in GET /api/auth/line (must be identical for LINE token exchange)
       const host = req.get('host');
       const backendOrigin = `${protocol}://${host}`;
-      console.log('LINE callback: exchanging code with backendOrigin =', backendOrigin);
 
+      // Decode pendingId from state (if present)
+      let pendingId: string | null = null;
+      const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
+      if (state && state.includes('.')) {
+        const [id, sig] = state.split('.');
+        const expectedSig = createHmac('sha256', channelSecret)
+          .update(id)
+          .digest('hex')
+          .slice(0, 16);
+        if (sig === expectedSig) {
+          pendingId = id;
+        }
+      }
+
+      // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
-      console.log('LINE callback: handleLineLogin succeeded, userId =', result.user.id);
 
       if (req.sessionId) {
         await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
       }
 
-      // Pass tokens via URL hash fragment — serverless-safe (no in-memory state).
-      // Hash fragments are never sent to servers (RFC 3986), same pattern as OAuth implicit flow.
-      // IMPORTANT: Cannot use res.redirect() — Express's encodeUrl() encodes # to %23,
-      // which breaks the fragment. Set the Location header directly instead.
+      // If there's a pending order, create it server-side and redirect to success
+      if (pendingId) {
+        const pending = await this.authService.consumePendingOrder(pendingId);
+        if (pending) {
+          return this.handlePendingOrder(pending, result, frontendUrl, res);
+        }
+      }
+
+      // No pending order — normal LINE Login, redirect with tokens
       const params = new URLSearchParams({
         access_token: result.access_token,
         refresh_token: result.refresh_token,
@@ -135,7 +167,72 @@ export class AuthController {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'LINE login failed';
       console.error('LINE callback error:', err);
-      const errorUrl = `${frontendUrl}/auth/callback#error=${encodeURIComponent(message)}`;
+      const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(message)}`;
+      res.setHeader('Location', errorUrl);
+      res.status(302).end();
+    }
+  }
+
+  /**
+   * Server-side order creation after LINE Login with pending form data.
+   */
+  private async handlePendingOrder(
+    pending: { session_id: string; form_data: Record<string, unknown> },
+    authResult: { user: { id: string; email: string }; access_token: string },
+    frontendUrl: string,
+    res: Response,
+  ) {
+    const fd = pending.form_data;
+
+    try {
+      // Create the order
+      const order = await this.orderService.createOrder(
+        pending.session_id,
+        authResult.user.id,
+        {
+          customer_name: fd.customerName as string,
+          customer_phone: fd.customerPhone as string,
+          customer_email: (fd.customerEmail as string) || undefined,
+          customer_address: fd.customerAddress as string,
+          notes: (fd.notes as string) || undefined,
+          payment_method: 'line',
+          customer_line_id: (fd.lineId as string) || undefined,
+          skip_cart_clear: true,
+        },
+      );
+
+      // Send LINE message (best-effort)
+      try {
+        await this.lineService.sendOrderToAdmin(order.id);
+        // Send to customer if profile has line_user_id
+        const supabase = this.supabaseService.getClient();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('line_user_id')
+          .eq('id', authResult.user.id)
+          .single();
+        if (profile?.line_user_id) {
+          await this.lineService.sendOrderMessage(order.id, profile.line_user_id);
+        }
+      } catch (lineErr) {
+        console.error('LINE message send failed (non-critical):', lineErr);
+      }
+
+      // Confirm order (clears cart)
+      try {
+        await this.orderService.confirmOrder(order.id, pending.session_id, authResult.user.id);
+      } catch {
+        // Non-critical
+      }
+
+      // Redirect to success page
+      const successUrl = `${frontendUrl}/checkout/success?order=${order.order_number}`;
+      res.setHeader('Location', successUrl);
+      res.status(302).end();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Order creation failed';
+      console.error('Pending order creation error:', err);
+      const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(message)}`;
       res.setHeader('Location', errorUrl);
       res.status(302).end();
     }

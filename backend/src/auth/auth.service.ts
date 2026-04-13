@@ -224,6 +224,33 @@ export class AuthService {
     return entry.tokens;
   }
 
+  async storePendingOrder(sessionId: string, formData: Record<string, unknown>): Promise<string> {
+    const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from('pending_line_orders')
+      .insert({ session_id: sessionId, form_data: formData })
+      .select('id')
+      .single();
+    if (error || !data) throw new BadRequestException('Failed to store pending order');
+    return data.id;
+  }
+
+  async consumePendingOrder(
+    pendingId: string,
+  ): Promise<{ session_id: string; form_data: Record<string, unknown> } | null> {
+    const supabase = this.supabaseService.getClient();
+    const { data } = await supabase
+      .from('pending_line_orders')
+      .select('session_id, form_data')
+      .eq('id', pendingId)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    if (!data) return null;
+    // Delete after consuming
+    await supabase.from('pending_line_orders').delete().eq('id', pendingId);
+    return data as { session_id: string; form_data: Record<string, unknown> };
+  }
+
   async getMe(userId: string) {
     const supabase = this.supabaseService.getClient();
 
