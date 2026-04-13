@@ -343,9 +343,112 @@ This fix resolves not just the LINE order flow, but ALL intermittent failures ca
 | `backend/src/auth/auth.controller.ts` | Reordered: consume pending before LINE login; pass tokens in success redirect |
 | `frontend/src/app/checkout/success/page.tsx` | Store auth tokens from hash fragment after server-side redirect |
 
+### Testing (fix 3b)
+
+Deployed 3b. `consumePendingOrder` now returns `found`. But `createOrder` throws **"Cart is empty"**. See fix 3c below.
+
+---
+
+## Fix 3c: `persistSession:false` Is Insufficient + CASCADE Delete (2026-04-13)
+
+### Problem
+
+After deploying fix 3b, logs show progress:
+
+```
+consumePendingOrder: id = fe6dff18-... , now = 2026-04-13T09:16:27.639Z
+lineCallback: consumePendingOrder result = found     ← ✓ Fix 3b worked!
+handleLineLogin: token response status = 200 OK
+Pending order creation error: BadRequestException: Cart is empty   ← ✗ NEW ERROR
+```
+
+The pending order is consumed successfully, LINE login succeeds, but `createOrder` can't find cart items.
+
+### Root Cause 1: `persistSession:false` Does NOT Prevent In-Memory Session Storage
+
+Inspecting the actual Supabase JS source code (`@supabase/auth-js/dist/module/GoTrueClient.js` lines 179-182):
+
+```javascript
+// When persistSession = false:
+else {
+    this.memoryStorage = {};
+    this.storage = memoryLocalStorageAdapter(this.memoryStorage);
+}
+```
+
+**`persistSession:false` only prevents saving to external storage (localStorage).** It still creates an in-memory storage adapter. When `signInWithPassword()` is called, `_saveSession()` writes to this in-memory storage. All subsequent `.from().select()` calls read the session from memory and use the user's token instead of the service_role key.
+
+So even with `persistSession:false`, after `handleLineLogin` → `signInWithPassword()`:
+- `mergeSessionOnLogin` → queries `sessions` table → uses user token → RLS blocks → silent failure
+- `createOrder` → `getCart` → queries `cart_items` table → uses user token → RLS blocks → 0 rows → "Cart is empty"
+
+### Root Cause 2: `cart_items_session_id_fkey` Has `ON DELETE CASCADE`
+
+```sql
+cart_items_session_id_fkey → sessions.id  ON DELETE CASCADE
+```
+
+`mergeSessionOnLogin` deletes old sessions. If called BEFORE `createOrder`, and if old sessions share products with the current cart, the CASCADE delete could remove cart items from old sessions. More critically, if `mergeSessionOnLogin` runs while the Supabase client is contaminated (using user token), the session UPDATE might silently fail, leaving the session in an inconsistent state.
+
+### Fix
+
+**1. Separate Supabase clients for data vs auth operations**
+
+`SupabaseService` now creates TWO client instances:
+
+```typescript
+// Data client — for .from() queries. NEVER contaminated.
+this.client = createClient(url, key, opts);
+
+// Auth client — for signInWithPassword/admin.createUser. Gets contaminated, but
+// its contamination never affects data queries.
+this.authClient = createClient(url, key, opts);
+```
+
+All `signInWithPassword()` and `admin.createUser()` calls in `AuthService` now use `getAuthClient()`:
+- `register()` → `authClient.auth.admin.createUser` + `authClient.auth.signInWithPassword`
+- `login()` → `authClient.auth.signInWithPassword`
+- `handleLineLogin()` → `authClient.auth.admin.createUser` + `authClient.auth.signInWithPassword`
+
+All data operations (`.from().select/insert/update/delete`) continue to use `getClient()`, which is NEVER contaminated.
+
+**2. Create order with `userId: null` (session-only cart lookup)**
+
+`handlePendingOrder` now passes `null` as `userId` to `createOrder`:
+
+```typescript
+// Before: createOrder(pending.session_id, authResult.user.id, ...)
+//   → getSessionIds queries sessions by user_id (potentially affected by merge)
+// After:  createOrder(pending.session_id, null, ...)
+//   → getSessionIds returns [sessionId] only — simple, reliable
+```
+
+Then updates `orders.user_id` separately after order creation.
+
+**3. Session merge moved to AFTER order creation**
+
+```typescript
+// Before:
+mergeSessionOnLogin(...)  // Deletes old sessions → CASCADE deletes cart_items
+createOrder(...)          // Cart items might be gone!
+
+// After:
+createOrder(...)          // Cart items intact — reads from session
+update orders.user_id     // Assign user to order
+mergeSessionOnLogin(...)  // Now safe to delete old sessions
+```
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/src/supabase/supabase.service.ts` | Two clients: `getClient()` (data) and `getAuthClient()` (auth) |
+| `backend/src/auth/auth.service.ts` | `register`, `login`, `handleLineLogin` use `getAuthClient()` for signInWithPassword |
+| `backend/src/auth/auth.controller.ts` | `handlePendingOrder`: createOrder with null userId, assign user after, merge session last |
+
 ### Testing
 
-1. **LINE CTA flow (new user):** Fill form → click CTA → LINE Login → should land on `/checkout/success?order=ORD-xxx` with user logged in
-2. **LINE message:** Admin should receive Flex Message; user should receive if friends with OA
-3. **Cart 400 gone:** After the flow, adding items to cart should work (no more random 400s)
-4. **Warm Lambda:** Repeat the flow multiple times — no intermittent failures
+1. **LINE CTA flow (new user, Safari private):** Fill form → click CTA → LINE Login → should land on `/checkout/success` (not /cart with error)
+2. **LINE messages:** Admin and user should receive Flex Messages
+3. **No Cart is empty error:** Order created from session cart items successfully
+4. **Warm Lambda safety:** Data client never contaminated regardless of auth calls

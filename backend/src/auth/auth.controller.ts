@@ -156,12 +156,11 @@ export class AuthController {
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
-      // If there's a pending order, create it server-side and redirect to success
+      // If there's a pending order, create it server-side and redirect to success.
+      // Session merge is done INSIDE handlePendingOrder AFTER order creation,
+      // because mergeSessionOnLogin deletes old sessions which CASCADE-deletes
+      // their cart_items — we must read the cart before any session changes.
       if (pending) {
-        // Merge the original cart session with the new user (req.sessionId is
-        // unavailable here — the callback is a direct request to the backend
-        // domain, so the frontend's session_id cookie is not sent)
-        await this.authService.mergeSessionOnLogin(pending.session_id, result.user.id);
         return this.handlePendingOrder(pending, result, frontendUrl, res);
       }
 
@@ -205,8 +204,12 @@ export class AuthController {
     const fd = pending.form_data;
 
     try {
-      // Create the order
-      const order = await this.orderService.createOrder(pending.session_id, authResult.user.id, {
+      // Create order with null userId — cart items are linked to the session,
+      // and getSessionIds(sessionId, null) looks up by session_id only.
+      // We must NOT pass userId here because getSessionIds(sessionId, userId)
+      // queries the sessions table, which might return unexpected results if
+      // old sessions exist or the merge hasn't happened yet.
+      const order = await this.orderService.createOrder(pending.session_id, null, {
         customer_name: fd.customerName as string,
         customer_phone: fd.customerPhone as string,
         customer_email: (fd.customerEmail as string) || undefined,
@@ -217,11 +220,15 @@ export class AuthController {
         skip_cart_clear: true,
       });
 
+      // Assign user to the order and merge session AFTER order creation.
+      // mergeSessionOnLogin deletes old sessions which CASCADE-deletes cart_items.
+      const supabase = this.supabaseService.getClient();
+      await supabase.from('orders').update({ user_id: authResult.user.id }).eq('id', order.id);
+      await this.authService.mergeSessionOnLogin(pending.session_id, authResult.user.id);
+
       // Send LINE message (best-effort)
       try {
         await this.lineService.sendOrderToAdmin(order.id);
-        // Send to customer if profile has line_user_id
-        const supabase = this.supabaseService.getClient();
         const { data: profile } = await supabase
           .from('profiles')
           .select('line_user_id')

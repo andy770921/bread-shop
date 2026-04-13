@@ -14,9 +14,9 @@ export class AuthService {
   ) {}
 
   async register(dto: { email: string; password: string; name?: string }): Promise<AuthResponse> {
-    const supabase = this.supabaseService.getClient();
+    const authClient = this.supabaseService.getAuthClient();
 
-    const { error: createError } = await supabase.auth.admin.createUser({
+    const { error: createError } = await authClient.auth.admin.createUser({
       email: dto.email,
       password: dto.password,
       email_confirm: true,
@@ -25,7 +25,7 @@ export class AuthService {
 
     if (createError) throw new BadRequestException(createError.message);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await authClient.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
     });
@@ -40,9 +40,9 @@ export class AuthService {
   }
 
   async login(dto: { email: string; password: string }): Promise<AuthResponse> {
-    const supabase = this.supabaseService.getClient();
+    const authClient = this.supabaseService.getAuthClient();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await authClient.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
     });
@@ -138,6 +138,7 @@ export class AuthService {
     console.log('handleLineLogin: profile userId =', lineProfile.userId);
 
     const supabase = this.supabaseService.getClient();
+    const authClient = this.supabaseService.getAuthClient();
 
     const { data: existingProfile } = await supabase
       .from('profiles')
@@ -153,7 +154,7 @@ export class AuthService {
     const linePassword = hash.slice(0, 64);
 
     if (existingProfile) {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await authClient.auth.signInWithPassword({
         email: lineEmail,
         password: linePassword,
       });
@@ -165,7 +166,7 @@ export class AuthService {
         refresh_token: data.session.refresh_token,
       };
     } else {
-      const { error: createError } = await supabase.auth.admin.createUser({
+      const { error: createError } = await authClient.auth.admin.createUser({
         email: lineEmail,
         password: linePassword,
         email_confirm: true,
@@ -177,7 +178,7 @@ export class AuthService {
         throw new BadRequestException('LINE signup failed: ' + createError.message);
       }
 
-      const { data: createdUser, error: signInError } = await supabase.auth.signInWithPassword({
+      const { data: createdUser, error: signInError } = await authClient.auth.signInWithPassword({
         email: lineEmail,
         password: linePassword,
       });
