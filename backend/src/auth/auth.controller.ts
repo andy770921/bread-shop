@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -156,32 +157,56 @@ export class AuthController {
         console.log('lineCallback: state has no dot — not a pending order flow');
       }
 
-      // Consume pending order BEFORE handleLineLogin (defense-in-depth
+      // Read pending order BEFORE handleLineLogin (defense-in-depth
       // against Supabase client auth contamination from signInWithPassword).
+      // Does NOT delete — we may need it for the "pending confirmation" page.
       let pending: { session_id: string; form_data: Record<string, unknown> } | null = null;
       if (pendingId) {
-        pending = await this.authService.consumePendingOrder(pendingId);
-        console.log('lineCallback: consumePendingOrder result =', pending ? 'found' : 'null');
+        pending = await this.authService.readPendingOrder(pendingId);
+        console.log('lineCallback: readPendingOrder result =', pending ? 'found' : 'null');
+        if (!pending) {
+          // Pending order expired or was already consumed — redirect to cart with error
+          const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent('Order request expired. Please try again.')}`;
+          res.redirect(errorUrl);
+          return;
+        }
       }
 
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
-      // For pending order flow: check if user is friends with the Messaging API bot.
-      // Without friendship, pushMessage will fail — treat as order failure.
-      if (pending) {
+      if (pending && pendingId) {
         const isFriend = await this.checkLineFriendship(result.lineAccessToken);
         console.log('lineCallback: friendship status =', isFriend);
 
         if (!isFriend) {
-          const failUrl = `${frontendUrl}/checkout/failed?reason=not_friend`;
-          res.redirect(failUrl);
+          // User is NOT friends with the bot. Store auth data in the pending order
+          // so the confirm-order endpoint can use it later, then redirect to the
+          // "pending confirmation" page where user can add the bot and retry.
+          await this.authService.updatePendingOrderAuth(pendingId, {
+            lineAccessToken: result.lineAccessToken,
+            userId: result.user.id,
+          });
+          const tokenParams = new URLSearchParams({
+            access_token: result.access_token,
+            refresh_token: result.refresh_token,
+          });
+          const pendingUrl = `${frontendUrl}/checkout/pending?pendingId=${pendingId}#${tokenParams.toString()}`;
+          res.redirect(pendingUrl);
           return;
         }
 
+        // User IS friends — atomically consume and create order
+        const consumed = await this.authService.deletePendingOrder(pendingId);
+        if (!consumed) {
+          res.redirect(
+            `${frontendUrl}/cart?error=${encodeURIComponent('Order already submitted.')}`,
+          );
+          return;
+        }
         this.sendLoadingPage(res);
         try {
-          const url = await this.handlePendingOrder(pending, result, frontendUrl);
+          const url = await this.handlePendingOrder(consumed, result, frontendUrl);
           res.write(`<script>window.location.href=${JSON.stringify(url)}</script>`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Order creation failed';
@@ -341,6 +366,56 @@ export class AuthController {
       refresh_token: authResult.refresh_token,
     });
     return `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams.toString()}`;
+  }
+
+  /**
+   * Called from the "pending confirmation" page when the user clicks "送出下訂".
+   * Checks friendship, creates order, sends LINE messages.
+   */
+  @Post('line/confirm-order')
+  @UseGuards(AuthGuard)
+  async confirmLineOrder(@Body() body: { pendingId: string }, @CurrentUser() user: any) {
+    // Read first to validate ownership and get lineAccessToken
+    const pending = await this.authService.readPendingOrder(body.pendingId);
+    if (!pending) {
+      throw new BadRequestException(
+        'Order request expired. Please return to the cart and try again.',
+      );
+    }
+
+    const fd = pending.form_data;
+    if (!fd._user_id || fd._user_id !== user.id) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    const lineAccessToken = fd._line_access_token as string;
+    if (!lineAccessToken) {
+      throw new BadRequestException('LINE authentication expired. Please try again from the cart.');
+    }
+
+    const isFriend = await this.checkLineFriendship(lineAccessToken);
+    if (!isFriend) {
+      throw new BadRequestException('not_friend');
+    }
+
+    // Atomically delete — acts as a lock against double-click race condition.
+    // If null, another request already consumed it → duplicate prevented.
+    const consumed = await this.authService.deletePendingOrder(body.pendingId);
+    if (!consumed) {
+      throw new BadRequestException('Order already submitted.');
+    }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
+    const authResult = {
+      user: { id: user.id, email: user.email },
+      access_token: '',
+      refresh_token: '',
+      lineAccessToken,
+    };
+
+    const successUrl = await this.handlePendingOrder(consumed, authResult, frontendUrl);
+    const orderMatch = successUrl.match(/order=([^#&]+)/);
+    return { success: true, order_number: orderMatch?.[1] || null };
   }
 
   @Post('line/exchange')

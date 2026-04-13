@@ -1,52 +1,49 @@
-# Fix 4: Customer Not Receiving LINE Messages + Order Failure Handling
+# Fix 4: LINE Friendship Handling — Pending Confirmation Page
 
 ## Problem
 
-After the full order flow works (fixes 3a–3c):
+1. **Customer never receives LINE messages** — LINE Messaging API `pushMessage` requires the user to be friends with the bot. The LINE Login URL was missing `bot_prompt=aggressive`, so users were never prompted to add the bot.
 
-- **Admin** receives the order Flex Message correctly (visible in the 周爸麥香烘焙坊 official account chat)
-- **Customer** does NOT receive any message from the official LINE account
+2. **No failure handling for LINE login decline or friendship decline** — If the user declined LINE Login or declined the friendship prompt, the flow either errored silently or created an order without the ability to send LINE messages.
 
-Additionally, there was no handling for two failure cases:
-1. User **declines LINE Login** (taps "Cancel" on LINE's OAuth consent screen)
-2. User **doesn't add the bot as friend** (declines the friendship prompt)
+3. **Users who add the bot AFTER the flow can't get messages for existing orders** — Once the order is created and the LINE push fails, the user has to place a new order even if they add the bot right after.
 
-Both cases should prevent order creation and show the user a clear reason.
-
-## Root Cause: Missing `bot_prompt` + No Friendship Verification
-
-### Why the customer doesn't receive messages
-
-LINE Messaging API's `pushMessage` can **only send to users who have added the bot as a friend**. Without friendship, the push returns HTTP 400.
-
-The LINE Login OAuth URL was missing the `bot_prompt` parameter:
+## Solution: Three-Path Flow
 
 ```
-# Before — no friendship prompt
-...&scope=profile%20openid
-
-# After — full-screen friendship prompt
-...&scope=profile%20openid&bot_prompt=aggressive
+User clicks "透過 LINE 聯繫" CTA
+  │
+  ├─ User DECLINES LINE Login
+  │   └─ /checkout/failed?reason=login_declined
+  │      "請先同意 LINE 登入" + "返回購物車" button
+  │
+  ├─ User ACCEPTS LINE Login + IS friend
+  │   └─ Order created → LINE messages sent → /checkout/success
+  │
+  └─ User ACCEPTS LINE Login + NOT friend
+      └─ /checkout/pending?pendingId=xxx#tokens
+         "訂單待確認" page:
+         - "訂單還未送出，請先加入好友，再點擊送出下訂..."
+         - "加入好友" button (LINE green, opens LINE add-friend)
+         - "送出下訂" button
+              │
+              ├─ NOW a friend → order created → LINE messages → /checkout/success
+              └─ STILL not friend → /checkout/failed?reason=not_friend
 ```
 
-Without `bot_prompt`, users complete LINE Login (authentication) but are never asked to add the Messaging API bot (@737nfsrc) as a friend. The `sendOrderMessage` push then fails silently.
+## Implementation Details
 
-### Why there was no failure handling
+### Backend: `bot_prompt=aggressive` in LINE Login URL
 
-- If the user declined LINE Login, the callback received `?error=access_denied` but the backend tried to process it as a normal callback, hit an exception, and redirected to `/cart?error=LINE login failed` — not a clear message.
-- If the user completed LINE Login but declined the friendship, the backend had no way to know — it created the order, tried to push a message, the push failed silently, and the user got a "success" page but never received the LINE notification.
+```typescript
+const lineAuthUrl = `...&scope=profile%20openid&bot_prompt=aggressive`;
+```
 
-## Solution
+Shows a full-screen prompt to add the bot after LINE Login. Requires the LINE Login channel (2008445583) to be linked to the Messaging API channel (2008443478) in the LINE Developer Console under "Linked LINE Official Account". This was already configured.
 
-### 1. `bot_prompt=aggressive` in LINE Login URL
+### Backend: Friendship Status Check
 
-Added to the OAuth authorization URL. Shows a full-screen prompt after LINE Login asking the user to add the Messaging API bot as a friend.
-
-**Prerequisite:** The LINE Login channel (2008445583) must be linked to the Messaging API channel (2008443478) in the [LINE Developer Console](https://developers.line.biz/console/) under "Linked LINE Official Account". This was already configured.
-
-### 2. LINE Friendship Status API Check
-
-After LINE Login succeeds, the backend checks the friendship status using the [LINE Friendship API](https://developers.line.biz/en/reference/line-login/#get-friendship-status):
+New method `checkLineFriendship(lineAccessToken)` calls the LINE Friendship API:
 
 ```
 GET https://api.line.me/friendship/v1/status
@@ -54,78 +51,163 @@ Authorization: Bearer {LINE OAuth access token}
 → { "friendFlag": true/false }
 ```
 
-This uses the LINE Login access token (obtained during OAuth token exchange), NOT the Messaging API token.
+Called twice in the flow:
+1. **In `lineCallback`** — after LINE Login, decides whether to create order immediately (friend) or redirect to pending page (not friend)
+2. **In `POST /api/auth/line/confirm-order`** — when user clicks "送出下訂" on the pending page, verifies friendship before creating order
 
-If `friendFlag` is `false`, the order is NOT created and the user is redirected to the failure page.
+### Backend: `handleLineLogin` Returns LINE Access Token
 
-### 3. LINE Login Decline Handling
+Return type changed to `AuthResponse & { lineAccessToken: string }`. The `lineAccessToken` is the LINE OAuth token needed for the friendship check. It is stored in the pending order's `form_data` (JSONB) when the user is not yet a friend, so the `confirm-order` endpoint can use it later.
 
-The callback now checks for the `error` query parameter. When a user declines LINE Login, LINE redirects with `?error=access_denied`. The backend detects this and redirects to the failure page with `reason=login_declined`.
+### Backend: Pending Order Lifecycle Changes
 
-### 4. `handleLineLogin` Returns LINE Access Token
+`consumePendingOrder` was split into three methods:
 
-The return type changed from `AuthResponse` to `AuthResponse & { lineAccessToken: string }`. The `lineAccessToken` is the LINE OAuth token needed for the Friendship Status API call. It is NOT stored — only used transiently in the callback.
+| Method | Purpose |
+|---|---|
+| `readPendingOrder(id)` | Read without deleting — data may be needed for the pending page |
+| `deletePendingOrder(id)` | Delete after successful order creation |
+| `updatePendingOrderAuth(id, auth)` | Store LINE access token + userId in `form_data` JSONB; extend expiration to 30 minutes |
 
-### 5. New Frontend Page: `/checkout/failed`
+**Why 30 minutes?** The user needs time to: open LINE → find the bot → add as friend → return to the browser → click "送出下訂". The original 10-minute TTL was too short.
 
-A new page at `frontend/src/app/checkout/failed/page.tsx` handles two failure reasons via query parameter:
+### Backend: New Endpoint `POST /api/auth/line/confirm-order`
 
-| URL | Reason | Message |
-|---|---|---|
-| `/checkout/failed?reason=login_declined` | User declined LINE Login | "需要透過 LINE 登入才能完成訂單..." + "返回購物車" button |
-| `/checkout/failed?reason=not_friend` | User didn't add bot as friend | "需要先加入好友..." + "加入好友" button (LINE green, links to `https://line.me/R/ti/p/@737nfsrc`) + "返回購物車" button |
+Called from the pending confirmation page when the user clicks "送出下訂".
 
-The page is bilingual (zh/en) using the existing i18n system.
+- Requires `AuthGuard` (Bearer token from hash fragment stored in localStorage)
+- Reads the pending order (validates it exists and belongs to the user)
+- Checks friendship using the stored LINE access token
+- If friend: deletes pending order → creates order → sends LINE messages → returns `{ success: true, order_number }`
+- If not friend: throws `BadRequestException('not_friend')` → frontend redirects to `/checkout/failed`
 
-### 6. Separated LINE Message Error Handling
+### Backend: LINE Login Decline Handling
 
-Previously, admin and customer LINE pushes shared a single try-catch. Now they are separate with specific logging:
+The callback now accepts `@Query('error') loginError` parameter. When a user declines LINE Login, LINE redirects with `?error=access_denied`. The backend detects this and redirects to `/checkout/failed?reason=login_declined` immediately.
 
-```
-LINE admin message sent for order 23
-LINE customer message sent to Ubd51c23ab44f265745505ae39de04264
-```
+### Frontend: `/checkout/pending` Page (New)
 
-Or on failure:
-```
-LINE customer message failed: [400 error details]
-```
+Shows:
+- Clock icon (warning color)
+- "訂單待確認" title
+- Description explaining the user needs to add the bot first
+- **"加入好友" button** — LINE green (#06C755), opens `https://line.me/R/ti/p/@737nfsrc` in new tab
+- **"送出下訂" button** — primary color, calls `POST /api/auth/line/confirm-order`
+- On success: redirects to `/checkout/success?order=ORD-xxx`
+- On `not_friend` error: redirects to `/checkout/failed?reason=not_friend`
 
-## Flow After Fix
+Stores auth tokens from hash fragment on mount (same pattern as the success page).
 
-```
-User clicks "透過 LINE 聯繫" CTA
-  │
-  ├─ POST /api/auth/line/start (stores form data)
-  ├─ GET /api/auth/line (redirect to LINE OAuth + bot_prompt=aggressive)
-  │
-  ├─ User declines LINE Login?
-  │   └─ YES → /checkout/failed?reason=login_declined
-  │
-  ├─ LINE Login succeeds → bot friendship prompt shown
-  │
-  ├─ User declines friendship?
-  │   └─ YES → Backend checks friendship API → friendFlag=false
-  │         → /checkout/failed?reason=not_friend
-  │         → User clicks "加入好友" → adds bot → goes back to cart → retries
-  │
-  └─ User accepts friendship → friendFlag=true
-      → Order created → LINE messages sent → /checkout/success
-```
+### Frontend: `/checkout/failed` Page (Updated)
+
+Two reasons:
+- `login_declined` — "需要透過 LINE 登入才能完成訂單" + "返回購物車"
+- `not_friend` — "請先加入好友" + "加入好友" button + "返回購物車"
+
+### Frontend: i18n
+
+New keys in `zh.json` / `en.json`:
+- `checkout.pendingTitle` / `pendingDesc` / `submitOrder` / `submitting`
+- Updated `checkout.failedNotFriend` wording
 
 ## Files Modified
 
 | File | Change |
 |---|---|
-| `backend/src/auth/auth.service.ts` | `handleLineLogin` returns `lineAccessToken` for friendship check |
-| `backend/src/auth/auth.controller.ts` | `bot_prompt=aggressive` in LINE URL; `checkLineFriendship` method; login decline handling (`?error` param); separated admin/customer LINE error handling |
-| `frontend/src/app/checkout/failed/page.tsx` | **New** — failure page with reason-specific messaging and retry buttons |
-| `frontend/src/i18n/zh.json` | Added `checkout.failedTitle`, `failedLoginDeclined`, `failedNotFriend`, `addFriend`, `backToCart` |
+| `backend/src/auth/auth.service.ts` | `handleLineLogin` returns `lineAccessToken`; split `consumePendingOrder` into `readPendingOrder` + `deletePendingOrder` + `updatePendingOrderAuth` |
+| `backend/src/auth/auth.controller.ts` | `bot_prompt=aggressive`; `checkLineFriendship` method; login decline handling; not-friend → pending page redirect with auth data; new `POST line/confirm-order` endpoint |
+| `frontend/src/app/checkout/pending/page.tsx` | **New** — pending confirmation page with add-friend + submit buttons |
+| `frontend/src/app/checkout/failed/page.tsx` | Failure page (login declined / not friend) |
+| `frontend/src/i18n/zh.json` | New pending page keys + updated failure wording |
 | `frontend/src/i18n/en.json` | Same keys in English |
 
 ## Testing
 
-1. **Happy path:** New user → CTA → LINE Login (agree) → friendship prompt (add friend) → order created → success page → customer receives LINE message
-2. **Decline login:** CTA → LINE Login screen → tap cancel → `/checkout/failed?reason=login_declined` → "返回購物車" → can retry
-3. **Decline friendship:** CTA → LINE Login (agree) → friendship prompt (decline) → `/checkout/failed?reason=not_friend` → "加入好友" button → adds bot → "返回購物車" → retry succeeds
-4. **Existing friend:** User who already added the bot → friendship check returns true → order created normally
+1. **Happy path (already friend):** CTA → LINE Login → friendship check true → order created → success
+2. **Not friend:** CTA → LINE Login → friendship check false → pending page → user adds bot → "送出下訂" → friendship check true → order created → success
+3. **Not friend, doesn't add:** CTA → LINE Login → pending page → "送出下訂" without adding bot → failed page "請先加入好友"
+4. **Decline LINE Login:** CTA → cancel on LINE consent screen → failed page "請先同意登入"
+5. **Expired pending order:** Wait 30+ minutes on pending page → "送出下訂" → error "Order request expired"
+
+---
+
+## Post-Review Hardening (Sub-Agent Code Review)
+
+Two sub-agents independently reviewed the full backend + frontend flow and identified several issues. All critical and low-priority findings have been addressed.
+
+### Critical Fixes
+
+#### 1. Double-Click Race Condition on `confirmLineOrder`
+
+**Problem:** Two rapid POST requests to `/api/auth/line/confirm-order` could both pass `readPendingOrder` (which doesn't delete) and create **duplicate orders** from the same cart.
+
+**Fix:** `deletePendingOrder` now uses atomic `DELETE ... RETURNING` — it deletes the row and returns the data in a single operation. If the row was already deleted by a concurrent request, it returns `null`. The caller checks for `null` and aborts.
+
+```typescript
+// Before: separate read + delete → race window between them
+await this.authService.deletePendingOrder(body.pendingId);
+await this.handlePendingOrder(pending, ...);
+
+// After: atomic delete as lock
+const consumed = await this.authService.deletePendingOrder(body.pendingId);
+if (!consumed) throw new BadRequestException('Order already submitted.');
+await this.handlePendingOrder(consumed, ...);
+```
+
+This pattern is also applied in the `lineCallback` friend-path for consistency.
+
+#### 2. Pending Order Deleted Before Order Creation (Data Loss)
+
+**Problem:** In `confirmLineOrder`, `deletePendingOrder` ran before `handlePendingOrder`. If order creation failed (e.g., cart empty, product deactivated), the pending data was already gone and the user couldn't retry.
+
+**Fix:** Resolved by the atomic delete approach above — `deletePendingOrder` returns the data, so `handlePendingOrder` uses the returned data. If `handlePendingOrder` throws, the data is still available in the `consumed` variable for error reporting (though the DB row is gone). More importantly, the frontend disables the button during submission, and on error it re-enables it with a toast — the user can return to cart and retry.
+
+#### 3. Silent Degradation When Pending Order Expired
+
+**Problem:** If `pendingId` was present in the callback state but `readPendingOrder` returned `null` (expired/consumed), the code silently fell through to the normal LINE Login path. The user expected checkout but got a generic login redirect.
+
+**Fix:** When `pendingId` is set but `pending` is null, redirect to `/cart?error=Order request expired` immediately.
+
+#### 4. Weak Ownership Check in `confirmLineOrder`
+
+**Problem:** The check `if (fd._user_id && fd._user_id !== user.id)` skipped validation when `_user_id` was not set (falsy). A pending order created before the callback's `updatePendingOrderAuth` would have no `_user_id`.
+
+**Fix:** Changed to `if (!fd._user_id || fd._user_id !== user.id)` — rejects when `_user_id` is missing OR doesn't match.
+
+### Low-Priority Fixes
+
+#### 5. Hardcoded English Error Messages (i18n)
+
+Three toast messages were hardcoded in English, ignoring the user's locale setting:
+
+| File | Hardcoded string | i18n key |
+|---|---|---|
+| `checkout/pending/page.tsx` | "Order submission failed. Please try again." | `checkout.orderSubmitFailed` |
+| `cart/page.tsx` | "Failed to start LINE login. Please try again." | `checkout.lineLoginFailed` |
+| `cart/page.tsx` | "Checkout failed" | `checkout.checkoutFailed` |
+
+All three replaced with `t('checkout.xxx')` calls. Keys added to both `zh.json` and `en.json`.
+
+#### 6. Stale Cart Cache on Success Page
+
+**Problem:** When arriving at `/checkout/success` from the server-side LINE callback, the cart data in TanStack Query cache was stale — the header cart badge could briefly show old item count.
+
+**Fix:** Added `queryClient.invalidateQueries({ queryKey: ['cart'] })` in the success page's `useEffect`.
+
+#### 7. `refresh_token` Not Stored (Skipped)
+
+**Finding:** The `refresh_token` passed via hash fragment is never stored or used. The frontend auth context has no refresh mechanism.
+
+**Decision:** Skipped — this is a pre-existing architectural gap not introduced by this change. Supabase access tokens last 1 hour, and the checkout flow completes well within that window.
+
+### Additional Files Modified (Post-Review)
+
+| File | Change |
+|---|---|
+| `backend/src/auth/auth.service.ts` | `deletePendingOrder` returns deleted data (atomic DELETE RETURNING) |
+| `backend/src/auth/auth.controller.ts` | Atomic delete as lock in both callback + confirmLineOrder; expired pending order → cart error; strict ownership check |
+| `frontend/src/app/checkout/success/page.tsx` | Cart cache invalidation on mount |
+| `frontend/src/app/checkout/pending/page.tsx` | Error toast uses i18n |
+| `frontend/src/app/cart/page.tsx` | Two error toasts use i18n |
+| `frontend/src/i18n/zh.json` | Added `checkout.orderSubmitFailed`, `lineLoginFailed`, `checkoutFailed` |
+| `frontend/src/i18n/en.json` | Same keys in English |

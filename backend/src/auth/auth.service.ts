@@ -241,12 +241,12 @@ export class AuthService {
     return data.id;
   }
 
-  async consumePendingOrder(
+  async readPendingOrder(
     pendingId: string,
   ): Promise<{ session_id: string; form_data: Record<string, unknown> } | null> {
     const supabase = this.supabaseService.getClient();
     const now = new Date().toISOString();
-    console.log('consumePendingOrder: id =', pendingId, ', now =', now);
+    console.log('readPendingOrder: id =', pendingId, ', now =', now);
 
     const { data, error } = await supabase
       .from('pending_line_orders')
@@ -256,28 +256,19 @@ export class AuthService {
       .single();
 
     if (error) {
-      console.error('consumePendingOrder: query error:', error.code, error.message);
-      // Fallback: try without expires_at filter (in case of clock skew)
+      console.error('readPendingOrder: query error:', error.code, error.message);
+      // Fallback without expires_at filter (clock skew)
       const { data: fallback, error: fallbackErr } = await supabase
         .from('pending_line_orders')
         .select('session_id, form_data, expires_at')
         .eq('id', pendingId)
         .single();
       if (fallbackErr) {
-        console.error(
-          'consumePendingOrder: fallback also failed:',
-          fallbackErr.code,
-          fallbackErr.message,
-        );
+        console.error('readPendingOrder: fallback failed:', fallbackErr.code, fallbackErr.message);
         return null;
       }
       if (fallback) {
-        console.log(
-          'consumePendingOrder: found via fallback (expires_at =',
-          fallback.expires_at,
-          ')',
-        );
-        await supabase.from('pending_line_orders').delete().eq('id', pendingId);
+        console.log('readPendingOrder: found via fallback (expires_at =', fallback.expires_at, ')');
         return {
           session_id: fallback.session_id,
           form_data: fallback.form_data as Record<string, unknown>,
@@ -287,9 +278,51 @@ export class AuthService {
     }
 
     if (!data) return null;
-    // Delete after consuming
-    await supabase.from('pending_line_orders').delete().eq('id', pendingId);
     return data as { session_id: string; form_data: Record<string, unknown> };
+  }
+
+  /**
+   * Atomically delete and return the pending order. Returns null if already deleted
+   * (e.g., by a concurrent request). Used as a lock to prevent duplicate orders.
+   */
+  async deletePendingOrder(
+    pendingId: string,
+  ): Promise<{ session_id: string; form_data: Record<string, unknown> } | null> {
+    const supabase = this.supabaseService.getClient();
+    const { data } = await supabase
+      .from('pending_line_orders')
+      .delete()
+      .eq('id', pendingId)
+      .select('session_id, form_data')
+      .single();
+    return data as { session_id: string; form_data: Record<string, unknown> } | null;
+  }
+
+  /** Store auth data in the pending order so the confirm-order endpoint can use it later. */
+  async updatePendingOrderAuth(
+    pendingId: string,
+    auth: { lineAccessToken: string; userId: string },
+  ): Promise<void> {
+    const supabase = this.supabaseService.getClient();
+    // Read current form_data, merge auth into it, extend expiration to 30 min
+    const { data: current } = await supabase
+      .from('pending_line_orders')
+      .select('form_data')
+      .eq('id', pendingId)
+      .single();
+    if (!current) return;
+    const updatedFormData = {
+      ...(current.form_data as Record<string, unknown>),
+      _line_access_token: auth.lineAccessToken,
+      _user_id: auth.userId,
+    };
+    await supabase
+      .from('pending_line_orders')
+      .update({
+        form_data: updatedFormData,
+        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      })
+      .eq('id', pendingId);
   }
 
   async getMe(userId: string) {

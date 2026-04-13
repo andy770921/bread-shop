@@ -184,7 +184,7 @@ function CartContent() {
         });
         window.location.href = `/api/auth/line?pending=${pendingId}`;
       } catch {
-        toast.error('Failed to start LINE login. Please try again.');
+        toast.error(t('checkout.lineLoginFailed'));
       }
       return;
     }
@@ -228,7 +228,7 @@ function CartContent() {
         router.push(`/checkout/success?order=${orderData.order_number}`);
       }
     } catch (error: any) {
-      toast.error(error.message || 'Checkout failed');
+      toast.error(error.message || t('checkout.checkoutFailed'));
     }
   };
 

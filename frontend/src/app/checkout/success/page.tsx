@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CheckoutSuccessPage() {
   return (
@@ -28,13 +29,17 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const { t } = useLocale();
   const { refreshUser } = useAuth();
+  const queryClient = useQueryClient();
   const processedRef = useRef(false);
   const orderNumber = searchParams.get('order') || searchParams.get('order_id');
 
   // Store auth tokens from hash fragment (set by server-side LINE order flow)
+  // and invalidate stale cart cache so header badge shows 0 items.
   useEffect(() => {
     if (processedRef.current) return;
     processedRef.current = true;
+
+    queryClient.invalidateQueries({ queryKey: ['cart'] });
 
     const hash = window.location.hash.substring(1);
     if (!hash) return;

@@ -115,9 +115,16 @@
     "backHome": "Back to Home",
     "failedTitle": "Order Not Placed",
     "failedLoginDeclined": "LINE login is required to complete your order. Please go back to the cart and try again — tap \"Allow\" on the LINE login screen.",
-    "failedNotFriend": "You need to add our LINE Official Account as a friend to receive order notifications and complete your order. Please add us and try again.",
+    "failedNotFriend": "Order was not placed. Please add our LINE Official Account as a friend first, then go back to the cart and try again.",
     "addFriend": "Add Friend",
-    "backToCart": "Back to Cart"
+    "backToCart": "Back to Cart",
+    "pendingTitle": "Order Pending",
+    "pendingDesc": "Your order has not been submitted yet. Please add our LINE Official Account as a friend first, then tap \"Submit Order\" below. Our staff will contact you via LINE to confirm payment details.",
+    "submitOrder": "Submit Order",
+    "submitting": "Submitting...",
+    "orderSubmitFailed": "Order submission failed. Please try again.",
+    "lineLoginFailed": "Failed to start LINE login. Please try again.",
+    "checkoutFailed": "Checkout failed"
   },
   "status": {
     "pending": "Pending",

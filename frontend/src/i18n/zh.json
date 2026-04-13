@@ -115,9 +115,16 @@
     "backHome": "回到首頁",
     "failedTitle": "訂單未成立",
     "failedLoginDeclined": "需要透過 LINE 登入才能完成訂單。請返回購物車並重新操作，在 LINE 登入畫面點選「同意」。",
-    "failedNotFriend": "需要先加入我們的 LINE 官方帳號為好友，才能接收訂單通知並完成訂單。請加入好友後返回購物車重新下單。",
+    "failedNotFriend": "訂單未成立，請先加入我們的 LINE 官方帳號為好友，再返回購物車重新下單。",
     "addFriend": "加入好友",
-    "backToCart": "返回購物車"
+    "backToCart": "返回購物車",
+    "pendingTitle": "訂單待確認",
+    "pendingDesc": "訂單還未送出，請先加入我們的 LINE 官方帳號為好友，再點擊下方「送出下訂」按鈕，會有專人用 LINE 跟您確認付款細節。",
+    "submitOrder": "送出下訂",
+    "submitting": "送出中...",
+    "orderSubmitFailed": "訂單送出失敗，請重試。",
+    "lineLoginFailed": "LINE 登入啟動失敗，請重試。",
+    "checkoutFailed": "結帳失敗"
   },
   "status": {
     "pending": "待付款",
