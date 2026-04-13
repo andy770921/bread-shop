@@ -143,20 +143,26 @@ export class AuthController {
         console.log('lineCallback: state has no dot — not a pending order flow');
       }
 
+      // Consume pending order BEFORE handleLineLogin.
+      // handleLineLogin calls signInWithPassword() which used to contaminate
+      // the Supabase client's auth context on warm Lambda instances.
+      // persistSession:false now prevents this, but we keep the order as defense-in-depth.
+      let pending: { session_id: string; form_data: Record<string, unknown> } | null = null;
+      if (pendingId) {
+        pending = await this.authService.consumePendingOrder(pendingId);
+        console.log('lineCallback: consumePendingOrder result =', pending ? 'found' : 'null');
+      }
+
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
       // If there's a pending order, create it server-side and redirect to success
-      if (pendingId) {
-        const pending = await this.authService.consumePendingOrder(pendingId);
-        console.log('lineCallback: consumePendingOrder result =', pending ? 'found' : 'null');
-        if (pending) {
-          // Merge the original cart session with the new user (req.sessionId is
-          // unavailable here — the callback is a direct request to the backend
-          // domain, so the frontend's session_id cookie is not sent)
-          await this.authService.mergeSessionOnLogin(pending.session_id, result.user.id);
-          return this.handlePendingOrder(pending, result, frontendUrl, res);
-        }
+      if (pending) {
+        // Merge the original cart session with the new user (req.sessionId is
+        // unavailable here — the callback is a direct request to the backend
+        // domain, so the frontend's session_id cookie is not sent)
+        await this.authService.mergeSessionOnLogin(pending.session_id, result.user.id);
+        return this.handlePendingOrder(pending, result, frontendUrl, res);
       }
 
       // Merge session for non-pending-order flow (if cookie present)
@@ -188,7 +194,11 @@ export class AuthController {
    */
   private async handlePendingOrder(
     pending: { session_id: string; form_data: Record<string, unknown> },
-    authResult: { user: { id: string; email: string }; access_token: string },
+    authResult: {
+      user: { id: string; email: string };
+      access_token: string;
+      refresh_token: string;
+    },
     frontendUrl: string,
     res: Response,
   ) {
@@ -231,8 +241,13 @@ export class AuthController {
         // Non-critical
       }
 
-      // Redirect to success page
-      const successUrl = `${frontendUrl}/checkout/success?order=${order.order_number}`;
+      // Redirect to success page with auth tokens in hash fragment
+      // (hash is not sent to server / not logged — safer than query params)
+      const tokenParams = new URLSearchParams({
+        access_token: authResult.access_token,
+        refresh_token: authResult.refresh_token,
+      });
+      const successUrl = `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams.toString()}`;
       res.setHeader('Location', successUrl);
       res.status(302).end();
     } catch (err) {

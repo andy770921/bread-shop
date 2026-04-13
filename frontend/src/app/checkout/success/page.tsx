@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/lib/auth-context';
 
 export default function CheckoutSuccessPage() {
   return (
@@ -26,7 +27,27 @@ export default function CheckoutSuccessPage() {
 function SuccessContent() {
   const searchParams = useSearchParams();
   const { t } = useLocale();
+  const { refreshUser } = useAuth();
+  const processedRef = useRef(false);
   const orderNumber = searchParams.get('order') || searchParams.get('order_id');
+
+  // Store auth tokens from hash fragment (set by server-side LINE order flow)
+  useEffect(() => {
+    if (processedRef.current) return;
+    processedRef.current = true;
+
+    const hash = window.location.hash.substring(1);
+    if (!hash) return;
+
+    const hashParams = new URLSearchParams(hash);
+    const accessToken = hashParams.get('access_token');
+    if (accessToken) {
+      localStorage.setItem('access_token', accessToken);
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      refreshUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: 'var(--bg-body)' }}>

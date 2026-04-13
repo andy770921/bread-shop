@@ -204,9 +204,148 @@ consumePendingOrder: found via fallback ...    ← or: fallback also failed
 | `backend/src/auth/auth.controller.ts` | Diagnostic logging for state/pendingId; session merge uses `pending.session_id`; reordered merge logic |
 | `backend/src/auth/auth.service.ts` | `consumePendingOrder` logs errors, adds fallback query without `expires_at` |
 
+### Testing (fix 3a)
+
+Deployed 3a. Diagnostic logs confirmed state decoding works but `consumePendingOrder` fails. See fix 3b below.
+
+---
+
+## Fix 3b: Supabase Client Auth Contamination — The Real Root Cause (2026-04-13)
+
+### Problem
+
+After deploying fix 3a (diagnostic logging), server logs revealed:
+
+```
+lineCallback: raw state = e5a4e4b0-1a8c-4cb7-9ee1-2733fae1322c.a011864ca5c2438b
+lineCallback: state decode — id = e5a4e4b0-... , sig match = true
+handleLineLogin: token exchange ... 200 OK
+handleLineLogin: profile userId = U8622391b...
+consumePendingOrder: id = e5a4e4b0-... , now = 2026-04-13T08:51:32.966Z
+consumePendingOrder: query error: PGRST116 Cannot coerce the result to a single JSON object
+consumePendingOrder: fallback also failed: PGRST116 Cannot coerce the result to a single JSON object
+lineCallback: consumePendingOrder result = null
+```
+
+**State decoding works perfectly.** The pendingId is correct and the HMAC verifies. But the database query returns 0 rows — even though the record EXISTS (confirmed via direct SQL).
+
+### Root Cause: `signInWithPassword()` Contaminates Shared Supabase Client
+
+**File:** `backend/src/supabase/supabase.service.ts`
+
+The `SupabaseService` creates a **singleton** `SupabaseClient`:
+
+```typescript
+@Injectable()
+export class SupabaseService {
+  private client: SupabaseClient; // ← Single instance, reused everywhere
+
+  constructor(private configService: ConfigService) {
+    this.client = createClient(url, serviceRoleKey);
+    // ← No persistSession:false!
+  }
+}
+```
+
+In the `lineCallback` handler, the execution order was:
+
+```
+1. handleLineLogin()
+   └─ supabase.auth.signInWithPassword({ email, password })
+      └─ Supabase JS stores session internally:
+         client._headers['Authorization'] = 'Bearer <user_access_token>'
+         (overrides the service_role key!)
+
+2. consumePendingOrder()
+   └─ supabase.from('pending_line_orders').select(...)
+      └─ Request sent with: Authorization: Bearer <user_access_token>
+      └─ PostgREST role = 'authenticated' (not 'service_role')
+      └─ RLS check: pending_line_orders only has service_role policy
+      └─ Result: 0 rows (PGRST116)
+```
+
+**The Supabase JS client defaults to `persistSession: true`.** When `signInWithPassword()` is called, it stores the session and all subsequent API calls (`.from().select()`, `.from().insert()`, etc.) use the stored user token instead of the service_role key.
+
+### Why This Also Caused `POST /api/cart/items 400`
+
+On Vercel serverless, Lambda functions are **reused across requests** (warm starts). The NestJS application and its singleton `SupabaseService` persist across requests.
+
+```
+Request 1: GET /api/auth/line/callback
+  → handleLineLogin → signInWithPassword → client contaminated
+
+Request 2: POST /api/cart/items (different user, same warm Lambda)
+  → supabase.from('products').select() → uses stale user token
+  → products table has RLS enabled, no 'authenticated' policy
+  → 0 rows → "Product not found or inactive" → 400
+```
+
+Most tables (`categories`, `products`, `sessions`, `cart_items`, `orders`, `order_items`) have **RLS enabled but zero policies** for `authenticated`. They rely entirely on `service_role` + `bypassrls`. When the client is contaminated, ALL data operations fail silently.
+
+### Fix
+
+**1. `supabase.service.ts` — Prevent session storage (PRIMARY FIX)**
+
+```typescript
+this.client = createClient(url, serviceRoleKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
+```
+
+With `persistSession: false`, `signInWithPassword()` still returns the session tokens (needed to send to the frontend) but does NOT store them in the client. All `.from()` operations always use the service_role key.
+
+**2. `auth.controller.ts` — Reorder: consume pending order BEFORE handleLineLogin**
+
+As defense-in-depth, moved `consumePendingOrder()` to execute before `handleLineLogin()`. Even if `persistSession:false` is somehow bypassed, the pending order is consumed while the client is still clean.
+
+```typescript
+// Before: handleLineLogin → consumePendingOrder (contaminated!)
+// After:  consumePendingOrder → handleLineLogin (clean client)
+```
+
+**3. `auth.controller.ts` — Pass auth tokens in success redirect**
+
+The server-side redirect to `/checkout/success` now includes auth tokens in the hash fragment:
+
+```typescript
+const tokenParams = new URLSearchParams({
+  access_token: authResult.access_token,
+  refresh_token: authResult.refresh_token,
+});
+const url = `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams}`;
+```
+
+Without this, the user lands on the success page but is not "logged in" on the frontend (no token in localStorage). Navigation to other pages would show them as a guest.
+
+**4. `frontend/src/app/checkout/success/page.tsx` — Store tokens from hash**
+
+Added a `useEffect` that reads tokens from the hash fragment, stores them in localStorage, clears the hash, and calls `refreshUser()`. This ensures the user is fully authenticated on the frontend after the server-side redirect.
+
+### Impact of `persistSession: false`
+
+This fix resolves not just the LINE order flow, but ALL intermittent failures caused by auth contamination on warm Lambdas:
+
+| Affected operations | Before fix | After fix |
+|---|---|---|
+| `consumePendingOrder` (SELECT) | Uses stale user token → 0 rows | Always uses service_role |
+| `POST /api/cart/items` (product check) | Random 400 on warm Lambda | Always uses service_role |
+| `profiles.update` in `handleLineLogin` | May silently fail | Always uses service_role |
+| Any `.from()` call after `signInWithPassword` | Unpredictable | Always uses service_role |
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/src/supabase/supabase.service.ts` | Added `persistSession: false, autoRefreshToken: false` |
+| `backend/src/auth/auth.controller.ts` | Reordered: consume pending before LINE login; pass tokens in success redirect |
+| `frontend/src/app/checkout/success/page.tsx` | Store auth tokens from hash fragment after server-side redirect |
+
 ### Testing
 
-1. Deploy and run the same flow: new user → add items → fill form → click LINE CTA
-2. Check Vercel function logs for the new diagnostic output
-3. If order creation succeeds: user should land on `/checkout/success` with LINE message sent
-4. If it fails again: logs will pinpoint whether it's state decoding or Supabase query
+1. **LINE CTA flow (new user):** Fill form → click CTA → LINE Login → should land on `/checkout/success?order=ORD-xxx` with user logged in
+2. **LINE message:** Admin should receive Flex Message; user should receive if friends with OA
+3. **Cart 400 gone:** After the flow, adding items to cart should work (no more random 400s)
+4. **Warm Lambda:** Repeat the flow multiple times — no intermittent failures

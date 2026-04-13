@@ -10,6 +10,12 @@ export class SupabaseService {
     this.client = createClient(
       this.configService.getOrThrow('SUPABASE_URL'),
       this.configService.getOrThrow('SUPABASE_SERVICE_KEY'),
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      },
     );
   }
 
