@@ -239,12 +239,47 @@ export class AuthService {
     pendingId: string,
   ): Promise<{ session_id: string; form_data: Record<string, unknown> } | null> {
     const supabase = this.supabaseService.getClient();
-    const { data } = await supabase
+    const now = new Date().toISOString();
+    console.log('consumePendingOrder: id =', pendingId, ', now =', now);
+
+    const { data, error } = await supabase
       .from('pending_line_orders')
       .select('session_id, form_data')
       .eq('id', pendingId)
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', now)
       .single();
+
+    if (error) {
+      console.error('consumePendingOrder: query error:', error.code, error.message);
+      // Fallback: try without expires_at filter (in case of clock skew)
+      const { data: fallback, error: fallbackErr } = await supabase
+        .from('pending_line_orders')
+        .select('session_id, form_data, expires_at')
+        .eq('id', pendingId)
+        .single();
+      if (fallbackErr) {
+        console.error(
+          'consumePendingOrder: fallback also failed:',
+          fallbackErr.code,
+          fallbackErr.message,
+        );
+        return null;
+      }
+      if (fallback) {
+        console.log(
+          'consumePendingOrder: found via fallback (expires_at =',
+          fallback.expires_at,
+          ')',
+        );
+        await supabase.from('pending_line_orders').delete().eq('id', pendingId);
+        return {
+          session_id: fallback.session_id,
+          form_data: fallback.form_data as Record<string, unknown>,
+        };
+      }
+      return null;
+    }
+
     if (!data) return null;
     // Delete after consuming
     await supabase.from('pending_line_orders').delete().eq('id', pendingId);

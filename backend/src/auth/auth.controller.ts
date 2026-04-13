@@ -128,30 +128,40 @@ export class AuthController {
       // Decode pendingId from state (if present)
       let pendingId: string | null = null;
       const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
+      console.log('lineCallback: raw state =', state);
       if (state && state.includes('.')) {
         const [id, sig] = state.split('.');
         const expectedSig = createHmac('sha256', channelSecret)
           .update(id)
           .digest('hex')
           .slice(0, 16);
+        console.log('lineCallback: state decode — id =', id, ', sig match =', sig === expectedSig);
         if (sig === expectedSig) {
           pendingId = id;
         }
+      } else {
+        console.log('lineCallback: state has no dot — not a pending order flow');
       }
 
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
-      if (req.sessionId) {
-        await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
-      }
-
       // If there's a pending order, create it server-side and redirect to success
       if (pendingId) {
         const pending = await this.authService.consumePendingOrder(pendingId);
+        console.log('lineCallback: consumePendingOrder result =', pending ? 'found' : 'null');
         if (pending) {
+          // Merge the original cart session with the new user (req.sessionId is
+          // unavailable here — the callback is a direct request to the backend
+          // domain, so the frontend's session_id cookie is not sent)
+          await this.authService.mergeSessionOnLogin(pending.session_id, result.user.id);
           return this.handlePendingOrder(pending, result, frontendUrl, res);
         }
+      }
+
+      // Merge session for non-pending-order flow (if cookie present)
+      if (req.sessionId) {
+        await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
       }
 
       // No pending order — normal LINE Login, redirect with tokens
@@ -186,20 +196,16 @@ export class AuthController {
 
     try {
       // Create the order
-      const order = await this.orderService.createOrder(
-        pending.session_id,
-        authResult.user.id,
-        {
-          customer_name: fd.customerName as string,
-          customer_phone: fd.customerPhone as string,
-          customer_email: (fd.customerEmail as string) || undefined,
-          customer_address: fd.customerAddress as string,
-          notes: (fd.notes as string) || undefined,
-          payment_method: 'line',
-          customer_line_id: (fd.lineId as string) || undefined,
-          skip_cart_clear: true,
-        },
-      );
+      const order = await this.orderService.createOrder(pending.session_id, authResult.user.id, {
+        customer_name: fd.customerName as string,
+        customer_phone: fd.customerPhone as string,
+        customer_email: (fd.customerEmail as string) || undefined,
+        customer_address: fd.customerAddress as string,
+        notes: (fd.notes as string) || undefined,
+        payment_method: 'line',
+        customer_line_id: (fd.lineId as string) || undefined,
+        skip_cart_clear: true,
+      });
 
       // Send LINE message (best-effort)
       try {

@@ -118,3 +118,95 @@ CREATE INDEX idx_pending_line_orders_expires ON pending_line_orders (expires_at)
 | `backend/src/auth/auth.module.ts` | Import OrderModule, LineModule |
 | `frontend/src/app/cart/page.tsx` | Call `/start` API instead of localStorage |
 | `frontend/src/app/auth/callback/page.tsx` | Simplified — no order creation logic |
+
+## Fix 3a: Diagnostic Logging + Session Merge + consumePendingOrder Robustness
+
+### Problem (2026-04-13)
+
+After deploying fix-3, the flow still fails silently:
+
+1. `POST /api/auth/line/start` returns 201 (pending order stored in Supabase — confirmed record exists)
+2. LINE OAuth succeeds (token exchange 200, profile obtained)
+3. `GET /api/auth/line/callback` returns 302 — but redirects to `/auth/callback#tokens` instead of `/checkout/success`
+4. User sees "Authenticating..." then is redirected to homepage with empty cart
+5. No order created, no LINE message sent, no error shown
+
+**Database evidence:** The `pending_line_orders` record was never consumed (still present, not deleted). The record was valid at callback time (`expires_at > callback_time` confirmed via SQL).
+
+### Root Cause Analysis
+
+**Two bugs combined:**
+
+**Bug 1: `consumePendingOrder` swallows errors silently**
+
+The original code only destructured `{ data }` and ignored `{ error }`:
+
+```typescript
+const { data } = await supabase.from('pending_line_orders')...single();
+if (!data) return null; // error is lost — no logging
+```
+
+When `.single()` finds 0 matching rows (or encounters any PostgREST error), it returns `{ data: null, error: PostgrestError }`. The method returned `null` without logging — the callback assumed "no pending order" and fell through to the token redirect.
+
+The exact cause of the query failure is unknown (no logs), but candidates include:
+- PostgREST/RLS interaction (similar to the `profiles` silent failure in fix-2)
+- Clock skew on `expires_at` filter
+- Transient Supabase connectivity issue
+
+**Bug 2: Session never merged for the pending order flow**
+
+The callback's session merge used `req.sessionId`:
+```typescript
+if (req.sessionId) {
+  await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
+}
+```
+
+But the callback is a **direct request to the backend domain** (`papa-bread-api.vercel.app`), not proxied through the frontend. The `session_id` HttpOnly cookie was set on the frontend domain (`papa-bread.vercel.app`) — it is NOT sent to the backend domain. So `req.sessionId` is `undefined`, and `mergeSessionOnLogin` is skipped.
+
+The guest's cart items remain orphaned under the original session, never linked to the new LINE user. After the flow completes, the frontend shows an empty cart because the logged-in user has no sessions linked to them.
+
+### Fix
+
+**`auth.service.ts` — `consumePendingOrder`:**
+- Destructure `{ data, error }` and log errors
+- Fallback: if the primary query (with `expires_at` filter) fails, retry without the filter to handle clock skew
+- Log the fallback result for diagnosis
+
+**`auth.controller.ts` — `lineCallback`:**
+- Added diagnostic logging: raw `state`, decoded `pendingId`, HMAC match result, consume result
+- For pending order flow: call `mergeSessionOnLogin(pending.session_id, ...)` **before** `handlePendingOrder` — this uses the session_id from the database (stored by `/line/start`), not from the cookie
+- Moved the non-pending `mergeSessionOnLogin(req.sessionId, ...)` to only run when there is no pending order
+
+**Expected logs after fix (success case):**
+```
+lineCallback: raw state = <uuid>.<hmac>
+lineCallback: state decode — id = <uuid> , sig match = true
+consumePendingOrder: id = <uuid> , now = <iso>
+lineCallback: consumePendingOrder result = found
+handleLineLogin: token exchange ...
+handleLineLogin: token response 200 OK
+handleLineLogin: profile userId = U...
+```
+
+**Expected logs if it fails again (diagnosis):**
+```
+lineCallback: raw state = <value>            ← reveals if state is malformed
+lineCallback: state has no dot — ...          ← or: sig match = false
+consumePendingOrder: query error: PGRST116 ... ← reveals exact PostgREST error
+consumePendingOrder: found via fallback ...    ← or: fallback also failed
+```
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/src/auth/auth.controller.ts` | Diagnostic logging for state/pendingId; session merge uses `pending.session_id`; reordered merge logic |
+| `backend/src/auth/auth.service.ts` | `consumePendingOrder` logs errors, adds fallback query without `expires_at` |
+
+### Testing
+
+1. Deploy and run the same flow: new user → add items → fill form → click LINE CTA
+2. Check Vercel function logs for the new diagnostic output
+3. If order creation succeeds: user should land on `/checkout/success` with LINE message sent
+4. If it fails again: logs will pinpoint whether it's state decoding or Supabase query
