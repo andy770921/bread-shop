@@ -103,7 +103,11 @@ export class AuthController {
       state = randomUUID();
     }
 
-    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}&scope=profile%20openid`;
+    // bot_prompt=aggressive shows a full-screen prompt to add the linked Messaging
+    // API bot as a friend during LINE Login. Without this, pushMessage to the user
+    // fails because they haven't friended the bot. Requires the LINE Login channel
+    // to be linked to the Messaging API channel in the LINE developer console.
+    const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}&scope=profile%20openid&bot_prompt=aggressive`;
     res.redirect(lineAuthUrl);
   }
 
@@ -259,9 +263,15 @@ export class AuthController {
     await supabase.from('orders').update({ user_id: authResult.user.id }).eq('id', order.id);
     await this.authService.mergeSessionOnLogin(pending.session_id, authResult.user.id);
 
-    // Send LINE message (best-effort)
+    // Send LINE messages (best-effort, failures don't block the order)
     try {
       await this.lineService.sendOrderToAdmin(order.id);
+      console.log('LINE admin message sent for order', order.id);
+    } catch (adminErr) {
+      console.error('LINE admin message failed:', adminErr);
+    }
+
+    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('line_user_id')
@@ -269,9 +279,15 @@ export class AuthController {
         .single();
       if (profile?.line_user_id) {
         await this.lineService.sendOrderMessage(order.id, profile.line_user_id);
+        console.log('LINE customer message sent to', profile.line_user_id);
+      } else {
+        console.log('LINE customer message skipped: no line_user_id in profile');
       }
-    } catch (lineErr) {
-      console.error('LINE message send failed (non-critical):', lineErr);
+    } catch (custErr) {
+      // Most common cause: user hasn't added the Messaging API bot as a friend.
+      // The bot_prompt=aggressive param in the LINE Login URL should fix this
+      // for new users, but existing users may need to manually add the bot.
+      console.error('LINE customer message failed:', custErr);
     }
 
     // Confirm order (clears cart)
