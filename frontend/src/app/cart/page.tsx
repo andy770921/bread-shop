@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -73,6 +73,14 @@ const cartFormSchema = z
 type CartFormValues = z.infer<typeof cartFormSchema>;
 
 export default function CartPage() {
+  return (
+    <Suspense>
+      <CartContent />
+    </Suspense>
+  );
+}
+
+function CartContent() {
   const { locale, t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
