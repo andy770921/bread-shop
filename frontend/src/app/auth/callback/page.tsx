@@ -1,11 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/auth-context';
-
-const API_URL = '';
 
 export default function AuthCallbackPage() {
   return (
@@ -26,8 +24,14 @@ function CallbackContent() {
   const searchParams = useSearchParams();
   const { refreshUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  // Prevent double-execution: refreshUser() triggers auth state change which
+  // changes its own reference, causing useEffect to re-run. Without this guard,
+  // the second run finds an empty hash (cleared by replaceState) and sets an error.
+  const processedRef = useRef(false);
 
   useEffect(() => {
+    if (processedRef.current) return;
+
     // Read tokens from URL hash fragment (serverless-safe flow).
     // Backend passes tokens in the hash so they're never sent to servers.
     const hash = window.location.hash.substring(1);
@@ -35,12 +39,14 @@ function CallbackContent() {
 
     const hashError = hashParams.get('error');
     if (hashError) {
+      processedRef.current = true;
       setError(hashError);
       return;
     }
 
     const accessToken = hashParams.get('access_token');
     if (accessToken) {
+      processedRef.current = true;
       localStorage.setItem('access_token', accessToken);
       // Clear hash from URL to avoid token exposure in browser history
       window.history.replaceState(null, '', window.location.pathname);
@@ -52,39 +58,9 @@ function CallbackContent() {
       return;
     }
 
-    // Legacy fallback: one-time code exchange (for non-serverless environments)
-    const code = searchParams.get('code');
-    if (!code) {
-      setError('No authorization code provided');
-      return;
-    }
-
-    async function exchangeCode(authCode: string) {
-      try {
-        const res = await fetch(`${API_URL}/api/auth/line/exchange`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ code: authCode }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || 'Failed to exchange code');
-        }
-
-        const data = await res.json();
-        localStorage.setItem('access_token', data.access_token);
-        await refreshUser();
-        const returnUrl = localStorage.getItem('line_login_return_url') || '/';
-        localStorage.removeItem('line_login_return_url');
-        router.push(returnUrl);
-      } catch (err: any) {
-        setError(err.message || 'Authentication failed');
-      }
-    }
-
-    exchangeCode(code);
+    // No hash tokens found — show error (do NOT auto-redirect)
+    processedRef.current = true;
+    setError('LINE login failed. Please return to the cart and try again.');
   }, [searchParams, router, refreshUser]);
 
   if (error) {
@@ -93,14 +69,14 @@ function CallbackContent() {
         className="flex min-h-screen items-center justify-center"
         style={{ backgroundColor: 'var(--bg-body)' }}
       >
-        <div className="text-center">
+        <div className="mx-4 max-w-md text-center">
           <p className="text-lg font-medium text-destructive">{error}</p>
           <button
-            onClick={() => router.push('/auth/login')}
+            onClick={() => router.push('/cart')}
             className="mt-4 text-sm underline"
             style={{ color: 'var(--primary-500)' }}
           >
-            Back to Login
+            Back to Cart
           </button>
         </div>
       </div>
