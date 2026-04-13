@@ -63,7 +63,7 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-4">
             {orders.map((order) => (
-              <Link key={order.id} href={`/orders/${order.id}`}>
+              <Link key={order.id} href={`/orders/${order.id}`} className="block">
                 <div
                   className="flex items-center justify-between rounded-xl border p-4 transition-all hover:-translate-y-0.5"
                   style={{
