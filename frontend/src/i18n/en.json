@@ -112,7 +112,12 @@
   "checkout": {
     "successTitle": "Order Placed!",
     "successDesc": "Thank you for your order. We'll process it shortly.",
-    "backHome": "Back to Home"
+    "backHome": "Back to Home",
+    "failedTitle": "Order Not Placed",
+    "failedLoginDeclined": "LINE login is required to complete your order. Please go back to the cart and try again — tap \"Allow\" on the LINE login screen.",
+    "failedNotFriend": "You need to add our LINE Official Account as a friend to receive order notifications and complete your order. Please add us and try again.",
+    "addFriend": "Add Friend",
+    "backToCart": "Back to Cart"
   },
   "status": {
     "pending": "Pending",

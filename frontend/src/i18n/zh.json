@@ -112,7 +112,12 @@
   "checkout": {
     "successTitle": "訂單已成立！",
     "successDesc": "感謝您的訂購，我們會盡快處理。",
-    "backHome": "回到首頁"
+    "backHome": "回到首頁",
+    "failedTitle": "訂單未成立",
+    "failedLoginDeclined": "需要透過 LINE 登入才能完成訂單。請返回購物車並重新操作，在 LINE 登入畫面點選「同意」。",
+    "failedNotFriend": "需要先加入我們的 LINE 官方帳號為好友，才能接收訂單通知並完成訂單。請加入好友後返回購物車重新下單。",
+    "addFriend": "加入好友",
+    "backToCart": "返回購物車"
   },
   "status": {
     "pending": "待付款",

@@ -102,7 +102,10 @@ export class AuthService {
     await supabase.from('sessions').delete().in('id', oldSessionIds);
   }
 
-  async handleLineLogin(code: string, backendOrigin: string): Promise<AuthResponse> {
+  async handleLineLogin(
+    code: string,
+    backendOrigin: string,
+  ): Promise<AuthResponse & { lineAccessToken: string }> {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
     const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
 
@@ -164,6 +167,7 @@ export class AuthService {
         user: { id: data.user.id, email: data.user.email! },
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
+        lineAccessToken: lineTokens.access_token,
       };
     } else {
       const { error: createError } = await authClient.auth.admin.createUser({
@@ -204,6 +208,7 @@ export class AuthService {
         },
         access_token: createdUser.session.access_token,
         refresh_token: createdUser.session.refresh_token,
+        lineAccessToken: lineTokens.access_token,
       };
     }
   }

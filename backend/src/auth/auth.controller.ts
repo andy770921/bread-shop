@@ -115,12 +115,21 @@ export class AuthController {
   async lineCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Query('error') loginError: string | undefined,
     @Req() req: Request,
     @Res() res: Response,
   ) {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     if (!frontendUrl) {
       res.status(500).json({ error: 'FRONTEND_URL not set' });
+      return;
+    }
+
+    // If user declined LINE Login, redirect to failure page
+    if (loginError) {
+      console.log('lineCallback: user declined LINE login, error =', loginError);
+      const failUrl = `${frontendUrl}/checkout/failed?reason=login_declined`;
+      res.redirect(failUrl);
       return;
     }
 
@@ -147,10 +156,8 @@ export class AuthController {
         console.log('lineCallback: state has no dot — not a pending order flow');
       }
 
-      // Consume pending order BEFORE handleLineLogin.
-      // handleLineLogin calls signInWithPassword() which used to contaminate
-      // the Supabase client's auth context on warm Lambda instances.
-      // persistSession:false now prevents this, but we keep the order as defense-in-depth.
+      // Consume pending order BEFORE handleLineLogin (defense-in-depth
+      // against Supabase client auth contamination from signInWithPassword).
       let pending: { session_id: string; form_data: Record<string, unknown> } | null = null;
       if (pendingId) {
         pending = await this.authService.consumePendingOrder(pendingId);
@@ -160,9 +167,18 @@ export class AuthController {
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
-      // If there's a pending order, stream a loading page, then process + redirect.
-      // The browser renders the spinner immediately instead of showing a blank page.
+      // For pending order flow: check if user is friends with the Messaging API bot.
+      // Without friendship, pushMessage will fail — treat as order failure.
       if (pending) {
+        const isFriend = await this.checkLineFriendship(result.lineAccessToken);
+        console.log('lineCallback: friendship status =', isFriend);
+
+        if (!isFriend) {
+          const failUrl = `${frontendUrl}/checkout/failed?reason=not_friend`;
+          res.redirect(failUrl);
+          return;
+        }
+
         this.sendLoadingPage(res);
         try {
           const url = await this.handlePendingOrder(pending, result, frontendUrl);
@@ -198,6 +214,28 @@ export class AuthController {
       const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(message)}`;
       res.setHeader('Location', errorUrl);
       res.status(302).end();
+    }
+  }
+
+  /**
+   * Check if the LINE user is friends with the linked Messaging API bot.
+   * Uses the LINE Login token (not the Messaging API token).
+   * https://developers.line.biz/en/reference/line-login/#get-friendship-status
+   */
+  private async checkLineFriendship(lineAccessToken: string): Promise<boolean> {
+    try {
+      const res = await fetch('https://api.line.me/friendship/v1/status', {
+        headers: { Authorization: `Bearer ${lineAccessToken}` },
+      });
+      if (!res.ok) {
+        console.error('checkLineFriendship: HTTP', res.status);
+        return false;
+      }
+      const { friendFlag } = await res.json();
+      return friendFlag === true;
+    } catch (err) {
+      console.error('checkLineFriendship error:', err);
+      return false;
     }
   }
 
