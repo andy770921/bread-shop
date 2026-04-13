@@ -156,12 +156,21 @@ export class AuthController {
       // LINE Login: exchange code, create/sign-in user
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
-      // If there's a pending order, create it server-side and redirect to success.
-      // Session merge is done INSIDE handlePendingOrder AFTER order creation,
-      // because mergeSessionOnLogin deletes old sessions which CASCADE-deletes
-      // their cart_items — we must read the cart before any session changes.
+      // If there's a pending order, stream a loading page, then process + redirect.
+      // The browser renders the spinner immediately instead of showing a blank page.
       if (pending) {
-        return this.handlePendingOrder(pending, result, frontendUrl, res);
+        this.sendLoadingPage(res);
+        try {
+          const url = await this.handlePendingOrder(pending, result, frontendUrl);
+          res.write(`<script>window.location.href=${JSON.stringify(url)}</script>`);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Order creation failed';
+          console.error('Pending order creation error:', err);
+          const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(msg)}`;
+          res.write(`<script>window.location.href=${JSON.stringify(errorUrl)}</script>`);
+        }
+        res.end();
+        return;
       }
 
       // Merge session for non-pending-order flow (if cookie present)
@@ -189,7 +198,36 @@ export class AuthController {
   }
 
   /**
+   * Send an HTML loading page immediately so the browser shows a spinner
+   * instead of a blank screen while the backend processes the order.
+   * After processing, the caller writes a `<script>` redirect and calls res.end().
+   */
+  private sendLoadingPage(res: Response) {
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    res.write(`<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Processing...</title>
+<style>
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;
+    background:#f5f0eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#4a3728}
+  .wrap{text-align:center}
+  .spinner{width:40px;height:40px;margin:0 auto 16px;border:3px solid #e8ddd2;
+    border-top-color:#c07545;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  p{font-size:15px;opacity:.8}
+</style></head>
+<body><div class="wrap"><div class="spinner"></div><p>Processing your order...</p></div></body>
+</html>\n`);
+    res.flushHeaders();
+  }
+
+  /**
    * Server-side order creation after LINE Login with pending form data.
+   * Returns the redirect URL (success or error). Does NOT send a response.
    */
   private async handlePendingOrder(
     pending: { session_id: string; form_data: Record<string, unknown> },
@@ -199,71 +237,56 @@ export class AuthController {
       refresh_token: string;
     },
     frontendUrl: string,
-    res: Response,
-  ) {
+  ): Promise<string> {
     const fd = pending.form_data;
 
+    // Create order with null userId — cart items are linked to the session,
+    // and getSessionIds(sessionId, null) looks up by session_id only.
+    const order = await this.orderService.createOrder(pending.session_id, null, {
+      customer_name: fd.customerName as string,
+      customer_phone: fd.customerPhone as string,
+      customer_email: (fd.customerEmail as string) || undefined,
+      customer_address: fd.customerAddress as string,
+      notes: (fd.notes as string) || undefined,
+      payment_method: 'line',
+      customer_line_id: (fd.lineId as string) || undefined,
+      skip_cart_clear: true,
+    });
+
+    // Assign user to the order and merge session AFTER order creation.
+    // mergeSessionOnLogin deletes old sessions which CASCADE-deletes cart_items.
+    const supabase = this.supabaseService.getClient();
+    await supabase.from('orders').update({ user_id: authResult.user.id }).eq('id', order.id);
+    await this.authService.mergeSessionOnLogin(pending.session_id, authResult.user.id);
+
+    // Send LINE message (best-effort)
     try {
-      // Create order with null userId — cart items are linked to the session,
-      // and getSessionIds(sessionId, null) looks up by session_id only.
-      // We must NOT pass userId here because getSessionIds(sessionId, userId)
-      // queries the sessions table, which might return unexpected results if
-      // old sessions exist or the merge hasn't happened yet.
-      const order = await this.orderService.createOrder(pending.session_id, null, {
-        customer_name: fd.customerName as string,
-        customer_phone: fd.customerPhone as string,
-        customer_email: (fd.customerEmail as string) || undefined,
-        customer_address: fd.customerAddress as string,
-        notes: (fd.notes as string) || undefined,
-        payment_method: 'line',
-        customer_line_id: (fd.lineId as string) || undefined,
-        skip_cart_clear: true,
-      });
-
-      // Assign user to the order and merge session AFTER order creation.
-      // mergeSessionOnLogin deletes old sessions which CASCADE-deletes cart_items.
-      const supabase = this.supabaseService.getClient();
-      await supabase.from('orders').update({ user_id: authResult.user.id }).eq('id', order.id);
-      await this.authService.mergeSessionOnLogin(pending.session_id, authResult.user.id);
-
-      // Send LINE message (best-effort)
-      try {
-        await this.lineService.sendOrderToAdmin(order.id);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('line_user_id')
-          .eq('id', authResult.user.id)
-          .single();
-        if (profile?.line_user_id) {
-          await this.lineService.sendOrderMessage(order.id, profile.line_user_id);
-        }
-      } catch (lineErr) {
-        console.error('LINE message send failed (non-critical):', lineErr);
+      await this.lineService.sendOrderToAdmin(order.id);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('line_user_id')
+        .eq('id', authResult.user.id)
+        .single();
+      if (profile?.line_user_id) {
+        await this.lineService.sendOrderMessage(order.id, profile.line_user_id);
       }
-
-      // Confirm order (clears cart)
-      try {
-        await this.orderService.confirmOrder(order.id, pending.session_id, authResult.user.id);
-      } catch {
-        // Non-critical
-      }
-
-      // Redirect to success page with auth tokens in hash fragment
-      // (hash is not sent to server / not logged — safer than query params)
-      const tokenParams = new URLSearchParams({
-        access_token: authResult.access_token,
-        refresh_token: authResult.refresh_token,
-      });
-      const successUrl = `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams.toString()}`;
-      res.setHeader('Location', successUrl);
-      res.status(302).end();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Order creation failed';
-      console.error('Pending order creation error:', err);
-      const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(message)}`;
-      res.setHeader('Location', errorUrl);
-      res.status(302).end();
+    } catch (lineErr) {
+      console.error('LINE message send failed (non-critical):', lineErr);
     }
+
+    // Confirm order (clears cart)
+    try {
+      await this.orderService.confirmOrder(order.id, pending.session_id, authResult.user.id);
+    } catch {
+      // Non-critical
+    }
+
+    // Return success URL with auth tokens in hash fragment
+    const tokenParams = new URLSearchParams({
+      access_token: authResult.access_token,
+      refresh_token: authResult.refresh_token,
+    });
+    return `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams.toString()}`;
   }
 
   @Post('line/exchange')
