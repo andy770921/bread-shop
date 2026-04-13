@@ -58,11 +58,22 @@ function CallbackContent() {
   }, []);
 
   async function handleCallback(accessToken: string) {
+    // Use explicit auth header — cannot rely on localStorage because
+    // AuthProvider.onError may clear it when it detects a stale token
+    // from a previous session during initial mount.
+    const authHeaders = { Authorization: `Bearer ${accessToken}` };
+
+    function apiFetch<T>(path: string, opts?: Parameters<typeof authedFetchFn>[1]) {
+      return authedFetchFn<T>(path, { ...opts, headers: { ...authHeaders, ...opts?.headers } });
+    }
+
     try {
       // Store token and refresh user
       localStorage.setItem('access_token', accessToken);
       window.history.replaceState(null, '', window.location.pathname);
       await refreshUser();
+      // Re-store: AuthProvider.onError may have removed it while processing a stale token
+      localStorage.setItem('access_token', accessToken);
 
       // Check if there's saved form data (from cart LINE CTA flow)
       const formDataStr = localStorage.getItem('cart_form_data');
@@ -78,7 +89,7 @@ function CallbackContent() {
       setStatusText('Creating your order...');
       const formData = JSON.parse(formDataStr);
 
-      const orderData = await authedFetchFn<Order & { checkout_url?: string }>('api/orders', {
+      const orderData = await apiFetch<Order & { checkout_url?: string }>('api/orders', {
         method: 'POST',
         body: {
           customer_name: formData.customerName,
@@ -95,7 +106,7 @@ function CallbackContent() {
       // Send LINE message (best-effort — order is already created)
       setStatusText('Sending LINE notification...');
       try {
-        await authedFetchFn<LineSendResponse>(`api/orders/${orderData.id}/line-send`, {
+        await apiFetch<LineSendResponse>(`api/orders/${orderData.id}/line-send`, {
           method: 'POST',
         });
       } catch {
@@ -104,7 +115,7 @@ function CallbackContent() {
 
       // Confirm order (clears cart)
       try {
-        await authedFetchFn(`api/orders/${orderData.id}/confirm`, { method: 'POST' });
+        await apiFetch(`api/orders/${orderData.id}/confirm`, { method: 'POST' });
       } catch {
         // Cart clear failed — not critical
       }
@@ -116,8 +127,12 @@ function CallbackContent() {
     } catch (err: any) {
       // Order creation failed — redirect to cart with error, preserve form data for retry
       localStorage.removeItem('line_login_return_url');
-      // Keep cart_form_data so the cart page can restore form fields
-      const msg = err?.message || 'Order creation failed. Please try again.';
+      // Extract actual error message from ApiResponseError.body (NestJS format)
+      const bodyMsg = err?.body?.message;
+      const msg =
+        (Array.isArray(bodyMsg) ? bodyMsg[0] : bodyMsg) ||
+        err?.message ||
+        'Order creation failed. Please try again.';
       router.push(`/cart?error=${encodeURIComponent(msg)}`);
     }
   }

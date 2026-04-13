@@ -299,23 +299,146 @@ There is **no LINE API** to convert between them. LINE intentionally separates t
 - LINE Developers — Get user IDs: https://developers.line.biz/en/docs/messaging-api/getting-user-ids/
 - LINE Community confirmation — no conversion API: https://www.line-community.me/en/question/5f154e95851f74ab9c191a26
 
+## Fix 4: AuthProvider Token Race Condition — "Order creation failed"
+
+### Problem
+
+After deploying Fix 3 (single-pass flow), the user sees:
+1. "Authenticating..." → "Creating your order..." (status text updates correctly)
+2. Then redirected to `/cart` with toast: **"Order creation failed. Please try again."**
+3. Cart is empty
+
+The backend Supabase API logs showed:
+- `GET /auth/v1/user → 403` (token expired) for the new user's session
+- No `POST /rest/v1/orders` was ever executed for this session
+
+### Root Cause: AuthProvider.onError Deletes Token from localStorage
+
+When the `/auth/callback` page loads, two things happen concurrently:
+
+```
+Timeline:
+
+1. AuthProvider mounts
+   → reads OLD expired token from localStorage (from a previous LINE Login session)
+   → calls fetchUserMutation.mutate(oldToken)           ← ASYNC, queued
+
+2. Callback useEffect fires
+   → reads hash fragment → stores NEW token in localStorage
+   → calls refreshUser() → fetchUserMutation.mutateAsync(newToken)  ← ASYNC, queued after #1
+
+3. Mutation #1 executes: GET /api/auth/me with OLD token → 403 expired
+   → onError fires: localStorage.removeItem('access_token')  ← DELETES THE NEW TOKEN!
+   → setToken(null)
+
+4. Mutation #2 executes: GET /api/auth/me with NEW token → 200 ✓
+   → onSuccess fires: setUser(data)
+   → BUT: onSuccess does NOT re-store the token in localStorage
+
+5. await refreshUser() resolves
+   → Callback proceeds to create order
+   → authedFetchFn reads localStorage.getItem('access_token') → null (deleted in step 3!)
+   → POST /api/orders sent WITHOUT Authorization header
+   → Backend cannot authenticate user → order fails
+```
+
+The critical issue: `AuthProvider.onError` (step 3) removes the token that the callback page stored (step 2), and `onSuccess` (step 4) does not re-store it.
+
+### Evidence from Supabase Logs
+
+Two sessions were active during the test:
+
+| Session | Owner | Activity |
+|---|---|---|
+| `358b916e` | Andy (existing user) | Successfully created order #19 — this was a manual test |
+| `8536dc11` | New user | `GET /auth/v1/user → 403` (expired token), no order created |
+
+The 403 entries for session `8536dc11` confirm that the expired token was being used for auth calls, even though a fresh token was available from LINE Login.
+
+### Fix: Explicit Auth Header + Token Re-Store
+
+**File:** `frontend/src/app/auth/callback/page.tsx`
+
+**Change 1:** Created an `apiFetch` helper that passes the access token directly in the header, bypassing localStorage entirely:
+
+```typescript
+function apiFetch<T>(path: string, opts?: Parameters<typeof authedFetchFn>[1]) {
+  return authedFetchFn<T>(path, {
+    ...opts,
+    headers: { Authorization: `Bearer ${accessToken}`, ...opts?.headers },
+  });
+}
+```
+
+All API calls in `handleCallback` (order creation, line-send, confirm) now use `apiFetch` instead of `authedFetchFn`. The token is passed directly from the function argument — no dependency on localStorage.
+
+**Change 2:** Re-store token after `refreshUser()` to survive `onError` cleanup:
+
+```typescript
+localStorage.setItem('access_token', accessToken);
+await refreshUser();
+// Re-store: AuthProvider.onError may have removed it during refresh
+localStorage.setItem('access_token', accessToken);
+```
+
+This ensures that after `handleCallback` completes, localStorage has the correct token for subsequent page navigations (e.g., the success page loading user data).
+
+**Change 3:** Extract actual error message from `ApiResponseError.body`:
+
+```typescript
+} catch (err: any) {
+  // ApiResponseError.message is always empty (constructor doesn't pass it).
+  // The actual error is in err.body (NestJS format: { statusCode, message }).
+  const bodyMsg = err?.body?.message;
+  const msg =
+    (Array.isArray(bodyMsg) ? bodyMsg[0] : bodyMsg) ||
+    err?.message ||
+    'Order creation failed. Please try again.';
+  router.push(`/cart?error=${encodeURIComponent(msg)}`);
+}
+```
+
+NestJS error responses have two formats:
+- `BadRequestException`: `{ statusCode: 400, message: "Cart is empty" }` — string
+- `ValidationPipe`: `{ statusCode: 400, message: ["field is required", ...] }` — string array
+
+The fix handles both by checking `Array.isArray(bodyMsg)`.
+
+### Why ApiResponseError.message Was Always Empty
+
+The `ApiResponseError` class extends `Error` with `super(message)`, but `fetchApi` constructs it without the `message` parameter:
+
+```typescript
+// In fetchers.ts:
+throw new ApiResponseError(rawResponse, response as TErrorBody);
+//                                                          ^ no message param
+
+// In fetchers.error.ts:
+constructor(rawResponse: Response, body: TErrorBody, message?: string) {
+  super(message); // message is undefined → this.message = ''
+}
+```
+
+So `err.message` is always `''` (empty string, falsy), and the generic fallback was always used. The actual error details were in `err.body` all along but never extracted.
+
 ## Files Modified
 
 | File | Change |
 |---|---|
-| `frontend/src/app/auth/callback/page.tsx` | Complete rewrite: `useRef` guard, auto-order creation from saved form data, status text updates, error redirect to `/cart?error=` |
-| `frontend/src/app/cart/page.tsx` | LINE ID required for `line_transfer` (Zod validation); error toast from URL `?error=` param; label updated to show required `*` |
-| Supabase migration `add_profiles_rls_policies` | Added RLS policies for `service_role` (full access) and `authenticated` (own profile read/update) |
+| `frontend/src/app/auth/callback/page.tsx` | `useRef` guard; auto-order with explicit `apiFetch` helper (bypasses localStorage); token re-store after refreshUser; proper error extraction from `ApiResponseError.body` |
+| `frontend/src/app/cart/page.tsx` | LINE ID required for `line_transfer` (Zod); error toast from `?error=` param; label shows `*` |
+| Supabase migration `add_profiles_rls_policies` | RLS policies for `service_role` and `authenticated` |
 
 ## Testing Checklist
 
 1. **Single-pass flow (new user):** Fill cart + form + LINE ID → click CTA → LINE Login → "Authenticating..." → "Creating your order..." → "Sending LINE notification..." → success page. No return to cart.
-2. **LINE ID required:** Cannot submit with empty LINE ID when `line_transfer` is selected.
-3. **Error recovery:** If order creation fails after LINE Login, user is redirected to `/cart` with error toast. Cart items and form data are preserved. User can retry.
-4. **Normal LINE Login (not from cart):** If there is no `cart_form_data` in localStorage, callback page redirects to the stored return URL (existing behavior).
-5. **Profile has `line_user_id`:** After LINE Login, `GET /api/auth/me` returns non-null `line_user_id`.
-6. **No error flash:** The "No authorization code provided" error should never appear.
-7. **Already logged in via LINE:** If user already has `line_user_id`, clicking CTA creates the order directly (no LINE Login redirect).
+2. **Returning user with stale token:** If user has an expired token from a previous session, the flow should still work (explicit auth header bypasses localStorage).
+3. **LINE ID required:** Cannot submit with empty LINE ID when `line_transfer` is selected.
+4. **Error recovery:** If order creation fails, user sees the **actual** backend error message (e.g., "Cart is empty") in the toast, not a generic fallback.
+5. **Normal LINE Login (not from cart):** If no `cart_form_data` in localStorage, callback redirects to stored return URL.
+6. **Profile has `line_user_id`:** After LINE Login, `GET /api/auth/me` returns non-null `line_user_id` (RLS fix).
+7. **No error flash:** "No authorization code provided" never appears (`processedRef` guard).
+8. **Already logged in via LINE:** Clicking CTA creates order directly (no redirect).
 
 ## Related
 
