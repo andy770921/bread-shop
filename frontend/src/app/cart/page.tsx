@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -64,7 +65,9 @@ const cartFormSchema = z
       if (!data.cardCvv) addRequired('cardCvv');
       if (!data.cardholderName) addRequired('cardholderName');
     }
-    // lineId validation is handled outside zod — conditional on auth state (line_user_id)
+    if (data.paymentMethod === 'line_transfer') {
+      if (!data.lineId) addRequired('lineId');
+    }
   });
 
 type CartFormValues = z.infer<typeof cartFormSchema>;
@@ -72,6 +75,7 @@ type CartFormValues = z.infer<typeof cartFormSchema>;
 export default function CartPage() {
   const { locale, t } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: cart, isLoading } = useCart();
@@ -113,6 +117,16 @@ export default function CartPage() {
       }
     }
   }, [form]);
+
+  // Show error from callback redirect (e.g. order creation failed after LINE Login)
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      toast.error(error);
+      // Clean the error from URL without triggering navigation
+      router.replace('/cart', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Reset conditional fields when payment method changes
   useEffect(() => {
@@ -550,15 +564,13 @@ export default function CartPage() {
                             </div>
                           )}
 
-                          {/* LINE ID field — optional when linked, for admin reference */}
+                          {/* LINE ID field — required for LINE transfer */}
                           <FormField
                             control={form.control}
                             name="lineId"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>
-                                  {hasLineUserId ? t('cart.lineIdOptional') : t('cart.lineId')}
-                                </FormLabel>
+                                <FormLabel>{t('cart.lineId')} *</FormLabel>
                                 <FormControl>
                                   <Input placeholder={t('cart.lineIdPlaceholder')} {...field} />
                                 </FormControl>
