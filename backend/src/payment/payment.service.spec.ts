@@ -138,8 +138,6 @@ describe('PaymentService', () => {
       },
     });
 
-    await expect(service.handleWebhook(rawBody, signature)).rejects.toThrow(
-      'database unavailable',
-    );
+    await expect(service.handleWebhook(rawBody, signature)).rejects.toThrow('database unavailable');
   });
 });

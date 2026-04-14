@@ -87,9 +87,7 @@ export class PaymentService {
       }
 
       if (error instanceof BadRequestException) {
-        console.warn(
-          `[Webhook] Ignored ${eventLabel} for order_id=${orderId}: ${error.message}`,
-        );
+        console.warn(`[Webhook] Ignored ${eventLabel} for order_id=${orderId}: ${error.message}`);
         return;
       }
 

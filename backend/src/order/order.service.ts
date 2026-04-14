@@ -168,9 +168,7 @@ export class OrderService {
     const validNext = OrderService.VALID_TRANSITIONS[order.status] ?? [];
 
     if (!validNext.includes(newStatus)) {
-      throw new BadRequestException(
-        `Cannot transition from '${order.status}' to '${newStatus}'`,
-      );
+      throw new BadRequestException(`Cannot transition from '${order.status}' to '${newStatus}'`);
     }
 
     const { data, error } = await this.supabaseService
