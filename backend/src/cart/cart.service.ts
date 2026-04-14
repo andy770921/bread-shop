@@ -6,6 +6,55 @@ import { SupabaseService } from '../supabase/supabase.service';
 export class CartService {
   constructor(private supabaseService: SupabaseService) {}
 
+  private async findActiveCartByUserId(
+    userId: string,
+  ): Promise<{ id: string; version: number } | null> {
+    const { data } = await this.supabaseService
+      .getClient()
+      .from('carts')
+      .select('id, version')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    return data;
+  }
+
+  private async findActiveCartBySessionId(
+    sessionId: string,
+  ): Promise<{ id: string; version: number } | null> {
+    const { data } = await this.supabaseService
+      .getClient()
+      .from('carts')
+      .select('id, version')
+      .eq('session_id', sessionId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    return data;
+  }
+
+  private async mergeCartLines(sourceCartId: string, targetCartId: string): Promise<void> {
+    const supabase = this.supabaseService.getClient();
+    const { data: sourceLines } = await supabase
+      .from('cart_lines')
+      .select('product_id, quantity')
+      .eq('cart_id', sourceCartId);
+
+    for (const line of sourceLines || []) {
+      await supabase.rpc('upsert_cart_line', {
+        p_cart_id: targetCartId,
+        p_product_id: line.product_id,
+        p_quantity: line.quantity,
+      });
+    }
+
+    await supabase
+      .from('carts')
+      .update({ status: 'merged', merged_into_cart_id: targetCartId })
+      .eq('id', sourceCartId);
+  }
+
   /**
    * Resolve the single active cart for the actor.
    * Prefers user-owned cart if userId is provided, falls back to session cart.
@@ -13,24 +62,37 @@ export class CartService {
    */
   async resolveCart(sessionId: string, userId?: string): Promise<{ id: string; version: number }> {
     const supabase = this.supabaseService.getClient();
+    const sessionCart = await this.findActiveCartBySessionId(sessionId);
 
     if (userId) {
-      const { data: userCart } = await supabase
-        .from('carts')
-        .select('id, version')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
+      const userCart = await this.findActiveCartByUserId(userId);
 
-      if (userCart) return userCart;
+      if (userCart && sessionCart && userCart.id !== sessionCart.id) {
+        await this.mergeCartLines(sessionCart.id, userCart.id);
+        await supabase
+          .from('carts')
+          .update({ user_id: userId, session_id: sessionId })
+          .eq('id', userCart.id);
+        await supabase.rpc('refresh_cart_aggregates', { p_cart_id: userCart.id });
+        return (await this.findActiveCartByUserId(userId)) ?? userCart;
+      }
+
+      if (userCart) {
+        await supabase
+          .from('carts')
+          .update({ user_id: userId, session_id: sessionId })
+          .eq('id', userCart.id);
+        return (await this.findActiveCartByUserId(userId)) ?? userCart;
+      }
+
+      if (sessionCart) {
+        await supabase
+          .from('carts')
+          .update({ user_id: userId, session_id: sessionId })
+          .eq('id', sessionCart.id);
+        return (await this.findActiveCartByUserId(userId)) ?? sessionCart;
+      }
     }
-
-    const { data: sessionCart } = await supabase
-      .from('carts')
-      .select('id, version')
-      .eq('session_id', sessionId)
-      .eq('status', 'active')
-      .maybeSingle();
 
     if (sessionCart) return sessionCart;
 
@@ -87,7 +149,7 @@ export class CartService {
     return this.buildCartResponse(cart.id, cart.version);
   }
 
-  async addItem(sessionId: string, productId: number, quantity: number) {
+  async addItem(sessionId: string, productId: number, quantity: number, userId?: string) {
     const supabase = this.supabaseService.getClient();
 
     const { data: product } = await supabase
@@ -99,7 +161,7 @@ export class CartService {
 
     if (!product) throw new BadRequestException('Product not found or inactive');
 
-    const cart = await this.resolveCart(sessionId);
+    const cart = await this.resolveCart(sessionId, userId);
 
     const { error } = await supabase.rpc('upsert_cart_line', {
       p_cart_id: cart.id,
@@ -111,7 +173,7 @@ export class CartService {
 
     await supabase.rpc('refresh_cart_aggregates', { p_cart_id: cart.id });
 
-    return this.getCart(sessionId);
+    return this.getCart(sessionId, userId);
   }
 
   async updateItem(sessionId: string, cartLineId: string, quantity: number, userId?: string) {

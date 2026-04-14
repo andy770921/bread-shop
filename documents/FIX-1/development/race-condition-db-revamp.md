@@ -51,6 +51,8 @@ Main changes:
 - write cart lines by `cart_id`
 - recompute totals from `cart_lines`
 - increment cart `version` on every mutation
+- merge a split `session cart` into the active `user cart` when both exist
+- relink the surviving cart to the current session after merge
 
 #### `backend/src/cart/cart.controller.ts`
 
@@ -64,6 +66,13 @@ Rewrite `mergeSessionOnLogin()`:
 - merge source cart into target cart
 - update `carts.user_id`
 - mark replaced carts as `merged`
+
+#### `backend/src/cart/cart.controller.ts`
+
+Ensure authenticated add-to-cart writes pass `userId` into the cart service.
+
+This sounds small, but it is operationally important.
+If authenticated add-to-cart is resolved by session while cart reads are resolved by user ownership, one shopper can end up with two active carts.
 
 #### `backend/src/common/middleware/session.middleware.ts`
 
@@ -98,6 +107,17 @@ Target direction:
 - the server response must always replace cache truth
 - cart version conflicts should be surfaced instead of silently overwritten
 
+#### `frontend/src/app/cart/page.tsx`
+
+Add a route-level synchronization boundary for `/cart`:
+
+- flush pending cart mutations that started on previous pages
+- invalidate and re-fetch the authoritative cart
+- keep cart editing controls disabled until synchronization completes
+
+This should happen on `/cart` mount, not on the header cart icon click.
+The route boundary is reliable; the click boundary is not.
+
 #### `frontend/src/hooks/use-add-to-cart-handler.ts`
 
 Keep the UX behavior, but make sure it does not assume the cart can live primarily in local optimistic state.
@@ -116,6 +136,8 @@ Primary test cases:
 - logged-in cart read/write
 - merge on login
 - version increments after mutation
+- split session/user carts self-heal into one active cart
+- `/cart` does not allow edits until pending homepage mutations are settled
 
 ## Step 2: Introduce `checkout_drafts` and `checkout_draft_items`
 

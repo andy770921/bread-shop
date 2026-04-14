@@ -56,6 +56,18 @@ Guest carts, authenticated carts, and LINE-linked users must converge on one car
 
 The system should not jump directly from `cart_items` to the final model in one release.
 
+### 6. Route boundaries are safer than click boundaries
+
+Do not attach critical cart-settlement logic to one specific navigation click such as the header cart icon.
+
+Instead, pages like `/cart` should own their own synchronization boundary:
+
+- settle pending writes
+- fetch authoritative data
+- then allow mutations
+
+This principle is important because a click-triggered network request can be interrupted by navigation and because `/cart` may be reached from multiple entrypoints.
+
 ## Target Data Model
 
 ### A. `carts`
@@ -261,6 +273,21 @@ Backfill draft:
 - `DELETE /api/cart`
   - should clear `cart_lines` for the active cart, not raw `cart_items`
 
+### Active-Cart Resolution Requirement
+
+Phase 1 also needs one non-optional ownership rule:
+
+- all authenticated cart writes must resolve the same active cart as authenticated cart reads
+
+That means the active-cart resolver should be able to:
+
+- locate the active user cart
+- locate the active session cart
+- merge them if both exist
+- relink the surviving cart to the current session and user
+
+Without this, the system can still create split carts even after introducing `carts + cart_lines`.
+
 ## Phase 2: Introduce Explicit Checkout Draft Tables
 
 ### Goal
@@ -425,6 +452,16 @@ alter table public.carts
 - login and register flows should merge carts by `carts.id`, not by raw session rows
 - `GET /api/cart` should resolve one active cart for the actor
 - frontend no longer needs checkout snapshot fallback for normal operation
+
+### Frontend Boundary Requirement
+
+Even with a server-authoritative cart, the frontend should still treat `/cart` as a synchronization boundary:
+
+- pending homepage cart writes should be settled before `/cart` enables editing
+- `/cart` should re-fetch the authoritative cart before the shopper starts mutating line items
+
+This is not a replacement for server authority.
+It is the UI boundary that makes server authority visible and deterministic to the shopper.
 
 ## Phase 5: Remove Legacy Checkout and Cart Tables
 

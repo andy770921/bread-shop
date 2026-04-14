@@ -183,3 +183,72 @@ The DB redesign plan and the implementation steps for that plan are documented s
 
 - `documents/FIX-1/plans/race-condition-db-revamp.md`
 - `documents/FIX-1/development/race-condition-db-revamp.md`
+
+## Additional Production Observation
+
+After rollout, a second race condition was observed outside the LINE checkout submit boundary.
+
+Observed sequence:
+
+1. the shopper adds many products rapidly on the homepage
+2. the header cart badge updates immediately from optimistic cache
+3. the shopper navigates to `/cart` before all homepage debounced writes finish
+4. `/cart` initially looks correct because it is still rendering optimistic cache state
+5. when the shopper edits a line item on `/cart`, some other items can disappear
+
+The disappearing items are not random.
+They are usually the line items whose homepage mutations had not fully settled on the backend when `/cart` started editing.
+
+## Root Cause Extension
+
+The earlier fix correctly moved checkout creation to a server-side draft boundary, but it did not yet establish a **cart-page settlement boundary**.
+
+That meant:
+
+- homepage add-to-cart could still be pending
+- `/cart` could still open on optimistic state
+- `/cart` line-item mutation success could overwrite the cache with a server snapshot that did not yet include every pending homepage write
+
+There was also a backend consistency gap:
+
+- authenticated `POST /api/cart/items` was not resolving cart ownership with `userId`
+- cart editing paths did use authenticated cart ownership
+- that mismatch could split one shopper across a `session cart` and a `user cart`
+
+## Follow-up Code Changes
+
+The follow-up fix adds two protections.
+
+### 1. `/cart` now acts as a synchronization boundary
+
+Implemented in:
+
+- `frontend/src/app/cart/page.tsx`
+
+Behavior:
+
+- when `/cart` mounts, it flushes pending cart mutations from previous pages
+- it invalidates and re-fetches the authoritative cart
+- quantity edits, remove actions, and checkout submission stay disabled until synchronization finishes
+
+Important design note:
+
+- this is done on the `/cart` route boundary
+- it is intentionally **not** attached to the header cart icon click
+
+The route boundary is the stable place to do this. A click handler is not.
+
+### 2. Active-cart resolution now self-heals split carts
+
+Implemented in:
+
+- `backend/src/cart/cart.controller.ts`
+- `backend/src/cart/cart.service.ts`
+
+Behavior:
+
+- authenticated add-to-cart now passes `userId` into the cart service
+- `resolveCart()` can merge a split `session cart` into the active `user cart`
+- authenticated session carts are re-linked to the current user/session when needed
+
+This reduces the chance that one shopper ends up editing one cart while another cart still contains some of their recent items.

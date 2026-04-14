@@ -41,7 +41,7 @@ export class CartController {
 
   @Post('items')
   addItem(@Req() req: Request, @Body() dto: AddToCartDto) {
-    return this.cartService.addItem(req.sessionId!, dto.product_id, dto.quantity);
+    return this.cartService.addItem(req.sessionId!, dto.product_id, dto.quantity, req.user?.id);
   }
 
   @Patch('items/:id')

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CartPage from './page';
+import { QUERY_KEYS } from '@/queries/query-keys';
 
 const push = jest.fn();
 const replace = jest.fn();
@@ -8,6 +9,7 @@ const getQueryData = jest.fn();
 const invalidateQueries = jest.fn().mockResolvedValue(undefined);
 const startLineCheckout = jest.fn();
 const confirmPendingLineOrder = jest.fn();
+const flushPendingCartMutations = jest.fn();
 
 const translations: Record<string, string> = {
   'cart.title': 'Shopping Cart',
@@ -88,6 +90,10 @@ jest.mock('@/queries/use-checkout', () => ({
   useConfirmPendingLineOrder: jest.fn(),
 }));
 
+jest.mock('@/queries/use-debounced-cart-mutation', () => ({
+  flushPendingCartMutations: jest.fn(),
+}));
+
 jest.mock('@/components/layout/header', () => ({
   Header: () => <div>Header</div>,
 }));
@@ -119,6 +125,9 @@ describe('[cart checkout e2e regression]', () => {
     const { useAuth } = jest.requireMock('@/lib/auth-context');
     const { useStartLineCheckout, useConfirmPendingLineOrder } =
       jest.requireMock('@/queries/use-checkout');
+    const { flushPendingCartMutations: mockFlushPendingCartMutations } = jest.requireMock(
+      '@/queries/use-debounced-cart-mutation',
+    );
 
     useRouter.mockReturnValue({ push, replace });
     useSearchParams.mockReturnValue(new URLSearchParams());
@@ -177,6 +186,8 @@ describe('[cart checkout e2e regression]', () => {
     useAuth.mockReturnValue({ user: { line_user_id: 'line-user-1' } });
     useStartLineCheckout.mockReturnValue({ mutateAsync: startLineCheckout });
     useConfirmPendingLineOrder.mockReturnValue({ mutateAsync: confirmPendingLineOrder });
+    mockFlushPendingCartMutations.mockImplementation(flushPendingCartMutations);
+    flushPendingCartMutations.mockResolvedValue(undefined);
     startLineCheckout.mockResolvedValue({
       pendingId: 'pending-1',
       next: 'not_friend',
@@ -186,6 +197,11 @@ describe('[cart checkout e2e regression]', () => {
 
   it('keeps blocked linked users out of the success page and redirects to checkout failed', async () => {
     render(<CartPage />);
+
+    await waitFor(() => {
+      expect(flushPendingCartMutations).toHaveBeenCalled();
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'line_transfer' },
@@ -229,6 +245,47 @@ describe('[cart checkout e2e regression]', () => {
       cart_snapshot: expect.objectContaining({ item_count: 1 }),
     });
     expect(confirmPendingLineOrder).not.toHaveBeenCalled();
+  });
+
+  it('disables checkout interactions until pending cart mutations from the previous page are flushed', async () => {
+    let resolveFlush: (() => void) | null = null;
+    flushPendingCartMutations.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFlush = resolve;
+        }),
+    );
+
+    render(<CartPage />);
+
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'line_transfer' },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Name'), {
+      target: { value: 'Andy' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Phone'), {
+      target: { value: '0912345678' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Address'), {
+      target: { value: 'Taipei' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Enter your LINE ID'), {
+      target: { value: '@andy' },
+    });
+
+    const submitButton = screen.getByRole('button', { name: 'Contact via LINE' });
+    expect(submitButton).toBeDisabled();
+
+    resolveFlush?.();
+
+    await waitFor(() => {
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
+    });
+    await waitFor(() => {
+      expect(submitButton).toBeEnabled();
+    });
   });
 
   it('shows the credit-card service pending notice instead of checkout inputs', () => {

@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
   Minus,
@@ -34,6 +35,8 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
+import { QUERY_KEYS } from '@/queries/query-keys';
+import { flushPendingCartMutations } from '@/queries/use-debounced-cart-mutation';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
 import { CartFormValues, cartFormSchema } from '@/features/checkout/cart-form';
 import {
@@ -53,10 +56,12 @@ function CartContent() {
   const { locale, t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { data: cart, isLoading } = useCart();
   const { updateItem } = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
   const { hasLineUserId, submitCheckout } = useCheckoutFlow();
+  const [isCartSyncing, setIsCartSyncing] = useState(true);
 
   const form = useForm<CartFormValues>({
     resolver: zodResolver(cartFormSchema),
@@ -84,6 +89,27 @@ function CartContent() {
     }
   }, [searchParams, router]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncCart = async () => {
+      try {
+        await flushPendingCartMutations();
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+      } finally {
+        if (!cancelled) {
+          setIsCartSyncing(false);
+        }
+      }
+    };
+
+    void syncCart();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient]);
+
   // Reset conditional fields when payment method changes
   useEffect(() => {
     if (selectedPayment !== 'line_transfer') {
@@ -96,6 +122,7 @@ function CartContent() {
   const subtotal = cart?.subtotal ?? 0;
   const shippingFee = cart?.shipping_fee ?? 0;
   const total = cart?.total ?? 0;
+  const showLoadingState = isLoading || (isCartSyncing && items.length === 0);
 
   const handleQuantityChange = (itemId: number | string, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -124,9 +151,10 @@ function CartContent() {
   };
 
   const submitting = form.formState.isSubmitting;
+  const cartUiDisabled = submitting || isCartSyncing;
 
   // Empty state
-  if (!isLoading && items.length === 0) {
+  if (!showLoadingState && items.length === 0) {
     return (
       <ErrorBoundary>
         <div className="flex min-h-screen flex-col" style={{ backgroundColor: 'var(--bg-body)' }}>
@@ -170,7 +198,7 @@ function CartContent() {
             {t('cart.title')}
           </h1>
 
-          {isLoading ? (
+          {showLoadingState ? (
             <div className="space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -221,7 +249,7 @@ function CartContent() {
                               variant="outline"
                               size="icon-xs"
                               onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
+                              disabled={item.quantity <= 1 || isCartSyncing}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -235,6 +263,7 @@ function CartContent() {
                               variant="outline"
                               size="icon-xs"
                               onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                              disabled={isCartSyncing}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -251,6 +280,7 @@ function CartContent() {
                           size="icon-xs"
                           onClick={() => handleRemove(item.id)}
                           aria-label={t('cart.remove')}
+                          disabled={isCartSyncing}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -451,7 +481,7 @@ function CartContent() {
                             className="w-full gap-2 rounded-full"
                             size="lg"
                             style={{ borderColor: '#06C755', color: '#06C755' }}
-                            disabled={!form.formState.isValid || submitting}
+                            disabled={!form.formState.isValid || cartUiDisabled}
                           >
                             <MessageCircle className="h-4 w-4" />
                             {t('cart.linePay')}

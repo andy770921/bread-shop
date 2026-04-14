@@ -332,3 +332,63 @@ This is not the final ecommerce architecture yet, but it is a meaningful move to
 
 > server-authoritative checkout flow with a real snapshot boundary
 
+---
+
+## Additional Finding After Rollout
+
+The checkout draft change improved the LINE checkout boundary, but rollout exposed a separate cart-editing failure mode:
+
+- a shopper can add many items on the homepage
+- the header badge updates immediately from optimistic cache
+- the shopper can navigate to `/cart` before all debounced add-to-cart writes have fully settled on the backend
+- `/cart` initially looks correct because it is still reading the optimistic React Query cart
+- once the shopper clicks `+` or `-`, the cart-page mutation can reconcile against a server cart that is missing some still-pending homepage writes
+- the result is that some items appear to "disappear" from the cart page even though the shopper saw them a moment earlier
+
+This is not primarily a LINE problem.
+It is a cart-settlement boundary problem.
+
+## Additional Architecture Decision
+
+Do **not** try to solve this by attaching extra API work to the header cart icon click.
+
+That approach is weak for two reasons:
+
+- the browser may navigate to `/cart` before the click-triggered request finishes
+- `/cart` can be reached from other entrypoints, so cart consistency cannot depend on one specific link click
+
+Instead, `/cart` itself should be treated as the settlement boundary.
+
+## Follow-up Implementation Direction
+
+The immediate architecture-safe follow-up is:
+
+1. when `/cart` mounts, flush all pending cart mutations that were started on previous pages
+2. re-fetch the authoritative cart from the backend
+3. keep quantity edits, remove actions, and checkout submission disabled until that synchronization step finishes
+
+This makes the cart page deterministic even if the homepage was still in an optimistic state during navigation.
+
+## Backend Consistency Requirement
+
+Rollout also exposed another important consistency rule:
+
+- add-to-cart
+- cart update
+- cart remove
+- checkout draft creation
+
+must all resolve the **same active cart** for the same actor.
+
+If authenticated add-to-cart writes are resolved by session while cart editing reads are resolved by user ownership, the system can split one logical cart into:
+
+- a `session cart`
+- a `user cart`
+
+That split creates exactly the kind of disappearing-item behavior that is hard to reason about later.
+
+So the active-cart resolver must be able to:
+
+- accept `userId` for authenticated cart writes
+- re-link a session cart to the authenticated user when needed
+- merge a split session cart into the active user cart when both exist
