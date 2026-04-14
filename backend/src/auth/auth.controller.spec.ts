@@ -140,9 +140,7 @@ describe('AuthController', () => {
       });
       lineService.canPushToUser.mockResolvedValue(false);
 
-      await expect(
-        controller.getLineMessageEligibility({ id: 'bread-user-1' }),
-      ).resolves.toEqual({
+      await expect(controller.getLineMessageEligibility({ id: 'bread-user-1' })).resolves.toEqual({
         can_receive_messages: false,
         add_friend_url: 'https://line.me/R/ti/p/@papabakery',
       });

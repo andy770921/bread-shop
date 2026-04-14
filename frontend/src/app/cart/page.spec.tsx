@@ -30,8 +30,7 @@ const translations: Record<string, string> = {
   'cart.linePay': 'Contact via LINE',
   'cart.lineLinked':
     'LINE account linked. Order confirmation will be sent to your LINE automatically.',
-  'cart.lineLoginHint':
-    "You'll be redirected to LINE Login to enable automatic order confirmation",
+  'cart.lineLoginHint': "You'll be redirected to LINE Login to enable automatic order confirmation",
   'cart.orderSummary': 'Order Summary',
   'cart.subtotal': 'Subtotal',
   'cart.shipping': 'Shipping',
@@ -49,7 +48,13 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  default: ({ fill, ...props }: any) => <img alt={props.alt} {...props} />,
+  default: (props: any) => {
+    const imgProps = { ...props };
+    delete imgProps.fill;
+
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img alt={imgProps.alt} {...imgProps} />;
+  },
 }));
 
 jest.mock('next/link', () => ({
