@@ -47,10 +47,6 @@ describe('[useCheckoutFlow]', () => {
     customerAddress: 'Taipei',
     notes: 'Ring bell',
     paymentMethod: 'line_transfer',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvv: '',
-    cardholderName: '',
     lineId: '@andy',
   };
 
@@ -180,13 +176,7 @@ describe('[useCheckoutFlow]', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('redirects card checkout to an external checkout URL when present', async () => {
-    createOrder.mockResolvedValue({
-      id: 10,
-      order_number: 'ORD-10',
-      checkout_url: 'https://pay.test',
-    });
-
+  it('rejects credit-card submission before any order is created', async () => {
     const { result } = renderHook(() => useCheckoutFlow());
 
     await act(async () => {
@@ -194,15 +184,13 @@ describe('[useCheckoutFlow]', () => {
         result.current.submitCheckout({
           ...baseValues,
           paymentMethod: 'credit_card',
-          cardNumber: '4111111111111111',
-          cardExpiry: '12/30',
-          cardCvv: '123',
-          cardholderName: 'Andy',
         }),
-      ).resolves.toEqual({ status: 'redirected' });
+      ).rejects.toThrow('Credit card service is currently unavailable.');
     });
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
-    expect(redirectTo).toHaveBeenCalledWith('https://pay.test');
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(lineSend).not.toHaveBeenCalled();
+    expect(confirmOrder).not.toHaveBeenCalled();
   });
 });

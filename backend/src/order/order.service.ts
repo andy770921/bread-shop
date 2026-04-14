@@ -32,7 +32,7 @@ export class OrderService {
       customer_email?: string;
       customer_address: string;
       notes?: string;
-      payment_method: 'lemon_squeezy' | 'line';
+      payment_method: 'line';
       customer_line_id?: string;
       skip_cart_clear?: boolean;
     },

@@ -1,6 +1,6 @@
 # Papa Bakery — Online Shop
 
-An online bakery storefront for Papa Bakery (周爸烘焙坊). Customers can browse products, manage a shopping cart, and check out via credit card or LINE messaging. Supports guest shopping with seamless cart merge on login, bilingual UI (Chinese/English), and light/dark themes.
+An online bakery storefront for Papa Bakery (周爸烘焙坊). Customers can browse products, manage a shopping cart, and place orders via LINE messaging. Supports guest shopping with seamless cart merge on login, bilingual UI (Chinese/English), and light/dark themes.
 
 ## Production
 
@@ -17,7 +17,7 @@ An online bakery storefront for Papa Bakery (周爸烘焙坊). Customers can bro
 | Backend  | NestJS 11, class-validator, Swagger |
 | Database | Supabase (PostgreSQL + Auth + Storage) |
 | Auth     | Supabase Auth (email/password + LINE Login OAuth2) |
-| Payment  | Lemon Squeezy (credit card), LINE Messaging API (order via chat) |
+| Payment  | LINE Messaging API (order via chat), credit-card service placeholder in cart UI |
 | Monorepo | npm workspaces + Turborepo |
 | Shared   | `@repo/shared` — TypeScript types for API contracts |
 
@@ -99,8 +99,8 @@ The "透過 LINE 聯繫" (Contact via LINE) feature pushes order details to the 
 
 ### Checkout
 
-- **Lemon Squeezy** — hosted checkout page for credit card payments, with webhook for order status updates
 - **LINE messaging** — send order summary as a Flex Message to the shop's LINE Official Account
+- **Credit-card placeholder** — the `/cart` payment dropdown still shows a credit-card option, but it is intentionally non-interactive while a replacement provider is evaluated
 
 ### User Features
 
@@ -141,7 +141,6 @@ Browser ─── Next.js (:3001) ── rewrites /api/* ──→ NestJS (:3000
 │   ├── cart/                 # Server-side cart CRUD
 │   ├── favorite/             # User favorites
 │   ├── order/                # Order creation, history, status
-│   ├── payment/              # Lemon Squeezy checkout + webhook
 │   ├── line/                 # LINE push message for orders
 │   ├── user/                 # Profile management
 │   ├── supabase/             # Global Supabase client provider

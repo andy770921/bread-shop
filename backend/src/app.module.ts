@@ -9,7 +9,6 @@ import { CategoryModule } from './category/category.module';
 import { CartModule } from './cart/cart.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { OrderModule } from './order/order.module';
-import { PaymentModule } from './payment/payment.module';
 import { LineModule } from './line/line.module';
 import { UserModule } from './user/user.module';
 import { SessionMiddleware } from './common/middleware/session.middleware';
@@ -27,7 +26,6 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
     CartModule,
     FavoriteModule,
     OrderModule,
-    PaymentModule,
     LineModule,
     UserModule,
   ],
@@ -36,6 +34,6 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SessionMiddleware).exclude('api/webhooks/(.*)').forRoutes('api/*path');
+    consumer.apply(SessionMiddleware).forRoutes('api/*path');
   }
 }

@@ -68,10 +68,6 @@ function CartContent() {
       customerAddress: '',
       notes: '',
       paymentMethod: undefined,
-      cardNumber: '',
-      cardExpiry: '',
-      cardCvv: '',
-      cardholderName: '',
       lineId: '',
     },
   });
@@ -90,15 +86,9 @@ function CartContent() {
 
   // Reset conditional fields when payment method changes
   useEffect(() => {
-    if (selectedPayment === 'credit_card') {
+    if (selectedPayment !== 'line_transfer') {
       form.setValue('lineId', '');
       form.clearErrors('lineId');
-    } else if (selectedPayment === 'line_transfer') {
-      form.setValue('cardNumber', '');
-      form.setValue('cardExpiry', '');
-      form.setValue('cardCvv', '');
-      form.setValue('cardholderName', '');
-      form.clearErrors(['cardNumber', 'cardExpiry', 'cardCvv', 'cardholderName']);
     }
   }, [selectedPayment, form]);
 
@@ -403,64 +393,18 @@ function CartContent() {
                         )}
                       />
 
-                      {/* Credit Card Fields */}
+                      {/* Credit Card Notice */}
                       {selectedPayment === 'credit_card' && (
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          <FormField
-                            control={form.control}
-                            name="cardNumber"
-                            render={({ field }) => (
-                              <FormItem className="sm:col-span-2">
-                                <FormLabel>{t('cart.cardNumber')} *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder={t('cart.cardNumberPlaceholder')} {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="cardExpiry"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>{t('cart.cardExpiry')} *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder={t('cart.cardExpiryPlaceholder')} {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="cardCvv"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>{t('cart.cardCvv')} *</FormLabel>
-                                <FormControl>
-                                  <Input placeholder={t('cart.cardCvvPlaceholder')} {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="cardholderName"
-                            render={({ field }) => (
-                              <FormItem className="sm:col-span-2">
-                                <FormLabel>{t('cart.cardholderName')} *</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder={t('cart.cardholderNamePlaceholder')}
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                        <div
+                          className="flex items-center gap-3 rounded-lg border border-dashed p-4 text-sm"
+                          style={{
+                            backgroundColor: 'var(--bg-body)',
+                            borderColor: 'var(--border-default)',
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
+                          <CreditCard className="h-4 w-4 flex-shrink-0" />
+                          <span>{t('cart.creditCardServicePending')}</span>
                         </div>
                       )}
 
@@ -499,18 +443,6 @@ function CartContent() {
                       )}
 
                       {/* CTA Button */}
-                      {selectedPayment === 'credit_card' && (
-                        <Button
-                          type="submit"
-                          className="w-full gap-2 rounded-full"
-                          size="lg"
-                          style={{ background: 'var(--checkout-gradient)', color: '#fff' }}
-                          disabled={!form.formState.isValid || submitting}
-                        >
-                          <CreditCard className="h-4 w-4" />
-                          {t('cart.creditCard')}
-                        </Button>
-                      )}
                       {selectedPayment === 'line_transfer' && (
                         <>
                           <Button

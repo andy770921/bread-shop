@@ -52,6 +52,10 @@ export function useCheckoutFlow() {
       await flushPendingCartMutations();
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
 
+      if (values.paymentMethod === 'credit_card') {
+        throw new Error('Credit card service is currently unavailable.');
+      }
+
       if (shouldStartLineLogin(values, hasLineUserId)) {
         const { pendingId } = await authedFetchFn<{ pendingId: string }>('api/auth/line/start', {
           method: 'POST',
@@ -61,49 +65,33 @@ export function useCheckoutFlow() {
         return { status: 'redirected' };
       }
 
-      const isLineTransfer = values.paymentMethod === 'line_transfer';
-      if (isLineTransfer) {
-        const messageEligibility = await authedFetchFn<LineMessageEligibilityResponse>(
-          'api/auth/line/message-eligibility',
-        );
+      const messageEligibility = await authedFetchFn<LineMessageEligibilityResponse>(
+        'api/auth/line/message-eligibility',
+      );
 
-        if (!messageEligibility.can_receive_messages) {
-          return {
-            status: 'needs_friend',
-            addFriendUrl: messageEligibility.add_friend_url,
-          };
-        }
+      if (!messageEligibility.can_receive_messages) {
+        return {
+          status: 'needs_friend',
+          addFriendUrl: messageEligibility.add_friend_url,
+        };
       }
 
       const orderData = await createOrder(toCreateOrderBody(values));
+      const lineData = await lineSend(orderData.id);
 
-      if (isLineTransfer) {
-        const lineData = await lineSend(orderData.id);
-
-        if (!lineData?.success) {
-          if (lineData?.needs_friend && lineData?.add_friend_url) {
-            return {
-              status: 'needs_friend',
-              addFriendUrl: lineData.add_friend_url,
-            };
-          }
-
-          throw new Error(lineData?.message || 'Failed to send order via LINE');
+      if (!lineData?.success) {
+        if (lineData?.needs_friend && lineData?.add_friend_url) {
+          return {
+            status: 'needs_friend',
+            addFriendUrl: lineData.add_friend_url,
+          };
         }
 
-        await confirmOrder(orderData.id);
-        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
-        router.push(`/checkout/success?order=${orderData.order_number}`);
-        return { status: 'completed' };
+        throw new Error(lineData?.message || 'Failed to send order via LINE');
       }
 
+      await confirmOrder(orderData.id);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
-
-      if (orderData.checkout_url) {
-        redirectTo(orderData.checkout_url);
-        return { status: 'redirected' };
-      }
-
       router.push(`/checkout/success?order=${orderData.order_number}`);
       return { status: 'completed' };
     },

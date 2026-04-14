@@ -1,5 +1,5 @@
 export type OrderStatus = 'pending' | 'paid' | 'preparing' | 'shipping' | 'delivered' | 'cancelled';
-export type PaymentMethod = 'lemon_squeezy' | 'line';
+export type PaymentMethod = 'line';
 
 export interface CreateOrderRequest {
   customer_name: string;
@@ -42,10 +42,6 @@ export interface Order {
 
 export interface OrderListResponse {
   orders: Omit<Order, 'items'>[];
-}
-
-export interface CheckoutResponse {
-  checkout_url: string;
 }
 
 export interface LineSendResponse {

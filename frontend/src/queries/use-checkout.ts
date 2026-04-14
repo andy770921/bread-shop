@@ -14,7 +14,7 @@ export interface LineSendResponse {
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (body: CreateOrderBody) =>
-      authedFetchFn<Order & { checkout_url?: string }>('api/orders', { method: 'POST', body }),
+      authedFetchFn<Order>('api/orders', { method: 'POST', body }),
   });
 }
 

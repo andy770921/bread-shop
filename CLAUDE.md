@@ -45,7 +45,7 @@ Frontend uses **Next.js rewrites** (`next.config.ts`) to proxy `/api/*` to backe
 
 Every visitor gets a `session_id` HttpOnly cookie. Cart items link to sessions, not users directly.
 
-- `SessionMiddleware` (`backend/src/common/middleware/session.middleware.ts`) runs on all `api/*` except webhooks
+- `SessionMiddleware` (`backend/src/common/middleware/session.middleware.ts`) runs on all `api/*`
 - Sessions created lazily (only on cart/favorites/orders GETs or any POST, not on product listing GETs)
 - On login: `mergeSessionOnLogin()` links session to user, merges cart items from old sessions
 - On logout: session stays, `user_id` cleared — cart remains accessible as guest
@@ -63,7 +63,6 @@ All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` 
 | Cart     | GET/POST/PATCH/DELETE /api/cart/\*                   | Session (OptionalAuth) |
 | Favorite | GET/POST/DELETE /api/favorites/\*                    | Bearer required        |
 | Order    | POST /api/orders; GET list, detail, by-number        | Session + Bearer       |
-| Payment  | POST checkout, webhook (Lemon Squeezy skeleton)      | Session / —            |
 | LINE     | POST /api/orders/:id/line-send                       | Bearer required        |
 | User     | GET/PATCH /api/user/profile                          | Bearer required        |
 
@@ -98,7 +97,7 @@ Key triggers: auto-create profile on auth signup, auto-generate order numbers (`
 
 Copy `.env.example` to actual env files:
 
-- `backend/.env` — Supabase URL/key, FRONTEND_URL, LINE credentials, Lemon Squeezy (optional)
+- `backend/.env` — Supabase URL/key, FRONTEND_URL, LINE credentials
 - `frontend/.env.local` — `NEXT_PUBLIC_API_URL=http://localhost:3000`
 
 ## Code Style

@@ -24,9 +24,9 @@ export class CreateOrderDto {
   @IsString()
   notes?: string;
 
-  @ApiProperty({ enum: ['lemon_squeezy', 'line'] })
-  @IsIn(['lemon_squeezy', 'line'])
-  payment_method: 'lemon_squeezy' | 'line';
+  @ApiProperty({ enum: ['line'] })
+  @IsIn(['line'])
+  payment_method: 'line';
 
   @ApiPropertyOptional({
     example: '@john123',

@@ -6,10 +6,6 @@ const baseValues = {
   customerEmail: 'andy@example.com',
   customerAddress: 'Taipei',
   notes: 'Ring bell',
-  cardNumber: '',
-  cardExpiry: '',
-  cardCvv: '',
-  cardholderName: '',
   lineId: '',
 };
 
@@ -24,17 +20,13 @@ describe('[checkout cart-form]', () => {
     expect(result.error?.flatten().fieldErrors.lineId).toContain('required');
   });
 
-  it('requires card fields for credit-card checkout', () => {
+  it('does not require extra fields for the unavailable credit-card option', () => {
     const result = cartFormSchema.safeParse({
       ...baseValues,
       paymentMethod: 'credit_card',
     });
 
-    expect(result.success).toBe(false);
-    expect(result.error?.flatten().fieldErrors.cardNumber).toContain('required');
-    expect(result.error?.flatten().fieldErrors.cardExpiry).toContain('required');
-    expect(result.error?.flatten().fieldErrors.cardCvv).toContain('required');
-    expect(result.error?.flatten().fieldErrors.cardholderName).toContain('required');
+    expect(result.success).toBe(true);
   });
 
   it('decides when LINE login must start before checkout submission', () => {
@@ -83,25 +75,12 @@ describe('[checkout cart-form]', () => {
     });
   });
 
-  it('maps credit-card form values to the backend order payload', () => {
-    const payload = toCreateOrderBody({
-      ...baseValues,
-      paymentMethod: 'credit_card',
-      cardNumber: '4111111111111111',
-      cardExpiry: '12/30',
-      cardCvv: '123',
-      cardholderName: 'Andy',
-    });
-
-    expect(payload).toEqual({
-      customer_name: 'Andy',
-      customer_phone: '0912345678',
-      customer_email: 'andy@example.com',
-      customer_address: 'Taipei',
-      notes: 'Ring bell',
-      payment_method: 'lemon_squeezy',
-      customer_line_id: undefined,
-      skip_cart_clear: false,
-    });
+  it('rejects credit-card payload mapping because backend checkout was removed', () => {
+    expect(() =>
+      toCreateOrderBody({
+        ...baseValues,
+        paymentMethod: 'credit_card',
+      }),
+    ).toThrow('Credit card service is currently unavailable.');
   });
 });

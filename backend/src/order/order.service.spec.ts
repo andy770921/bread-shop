@@ -34,10 +34,10 @@ describe('OrderService', () => {
         status: 'pending',
       } as any);
 
-      await service.updateOrderStatus(1, 'paid', { payment_id: 'ls-1' });
+      await service.updateOrderStatus(1, 'paid', { payment_id: 'payment-1' });
 
       expect(fromMock).toHaveBeenCalledWith('orders');
-      expect(updateMock).toHaveBeenCalledWith({ status: 'paid', payment_id: 'ls-1' });
+      expect(updateMock).toHaveBeenCalledWith({ status: 'paid', payment_id: 'payment-1' });
       expect(eqMock).toHaveBeenCalledWith('id', 1);
     });
 
@@ -48,7 +48,7 @@ describe('OrderService', () => {
         status: 'paid',
       } as any);
 
-      await service.updateOrderStatus(1, 'paid', { payment_id: 'ls-1' });
+      await service.updateOrderStatus(1, 'paid', { payment_id: 'payment-1' });
 
       expect(updateMock).not.toHaveBeenCalled();
     });

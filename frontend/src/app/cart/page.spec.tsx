@@ -24,6 +24,7 @@ const translations: Record<string, string> = {
   'cart.paymentMethod': 'Payment Method',
   'cart.paymentMethodPlaceholder': 'Select payment method',
   'cart.paymentCreditCard': 'Credit Card',
+  'cart.creditCardServicePending': 'Credit card service application in progress',
   'cart.paymentLineTransfer': 'LINE Contact, Bank Transfer',
   'cart.lineId': 'Your LINE ID',
   'cart.lineIdPlaceholder': 'Enter your LINE ID',
@@ -203,5 +204,16 @@ describe('[cart checkout e2e regression]', () => {
     expect(createOrder).not.toHaveBeenCalled();
     expect(lineSend).not.toHaveBeenCalled();
     expect(confirmOrder).not.toHaveBeenCalled();
+  });
+
+  it('shows the credit-card service pending notice instead of checkout inputs', () => {
+    render(<CartPage />);
+
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'credit_card' },
+    });
+
+    expect(screen.getByText('Credit card service application in progress')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Contact via LINE' })).not.toBeInTheDocument();
   });
 });
