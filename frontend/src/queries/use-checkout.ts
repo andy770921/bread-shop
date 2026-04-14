@@ -1,33 +1,36 @@
 import { useMutation } from '@tanstack/react-query';
+import type { CartResponse } from '@repo/shared';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-import type { CreateOrderRequest, Order } from '@repo/shared';
 
-type CreateOrderBody = CreateOrderRequest & { skip_cart_clear?: boolean };
-
-export interface LineSendResponse {
-  success: boolean;
-  needs_friend?: boolean;
+export interface LineCheckoutStartResponse {
+  pendingId: string;
+  next: 'line_login' | 'confirm' | 'not_friend';
   add_friend_url?: string;
-  message?: string;
 }
 
-export function useCreateOrder() {
+export interface StartLineCheckoutBody {
+  form_data: Record<string, unknown>;
+  cart_snapshot?: CartResponse;
+}
+
+export interface ConfirmPendingLineOrderResponse {
+  success: boolean;
+  order_number: string | null;
+}
+
+export function useStartLineCheckout() {
   return useMutation({
-    mutationFn: (body: CreateOrderBody) =>
-      authedFetchFn<Order>('api/orders', { method: 'POST', body }),
+    mutationFn: (body: StartLineCheckoutBody) =>
+      authedFetchFn<LineCheckoutStartResponse>('api/auth/line/start', { method: 'POST', body }),
   });
 }
 
-export function useLineSend() {
+export function useConfirmPendingLineOrder() {
   return useMutation({
-    mutationFn: (orderId: number) =>
-      authedFetchFn<LineSendResponse>(`api/orders/${orderId}/line-send`, { method: 'POST' }),
-  });
-}
-
-export function useConfirmOrder() {
-  return useMutation({
-    mutationFn: (orderId: number) =>
-      authedFetchFn<Order>(`api/orders/${orderId}/confirm`, { method: 'POST' }),
+    mutationFn: (pendingId: string) =>
+      authedFetchFn<ConfirmPendingLineOrderResponse>('api/auth/line/confirm-order', {
+        method: 'POST',
+        body: { pendingId },
+      }),
   });
 }

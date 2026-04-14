@@ -27,6 +27,11 @@ import { OrderService } from '../order/order.service';
 import { CheckoutService } from '../checkout/checkout.service';
 import { LineService } from '../line/line.service';
 
+type LineStartResponse =
+  | { pendingId: string; next: 'line_login' }
+  | { pendingId: string; next: 'confirm' }
+  | { pendingId: string; next: 'not_friend'; add_friend_url: string };
+
 @ApiTags('Auth')
 @Controller('api/auth')
 export class AuthController {
@@ -98,32 +103,43 @@ export class AuthController {
   }
 
   /**
-   * Store form data on the server before LINE Login redirect.
-   * Returns a pendingId that the frontend passes to GET /api/auth/line.
+   * Create a checkout draft before any LINE checkout flow.
+   * The response tells the frontend whether it should redirect to LINE login,
+   * stop because the OA is not reachable, or confirm the order immediately.
    */
   @Post('line/start')
   async lineStart(
     @Req() req: Request,
     @Body() body: { form_data: Record<string, unknown>; cart_snapshot?: Record<string, unknown> },
-  ) {
+  ): Promise<LineStartResponse> {
     const sessionId = req.sessionId;
     if (!sessionId) {
       throw new UnauthorizedException('No session');
     }
-    let linkUserId: string | null = null;
+    let currentUserId: string | null = null;
+    let lineUserId: string | null = null;
     const authHeader = req.headers.authorization;
+    const supabase = this.supabaseService.getClient();
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const {
         data: { user },
         error,
-      } = await this.supabaseService.getClient().auth.getUser(token);
+      } = await supabase.auth.getUser(token);
 
       if (error || !user) {
         throw new UnauthorizedException('Login expired. Please sign in again.');
       }
 
-      linkUserId = user.id;
+      currentUserId = user.id;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('line_user_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      lineUserId = profile?.line_user_id || null;
     }
     // Strip _ prefixed fields from client data to prevent injection of internal fields
     const safeFormData = Object.fromEntries(
@@ -135,18 +151,32 @@ export class AuthController {
     // 2. Fallback for order creation if the session cart is empty after redirect
     const cart = await this.orderService.getCheckoutCartSnapshot(
       sessionId,
-      linkUserId || undefined,
+      currentUserId || undefined,
       body.cart_snapshot as any,
     );
     const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
       _cart_snapshot: cart,
     };
-    if (linkUserId) {
-      pendingFormData._link_user_id = linkUserId;
+    if (currentUserId && lineUserId) {
+      pendingFormData._user_id = currentUserId;
+      pendingFormData._line_user_id = lineUserId;
+    } else if (currentUserId) {
+      pendingFormData._link_user_id = currentUserId;
     }
     const pendingId = await this.authService.storePendingOrder(sessionId, pendingFormData);
-    return { pendingId };
+    if (!lineUserId) {
+      return { pendingId, next: 'line_login' };
+    }
+
+    const lineOaId = this.configService.get('LINE_OA_ID', '@papabakery');
+    const addFriendUrl = `https://line.me/R/ti/p/${lineOaId}`;
+    const canReceiveMessages = await this.lineService.canPushToUser(lineUserId);
+    if (!canReceiveMessages) {
+      return { pendingId, next: 'not_friend', add_friend_url: addFriendUrl };
+    }
+
+    return { pendingId, next: 'confirm' };
   }
 
   @Get('line')

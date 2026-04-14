@@ -32,6 +32,8 @@ describe('AuthController', () => {
   let lineService: {
     canPushToUser: jest.Mock;
   };
+  let getUserMock: jest.Mock;
+  let profileMaybeSingleMock: jest.Mock;
 
   const createResponse = (): Response =>
     ({
@@ -81,11 +83,27 @@ describe('AuthController', () => {
       consumeOneTimeCode: jest.fn(),
     };
 
+    getUserMock = jest.fn();
+    profileMaybeSingleMock = jest.fn().mockResolvedValue({ data: null, error: null });
+
     supabaseService = {
       getClient: jest.fn().mockReturnValue({
         auth: {
-          getUser: jest.fn(),
+          getUser: getUserMock,
         },
+        from: jest.fn((table: string) => {
+          if (table !== 'profiles') {
+            throw new Error(`Unexpected table ${table}`);
+          }
+
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: profileMaybeSingleMock,
+              }),
+            }),
+          };
+        }),
       }),
     };
 
@@ -148,20 +166,25 @@ describe('AuthController', () => {
   });
 
   describe('lineStart', () => {
-    it('stores guest pending orders without a link user id', async () => {
+    it('stores guest pending orders and returns line_login', async () => {
       const cartSnapshot = { items: [{ id: 1 }], subtotal: 100, shipping_fee: 60, total: 160 };
       const req = createRequest();
 
       orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
       authService.storePendingOrder.mockResolvedValue('pending-1');
 
-      await controller.lineStart(req, {
-        form_data: {
-          customerName: 'Guest',
-          lineId: 'guest-line-id',
-          _link_user_id: 'should-be-stripped',
-        },
-        cart_snapshot: cartSnapshot,
+      await expect(
+        controller.lineStart(req, {
+          form_data: {
+            customerName: 'Guest',
+            lineId: 'guest-line-id',
+            _link_user_id: 'should-be-stripped',
+          },
+          cart_snapshot: cartSnapshot,
+        }),
+      ).resolves.toEqual({
+        pendingId: 'pending-1',
+        next: 'line_login',
       });
 
       expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
@@ -171,28 +194,30 @@ describe('AuthController', () => {
       });
     });
 
-    it('stores the current Bread Shop user id for linking flows', async () => {
+    it('stores the current Bread Shop user id for linking flows and returns line_login', async () => {
       const cartSnapshot = { items: [], subtotal: 0, shipping_fee: 0, total: 0 };
       const req = createRequest({
         headers: { authorization: 'Bearer existing-token' },
       });
-      const getUser = jest.fn().mockResolvedValue({
+      getUserMock.mockResolvedValue({
         data: { user: { id: 'bread-user-1' } },
         error: null,
       });
 
-      supabaseService.getClient.mockReturnValue({
-        auth: { getUser },
-      });
       orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
       authService.storePendingOrder.mockResolvedValue('pending-2');
 
-      await controller.lineStart(req, {
-        form_data: { customerName: 'Linked User' },
-        cart_snapshot: cartSnapshot,
+      await expect(
+        controller.lineStart(req, {
+          form_data: { customerName: 'Linked User' },
+          cart_snapshot: cartSnapshot,
+        }),
+      ).resolves.toEqual({
+        pendingId: 'pending-2',
+        next: 'line_login',
       });
 
-      expect(getUser).toHaveBeenCalledWith('existing-token');
+      expect(getUserMock).toHaveBeenCalledWith('existing-token');
       expect(orderService.getCheckoutCartSnapshot).toHaveBeenCalledWith(
         'session-1',
         'bread-user-1',
@@ -202,6 +227,71 @@ describe('AuthController', () => {
         customerName: 'Linked User',
         _cart_snapshot: cartSnapshot,
         _link_user_id: 'bread-user-1',
+      });
+    });
+
+    it('returns confirm for linked reachable users and stores auth metadata in the draft', async () => {
+      const cartSnapshot = { items: [{ id: 1 }], subtotal: 100, shipping_fee: 60, total: 160 };
+      const req = createRequest({
+        headers: { authorization: 'Bearer existing-token' },
+      });
+      getUserMock.mockResolvedValue({
+        data: { user: { id: 'bread-user-1' } },
+        error: null,
+      });
+      profileMaybeSingleMock.mockResolvedValue({
+        data: { line_user_id: 'line-user-1' },
+        error: null,
+      });
+      lineService.canPushToUser.mockResolvedValue(true);
+      orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
+      authService.storePendingOrder.mockResolvedValue('pending-3');
+
+      await expect(
+        controller.lineStart(req, {
+          form_data: { customerName: 'Reachable User' },
+          cart_snapshot: cartSnapshot,
+        }),
+      ).resolves.toEqual({
+        pendingId: 'pending-3',
+        next: 'confirm',
+      });
+
+      expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
+        customerName: 'Reachable User',
+        _cart_snapshot: cartSnapshot,
+        _user_id: 'bread-user-1',
+        _line_user_id: 'line-user-1',
+      });
+      expect(lineService.canPushToUser).toHaveBeenCalledWith('line-user-1');
+    });
+
+    it('returns not_friend for linked but unreachable users', async () => {
+      const cartSnapshot = { items: [{ id: 1 }], subtotal: 100, shipping_fee: 60, total: 160 };
+      const req = createRequest({
+        headers: { authorization: 'Bearer existing-token' },
+      });
+      getUserMock.mockResolvedValue({
+        data: { user: { id: 'bread-user-1' } },
+        error: null,
+      });
+      profileMaybeSingleMock.mockResolvedValue({
+        data: { line_user_id: 'line-user-1' },
+        error: null,
+      });
+      lineService.canPushToUser.mockResolvedValue(false);
+      orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
+      authService.storePendingOrder.mockResolvedValue('pending-4');
+
+      await expect(
+        controller.lineStart(req, {
+          form_data: { customerName: 'Blocked User' },
+          cart_snapshot: cartSnapshot,
+        }),
+      ).resolves.toEqual({
+        pendingId: 'pending-4',
+        next: 'not_friend',
+        add_friend_url: 'https://line.me/R/ti/p/@papabakery',
       });
     });
   });

@@ -6,9 +6,8 @@ const push = jest.fn();
 const replace = jest.fn();
 const getQueryData = jest.fn();
 const invalidateQueries = jest.fn().mockResolvedValue(undefined);
-const createOrder = jest.fn();
-const lineSend = jest.fn();
-const confirmOrder = jest.fn();
+const startLineCheckout = jest.fn();
+const confirmPendingLineOrder = jest.fn();
 
 const translations: Record<string, string> = {
   'cart.title': 'Shopping Cart',
@@ -85,13 +84,8 @@ jest.mock('@/lib/auth-context', () => ({
 }));
 
 jest.mock('@/queries/use-checkout', () => ({
-  useCreateOrder: jest.fn(),
-  useLineSend: jest.fn(),
-  useConfirmOrder: jest.fn(),
-}));
-
-jest.mock('@/utils/fetchers/fetchers.client', () => ({
-  authedFetchFn: jest.fn(),
+  useStartLineCheckout: jest.fn(),
+  useConfirmPendingLineOrder: jest.fn(),
 }));
 
 jest.mock('@/components/layout/header', () => ({
@@ -123,9 +117,8 @@ describe('[cart checkout e2e regression]', () => {
     const { useCart, useUpdateCartItem, useRemoveCartItem } =
       jest.requireMock('@/queries/use-cart');
     const { useAuth } = jest.requireMock('@/lib/auth-context');
-    const { useCreateOrder, useLineSend, useConfirmOrder } =
+    const { useStartLineCheckout, useConfirmPendingLineOrder } =
       jest.requireMock('@/queries/use-checkout');
-    const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
 
     useRouter.mockReturnValue({ push, replace });
     useSearchParams.mockReturnValue(new URLSearchParams());
@@ -182,11 +175,11 @@ describe('[cart checkout e2e regression]', () => {
     useUpdateCartItem.mockReturnValue({ updateItem: jest.fn() });
     useRemoveCartItem.mockReturnValue({ mutate: jest.fn() });
     useAuth.mockReturnValue({ user: { line_user_id: 'line-user-1' } });
-    useCreateOrder.mockReturnValue({ mutateAsync: createOrder });
-    useLineSend.mockReturnValue({ mutateAsync: lineSend });
-    useConfirmOrder.mockReturnValue({ mutateAsync: confirmOrder });
-    authedFetchFn.mockResolvedValue({
-      can_receive_messages: false,
+    useStartLineCheckout.mockReturnValue({ mutateAsync: startLineCheckout });
+    useConfirmPendingLineOrder.mockReturnValue({ mutateAsync: confirmPendingLineOrder });
+    startLineCheckout.mockResolvedValue({
+      pendingId: 'pending-1',
+      next: 'not_friend',
       add_friend_url: 'https://line.me/R/ti/p/@737nfsrc',
     });
   });
@@ -223,11 +216,19 @@ describe('[cart checkout e2e regression]', () => {
       expect(push).toHaveBeenCalledWith('/checkout/failed?reason=not_friend');
     });
 
-    const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
-    expect(authedFetchFn).toHaveBeenCalledWith('api/auth/line/message-eligibility');
-    expect(createOrder).not.toHaveBeenCalled();
-    expect(lineSend).not.toHaveBeenCalled();
-    expect(confirmOrder).not.toHaveBeenCalled();
+    expect(startLineCheckout).toHaveBeenCalledWith({
+      form_data: {
+        customerName: 'Andy',
+        customerPhone: '0912345678',
+        customerEmail: '',
+        customerAddress: 'Taipei',
+        notes: '',
+        paymentMethod: 'line_transfer',
+        lineId: '@andy',
+      },
+      cart_snapshot: expect.objectContaining({ item_count: 1 }),
+    });
+    expect(confirmPendingLineOrder).not.toHaveBeenCalled();
   });
 
   it('shows the credit-card service pending notice instead of checkout inputs', () => {
