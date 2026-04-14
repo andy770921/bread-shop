@@ -48,6 +48,7 @@ export class CreateOrderDto {
     description:
       'Checkout cart snapshot captured on the client at submit time. The backend canonicalizes product data and totals before creating the order.',
     type: 'object',
+    additionalProperties: true,
   })
   @IsOptional()
   @IsObject()
