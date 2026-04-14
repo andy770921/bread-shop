@@ -5,6 +5,7 @@ import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import { EMPTY_CART } from '@/utils/cart-math';
 
 let cartSessionReady = false;
+let cartSessionPromise: Promise<void> | null = null;
 
 /**
  * Called by useCart() queryFn after any GET /api/cart completes.
@@ -24,17 +25,27 @@ export function markCartSessionReady(): void {
 export async function ensureCartSessionReady(queryClient: QueryClient): Promise<void> {
   if (cartSessionReady) return;
 
-  await queryClient.ensureQueryData<CartResponse>({
-    queryKey: QUERY_KEYS.cart,
-    queryFn: async () => {
-      try {
-        return await authedFetchFn<CartResponse>('api/cart');
-      } catch {
-        return EMPTY_CART;
-      }
-    },
-  });
-  cartSessionReady = true;
+  if (!cartSessionPromise) {
+    cartSessionPromise = queryClient
+      .ensureQueryData<CartResponse>({
+        queryKey: QUERY_KEYS.cart,
+        queryFn: async () => {
+          try {
+            return await authedFetchFn<CartResponse>('api/cart');
+          } catch {
+            return EMPTY_CART;
+          }
+        },
+      })
+      .then(() => {
+        cartSessionReady = true;
+      })
+      .catch(() => {
+        cartSessionPromise = null;
+      });
+  }
+
+  await cartSessionPromise;
 }
 
 export function primeCartSessionReady(queryClient: QueryClient): void {
@@ -44,4 +55,5 @@ export function primeCartSessionReady(queryClient: QueryClient): void {
 
 export function resetCartSessionReadyForTests(): void {
   cartSessionReady = false;
+  cartSessionPromise = null;
 }
