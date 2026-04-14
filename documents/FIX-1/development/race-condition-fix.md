@@ -318,6 +318,80 @@ Current implementation files:
 
 That makes the pending-order snapshot match the same merged cart model used by `/cart`.
 
+#### D. Add-to-cart now bootstraps a stable session before the first write burst
+
+The remaining regression showed that the previous layers were still not enough for the
+very first anonymous add-to-cart burst.
+
+Problem:
+
+- homepage `Header` mounts `useCart()` and starts `GET /api/cart`
+- but that request is asynchronous
+- a fast shopper can still click products before the browser has stored the `session_id` cookie
+- `useAddToCart()` debounces by `product_id`, so several different product POSTs can leave the browser without any cookie
+- `SessionMiddleware` then creates a different anonymous session for each POST
+
+At that point the browser cache can still look correct, but checkout later invalidates the cart query and reveals only the rows from the final surviving session cookie.
+
+The implementation fix adds an explicit session bootstrap helper:
+
+- `frontend/src/queries/cart-session.ts`
+
+Core behavior:
+
+1. `primeCartSessionReady()` starts a background `GET /api/cart` on the first add click
+2. `ensureCartSessionReady()` deduplicates concurrent callers and waits for that request
+3. `useAddToCart()` awaits `ensureCartSessionReady()` before sending `POST /api/cart/items`
+
+Current code shape:
+
+```typescript
+// frontend/src/queries/cart-session.ts
+let cartSessionReady = false;
+let cartSessionPromise: Promise<void> | null = null;
+
+export async function ensureCartSessionReady(): Promise<void> {
+  if (cartSessionReady) return;
+
+  if (!cartSessionPromise) {
+    cartSessionPromise = authedFetchFn('api/cart').then(() => {
+      cartSessionReady = true;
+    });
+  }
+
+  await cartSessionPromise;
+}
+
+export function primeCartSessionReady(): void {
+  if (!cartSessionReady && !cartSessionPromise) {
+    void ensureCartSessionReady().catch(() => undefined);
+  }
+}
+```
+
+```typescript
+// frontend/src/queries/use-cart.ts
+const addToCart = useCallback((productId: number, productPrice: number) => {
+  primeCartSessionReady();
+  run({ productId, productPrice });
+}, [run]);
+
+send: async (productId, quantity) => {
+  await ensureCartSessionReady();
+  return authedFetchFn<CartResponse>('api/cart/items', {
+    method: 'POST',
+    body: { product_id: productId, quantity },
+  });
+},
+```
+
+Why this works:
+
+- the optimistic UI can still update immediately
+- the first anonymous cart write is delayed just enough to guarantee that the browser already owns a stable `session_id`
+- all per-product debounced POSTs then share the same backend session
+- checkout invalidation now sees the same cart that the shopper saw on `/cart`
+
 ### Final Outcome
 
 The full protection is now layered:
@@ -332,6 +406,9 @@ The full protection is now layered:
    - flush pending debounced writes before checkout
    - build pending snapshots from the merged cart visible to the shopper
 
+4. **Anonymous session bootstrap hardening**
+   - bootstrap `session_id` before the first add-to-cart POST burst
+
 ### Additional Files Changed in the Final Form
 
 | File                                                  | Role in the final solution                                        |
@@ -340,6 +417,8 @@ The full protection is now layered:
 | `frontend/src/features/checkout/use-checkout-flow.ts` | Flushes and refreshes cart state before any checkout path         |
 | `backend/src/order/order.service.ts`                  | Supports reading cart snapshot with optional `userId`             |
 | `backend/src/auth/auth.controller.ts`                 | Builds pending LINE checkout snapshots with merged cart semantics |
+| `frontend/src/queries/cart-session.ts`                | Ensures the browser has a stable cart session before first write  |
+| `frontend/src/queries/use-cart.ts`                    | Primes and awaits the cart-session bootstrap in add-to-cart flow  |
 
 ### Residual Risks
 
@@ -356,3 +435,7 @@ Any future order flow that bypasses `useCheckoutFlow()` must explicitly flush pe
 #### 3. New debounced cart hooks must participate in the shared registry
 
 If a future cart mutation path uses debounce but does not register in the shared flush mechanism, checkout can again snapshot stale state.
+
+#### 4. New anonymous cart write paths must also bootstrap the session first
+
+If a future feature writes to the cart outside `useAddToCart()` and does not await the session bootstrap, the same multi-session split can return.

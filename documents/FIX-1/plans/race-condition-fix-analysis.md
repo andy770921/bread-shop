@@ -229,3 +229,156 @@ If a future feature creates orders from another entrypoint and bypasses that hoo
 
 The flush mechanism only works for debounced mutations that participate in the shared controller registry.
 If a new cart mutation path is added outside that pattern, checkout won't automatically wait for it.
+
+## Post-FIX-1c Discovery: Anonymous Session Bootstrap Race
+
+Another regression remained after FIX-1, FIX-1b, and the checkout-boundary flush work:
+
+1. On the homepage, the shopper rapidly adds several different products
+2. `/cart` still shows the correct optimistic cart
+3. The moment the shopper clicks `LINE 聯繫`, the cart shrinks during the disabled/loading state
+4. `/checkout/pending` shows the same smaller subset
+
+Example reported in QA:
+
+- toast x3
+- cake x3
+- cookie x1
+- croissant x1
+
+`/cart` showed all 8 items correctly.
+But after clicking checkout, the cart collapsed to only:
+
+- cookie x1
+- croissant x1
+
+### Why the Earlier Fixes Did Not Solve This
+
+All previous fixes assumed the cart writes belonged to the **same backend session** and focused on:
+
+- preserving optimistic intent in the browser cache
+- preventing stale server responses from overwriting newer cache state
+- flushing pending debounced writes before checkout snapshots
+
+Those protections are correct, but they only work **after the browser and backend already agree on which `session_id` owns the cart writes**.
+
+This bug happens one layer earlier: the first burst of cart writes can be split across multiple anonymous sessions before the browser has committed any `session_id` cookie.
+
+### Root Cause: First Product Writes Can Beat Session Cookie Creation
+
+`SessionMiddleware` only creates a session when a cart-related API request reaches the backend.
+On the homepage there is no guaranteed blocking "create session first" step before the first add-to-cart burst.
+
+The header does mount `useCart()`, which triggers `GET /api/cart`, but that request is asynchronous.
+If the shopper starts clicking products before that response returns and before the browser stores the `Set-Cookie: session_id=...` header, then the first debounced product POSTs are sent **without a cookie**.
+
+Because `useAddToCart()` debounces per `product_id`, the sequence for:
+
+- toast x3
+- cake x3
+- cookie x1
+- croissant x1
+
+becomes four separate backend writes:
+
+- `POST /api/cart/items` for toast quantity 3
+- `POST /api/cart/items` for cake quantity 3
+- `POST /api/cart/items` for cookie quantity 1
+- `POST /api/cart/items` for croissant quantity 1
+
+If those POSTs leave the browser before any one of them has returned a `session_id` cookie, `SessionMiddleware` creates four different anonymous sessions:
+
+- toast -> session A
+- cake -> session B
+- cookie -> session C
+- croissant -> session D
+
+The browser only keeps the cookie from the response that "wins" last.
+So the long-term visible backend cart becomes only the items written into that final surviving session.
+
+That explains the reported pattern where `/cart` initially looked correct, but checkout later saw only cookie + croissant.
+
+### Why `/cart` Still Looked Correct Before Checkout
+
+The UI on `/cart` was reading the TanStack Query cache, which had already been updated optimistically on the homepage.
+
+Two details hide the server divergence:
+
+1. homepage `useAddToCart()` immediately updates the cache with all intended items
+2. `staleTime: 60s` means navigating to `/cart` does not immediately refetch if that cache entry is still fresh
+
+So `/cart` can display the optimistic cart from memory even though the backend is already fragmented across multiple sessions.
+
+### Why the Cart Shrinks Exactly When Checkout Starts
+
+`useCheckoutFlow()` begins with:
+
+```typescript
+await flushPendingCartMutations();
+await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+```
+
+That invalidation is the first step that forces the UI to read the **real** backend cart again.
+
+At that point:
+
+- the browser now sends only the final surviving `session_id`
+- `/api/cart` returns only that session's rows
+- the cart page re-renders with the smaller subset
+- `POST /api/auth/line/start` snapshots that same reduced server cart into `_cart_snapshot`
+
+So the pending page is not introducing a second bug.
+It is faithfully showing the already-truncated cart snapshot.
+
+### Why `flushPendingCartMutations()` Could Not Repair It
+
+The flush logic waits for debounced mutations that are still pending in the current client process.
+But once those writes have already been sent and committed into **different anonymous sessions**, flushing cannot merge them back together.
+
+The damage is no longer "pending write not yet persisted."
+It is "writes were persisted under different session owners."
+
+### Final Mitigation Added After This Discovery
+
+The missing invariant is:
+
+> Before the first add-to-cart write is sent, the browser must already have a stable cart `session_id`.
+
+The fix adds an explicit cart-session bootstrap on the frontend:
+
+1. start a background `GET /api/cart` bootstrap on the first add-to-cart click
+2. before the debounced `POST /api/cart/items` actually sends, await that bootstrap
+3. only then send the cart write
+
+Implementation files:
+
+- `frontend/src/queries/cart-session.ts`
+- `frontend/src/queries/use-cart.ts`
+
+This prevents the first product burst from being split across multiple anonymous sessions.
+
+### Updated Final Mental Model
+
+The full cart-consistency model now needs four layers:
+
+1. **FIX-1**
+   - keep pending intent alive until API reconciliation
+
+2. **FIX-1b**
+   - preserve optimistic cache state against stale full-cart snapshots
+
+3. **Checkout-boundary hardening**
+   - flush pending debounced writes before checkout snapshots
+   - snapshot the merged cart shape used by `/cart`
+
+4. **Anonymous session bootstrap hardening**
+   - ensure a stable `session_id` exists before the first add-to-cart POST burst
+
+Without step 4, `/cart` can still look correct in memory while checkout later collapses to the backend subset owned by the last anonymous session.
+
+### New Residual Risk Introduced by Architecture
+
+Any future cart write path that bypasses `useAddToCart()` must preserve the same invariant:
+
+- create or await cart session bootstrap first
+- only then send the first anonymous cart write

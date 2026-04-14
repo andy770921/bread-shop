@@ -2,6 +2,7 @@ import { CART_CONSTANTS, CartResponse } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { QUERY_KEYS } from './query-keys';
+import { ensureCartSessionReady, primeCartSessionReady } from './cart-session';
 import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import {
@@ -68,17 +69,20 @@ export function useAddToCart(options?: { onError?: () => void }) {
 
       return recalcCartTotals(items);
     },
-    send: (productId, quantity) =>
-      authedFetchFn<CartResponse>('api/cart/items', {
+    send: async (productId, quantity) => {
+      await ensureCartSessionReady();
+      return authedFetchFn<CartResponse>('api/cart/items', {
         method: 'POST',
         body: { product_id: productId, quantity },
-      }),
+      });
+    },
     reconcile: (serverCart, pending, optimisticCache) =>
       reconcileWithPending(serverCart, pending, optimisticCache),
   });
 
   const addToCart = useCallback(
     (productId: number, productPrice: number) => {
+      primeCartSessionReady();
       run({ productId, productPrice });
     },
     [run],
