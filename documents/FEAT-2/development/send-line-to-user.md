@@ -1,280 +1,517 @@
-# Implementation Plan: Send LINE Message to Customer
+# FEAT-2 Development: Send LINE Message to Customer
 
-## Overview
+## Purpose
 
-When a customer selects "LINE 聯繫，銀行轉帳", two mechanisms deliver the order to the customer:
+This document describes the final FEAT-2 implementation for customer-facing LINE checkout messaging.
+It consolidates the earlier iterative fix notes into one implementation reference.
 
-1. **Automated push (if LINE-linked):** If the customer logged in via LINE Login, their internal `line_user_id` is in the `profiles` table. The existing `sendOrderMessage()` pushes a flex message to them automatically.
-2. **Manual contact via LINE ID (fallback):** The customer's LINE ID handle is stored in `orders.customer_line_id` and included in the admin's flex message. The admin searches for the customer in the LINE app.
+Use this document for:
 
-To bridge these two paths, the cart page now prompts users to log in via LINE before checkout. After LINE Login, the OAuth flow captures the internal userId, enabling automated push.
+- the final backend and frontend flow
+- the runtime decision logic
+- the regression fixed on April 14, 2026
+- the test coverage that protects the flow now
 
-See `documents/FEAT-2/plans/line-integration.md` for the full LINE API feasibility analysis.
+The planning-level reasoning and platform constraints live in `documents/FEAT-2/plans/line-integration.md`.
 
-## Files Modified
+## Final Rule Enforced by the Code
 
-### Database
+For `LINE Contact / Bank Transfer`, the application now enforces this rule:
 
-- `orders` table — Added `customer_line_id` text column (nullable)
+> If the linked LINE account cannot currently receive messages from the bakery's official account, the checkout must not end on the success page.
 
-```sql
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_line_id text;
+This is stronger than checking whether a user once linked LINE.
+
+## Why the Regression Happened
+
+### Observed bug
+
+A user reported this scenario:
+
+1. Their account had already completed LINE Login in the past
+2. They later blocked the bakery's official account
+3. They submitted a LINE-transfer order
+4. The site still showed checkout success
+
+That behavior was wrong because the bakery could no longer deliver the required LINE message.
+
+### Actual root cause
+
+There were two different runtime paths:
+
+1. **Fresh LINE-login / pending-order path**
+   - Had an explicit not-friend handling flow
+
+2. **Already-linked user path**
+   - Trusted `user.line_user_id`
+   - Created the order immediately
+   - Called `POST /api/orders/:id/line-send`
+   - Treated customer push failure as best-effort
+
+That second path was the gap.
+
+### Why simply "try push and fail on error" is insufficient
+
+Official LINE FAQ states that pushing to a user who blocked the official account may still return HTTP `200`.
+
+So this logic is unsafe:
+
+```text
+create order
+push message
+if no error => success
 ```
 
-### Shared Types
+Because "no error" does not mean "message delivered."
 
-- `shared/src/types/order.ts`
-  - Added `customer_line_id?: string` to `CreateOrderRequest`
-  - Added `customer_line_id: string | null` to `Order`
+## Final Architecture
 
-### Backend Changes
+## Backend responsibilities
 
-- `backend/src/order/dto/create-order.dto.ts`
-  - Added optional `customer_line_id` string field with `@IsOptional()` + `@IsString()`
+| Area | Responsibility |
+|---|---|
+| `AuthController` | LINE Login initiation, callback handling, pending-order flow, message-eligibility endpoint |
+| `AuthService` | LINE OAuth exchange, user linking, pending-order storage |
+| `LineService` | Admin/customer push message sending and customer reachability probe |
+| `LineController` | Order-specific LINE send endpoint with a defensive fallback check |
+| `CheckoutService` | Finalize pending LINE checkout and redirect to success |
+| `OrderService` | Create order, assign user, confirm order, persist LINE metadata |
 
-- `backend/src/order/order.service.ts`
-  - Added `customer_line_id: dto.customer_line_id` to the order insert object in `createOrder()`
+## Frontend responsibilities
 
-- `backend/src/line/line.service.ts`
-  - Updated `buildOrderFlexMessage()` to include a green-colored `LINE ID: <value>` row in the customer details section when `order.customer_line_id` is present
+| Area | Responsibility |
+|---|---|
+| `useCheckoutFlow` | Main checkout decision tree |
+| `cart/page.tsx` | Cart form UI, submission entrypoint, failure redirect |
+| `checkout/pending/page.tsx` | Recovery page for users who must add/unblock the official account before final submission |
+| `checkout/failed/page.tsx` | Explicit failure states such as `not_friend` and `login_declined` |
 
-- `backend/src/auth/auth.controller.ts`
-  - Added missing `GET /api/auth/line` endpoint to initiate LINE OAuth flow (was 404 before)
-  - Uses `req.get('host')` instead of `X-Forwarded-Host` to construct `redirect_uri` (see Step 5b)
+## Core Implementation Decisions
 
-### Frontend Changes
+### 1. Server-side pending orders are the source of truth
 
-- `frontend/src/app/cart/page.tsx`
-  - Imports `useAuth` from `@/lib/auth-context`
-  - Reads `user.line_user_id` to determine LINE linked state (`hasLineUserId`)
-  - On mount: restores form data from `localStorage('cart_form_data')` if present (after LINE Login redirect)
-  - `onSubmit` dual-purpose: if LINE transfer + not logged in → saves form data to localStorage + redirects to LINE OAuth; if logged in → submits order
-  - When LINE transfer is selected:
-    - **User has `line_user_id`:** Green "已連結 LINE" notice + optional LINE ID field
-    - **User lacks `line_user_id`:** LINE ID field + CTA with hint text "點擊後將先進行 LINE 登入..."
-  - On submit, sends `customer_line_id: values.lineId` to backend when LINE transfer
+Pending checkout data is stored server-side before LINE Login.
+This avoids failures caused by mobile OAuth flows losing browser storage.
 
-- `frontend/src/app/auth/callback/page.tsx`
-  - After successful LINE OAuth exchange, reads `localStorage('line_login_return_url')`
-  - Redirects to the stored URL (e.g., `/cart`) instead of always going to `/`
-  - Removes the key from localStorage after reading
+### 2. `bot_prompt=aggressive` is enabled on LINE Login
 
-- `frontend/src/i18n/zh.json` + `en.json`
-  - Added keys: `lineLinked`, `lineLoginPrompt`, `lineLoginBtn`, `lineIdOptional`, `lineLoginHint`
+The LINE authorization URL includes `bot_prompt=aggressive` so the login flow can prompt the user to add the linked official account as a friend.
 
-## Step-by-Step Implementation
+### 3. Reachability is checked before success is possible
 
-### Step 1: Database Migration
+The code now uses a shared backend method:
 
-```sql
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_line_id text;
-```
+- `LineService.canPushToUser(lineUserId)`
 
-**Rationale:** Separate from the existing `line_user_id` column which stores the internal LINE userId from OAuth. `customer_line_id` stores the user-provided LINE ID handle for admin reference.
+This method calls:
 
----
+- `GET https://api.line.me/v2/bot/profile/{userId}`
 
-### Step 2: Update Shared Types
+Operational interpretation:
 
-**File:** `shared/src/types/order.ts`
+- `404` or other non-success response means the account should be treated as not reachable for checkout purposes
+- checkout must not proceed to success
 
-**Changes:**
-- Add `customer_line_id?: string` to `CreateOrderRequest`
-- Add `customer_line_id: string | null` to `Order` interface
+This is intentionally named as a message-eligibility check, not a generic "friendship status" API, because LINE's own Messaging API FAQ says there is no dedicated Messaging API endpoint to determine friend status.
 
----
+### 4. Linked users are re-validated at submit time
 
-### Step 3: Update Backend DTO
+Even when `profiles.line_user_id` already exists, frontend checkout now calls:
 
-**File:** `backend/src/order/dto/create-order.dto.ts`
+- `GET /api/auth/line/message-eligibility`
 
-**Changes:** Add:
+If the backend responds with:
 
-```typescript
-@ApiPropertyOptional({ example: '@john123', description: 'Customer LINE ID handle for admin contact' })
-@IsOptional()
-@IsString()
-customer_line_id?: string;
-```
-
----
-
-### Step 4: Update Order Service
-
-**File:** `backend/src/order/order.service.ts`
-
-**Changes:** In `createOrder()`, add `customer_line_id: dto.customer_line_id` to the insert object.
-
----
-
-### Step 5: Update LINE Flex Message
-
-**File:** `backend/src/line/line.service.ts`
-
-**Changes:** In `buildOrderFlexMessage()`, add a LINE ID row before the notes row in the customer details section:
-
-```typescript
-...(order.customer_line_id
-  ? [{
-      type: 'text' as const,
-      text: `LINE ID: ${order.customer_line_id}`,
-      size: 'xs' as const,
-      color: '#06C755',  // LINE brand green
-      wrap: true,
-    }]
-  : []),
-```
-
-**Rationale:** The admin sees the customer's LINE ID in the order notification and can search for them in the LINE app.
-
----
-
-### Step 5b: Add Missing `GET /api/auth/line` Endpoint
-
-**File:** `backend/src/auth/auth.controller.ts`
-
-**Problem:** The frontend redirects to `/api/auth/line` to initiate LINE OAuth, but this endpoint did not exist. The backend only had `GET /api/auth/line/callback` (receives LINE's redirect) and `POST /api/auth/line/exchange` (one-time code exchange). Requests to `/api/auth/line` returned 404.
-
-**Changes:** Added a new `GET /api/auth/line` endpoint:
-
-```typescript
-@Get('line')
-async lineLogin(@Req() req: Request, @Res() res: Response) {
-  const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.get('host');  // NOT X-Forwarded-Host
-  const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
-  const state = randomUUID();
-  const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
-  res.redirect(lineAuthUrl);
+```json
+{
+  "can_receive_messages": false,
+  "add_friend_url": "https://line.me/R/ti/p/@..."
 }
 ```
 
-**Critical: `req.get('host')` vs `X-Forwarded-Host`**
+the frontend does not create an order and routes the shopper to:
 
-The `redirect_uri` must match a URL registered in the LINE Developer Console. The registered callback URLs are backend URLs (e.g., `https://papa-bread-api.vercel.app/api/auth/line/callback`).
+- `/checkout/failed?reason=not_friend`
 
-When this endpoint is called through the frontend's Next.js rewrite proxy (`papa-bread.vercel.app` → `papa-bread-api.vercel.app`), the `X-Forwarded-Host` header contains the **frontend** host (`papa-bread.vercel.app`). Using it would produce a redirect_uri like `https://papa-bread.vercel.app/api/auth/line/callback` — which is NOT registered in LINE Console, causing a `400 Bad Request: Invalid redirect_uri` error.
+### 5. The order-specific LINE endpoint also has a defensive fallback
 
-Using `req.get('host')` returns the backend's actual host (`papa-bread-api.vercel.app`), which matches the registered callback URL.
+`POST /api/orders/:id/line-send` now performs the same reachability check before it attempts the customer push.
 
-| Header | Value (via frontend proxy) | Value (direct to backend) |
-|--------|---------------------------|--------------------------|
-| `X-Forwarded-Host` | `papa-bread.vercel.app` (frontend) | `papa-bread-api.vercel.app` |
-| `Host` (`req.get('host')`) | `papa-bread-api.vercel.app` (backend) | `papa-bread-api.vercel.app` |
+This protects against future regressions if another UI path bypasses the frontend pre-check.
 
-The existing `line/callback` endpoint is not affected because LINE redirects the user's browser directly to the backend URL — no frontend proxy involved.
+## Runtime Decision Tree
 
-**LINE Developer Console callback URLs required:**
-- `http://localhost:3000/api/auth/line/callback` (local dev)
-- `https://papa-bread-api.vercel.app/api/auth/line/callback` (production)
+### Path A: User is not yet linked with LINE
 
----
-
-### Step 6: Dual-Purpose CTA with LINE Login Redirect
-
-**File:** `frontend/src/app/cart/page.tsx`
-
-**Changes:**
-
-1. Import `useAuth` from `@/lib/auth-context`
-2. Get `user` from `useAuth()`, derive `hasLineUserId = !!user?.line_user_id`
-3. **Form data persistence:** On mount, check `localStorage('cart_form_data')` and restore via `form.reset()` if present (handles return from LINE Login redirect)
-4. **Dual-purpose `onSubmit`:** When LINE transfer is selected and user is not logged in via LINE, the submit handler saves all form values to `localStorage('cart_form_data')`, stores `line_login_return_url=/cart`, and redirects to `/api/auth/line`. When the user is logged in via LINE, it proceeds with order creation normally.
-5. **Simplified LINE transfer UI** (no separate login prompt box):
-   - If `hasLineUserId` → green notice with `CheckCircle2` icon: "已連結 LINE 帳號..."
-   - LINE ID field with conditional label: `hasLineUserId ? t('cart.lineIdOptional') : t('cart.lineId')`
-   - CTA "透過 LINE 聯繫" — always `type="submit"`, disabled by `!form.formState.isValid || submitting`
-   - Hint text below CTA (only when not logged in): "點擊後將先進行 LINE 登入，以便自動傳送訂單確認"
-
----
-
-### Step 7: Update Auth Callback with Return URL
-
-**File:** `frontend/src/app/auth/callback/page.tsx`
-
-**Changes:** After storing `access_token` and calling `refreshUser()`:
-
-```typescript
-const returnUrl = localStorage.getItem('line_login_return_url') || '/';
-localStorage.removeItem('line_login_return_url');
-router.push(returnUrl);
+```text
+cart submit
+→ POST /api/auth/line/start
+→ GET /api/auth/line
+→ LINE Login
+→ GET /api/auth/line/callback
+→ backend reads pending order
+→ backend resolves LINE user identity
+→ backend checks customer reachability
+   → reachable: create order, send LINE, success
+   → not reachable: redirect to /checkout/pending or /checkout/failed
 ```
 
-**Rationale:** When user initiates LINE login from the cart page, they return to `/cart` after OAuth instead of `/`. The stored return URL is consumed once and cleaned up.
+### Path B: User is already linked and reachable
 
----
-
-### Step 8: Send customer_line_id in Order Creation
-
-**File:** `frontend/src/app/cart/page.tsx`
-
-**Changes:** In the `onSubmit` handler, include:
-
-```typescript
-customer_line_id: isLine ? values.lineId : undefined,
+```text
+cart submit
+→ GET /api/auth/line/message-eligibility
+→ can_receive_messages=true
+→ POST /api/orders
+→ POST /api/orders/:id/line-send
+→ POST /api/orders/:id/confirm
+→ /checkout/success
 ```
 
-This sends the LINE ID to the backend only for LINE transfer orders.
+### Path C: User is already linked but blocked the official account
 
----
-
-## End-to-End Flow
-
-### Scenario A: User already logged in via LINE
-
-```
-1. User selects "LINE 聯繫，銀行轉帳"
-2. Sees green notice: "已連結 LINE 帳號，訂單確認將自動傳送至您的 LINE"
-3. LINE ID field is optional (labeled "選填，供店家參考")
-4. Fills customer info → CTA enables
-5. Clicks "透過 LINE 聯繫"
-6. Order created with payment_method='line' + customer_line_id (if filled)
-7. Admin receives flex message via LINE push
-8. Customer receives flex message via LINE push (using profiles.line_user_id)
-9. Redirect to /checkout/success
+```text
+cart submit
+→ GET /api/auth/line/message-eligibility
+→ can_receive_messages=false
+→ do not create order
+→ /checkout/failed?reason=not_friend
 ```
 
-### Scenario B: User not logged in via LINE (dual-purpose CTA flow)
+This is the exact regression path now covered by tests.
 
+## Files and Final Responsibilities
+
+### Backend
+
+#### `backend/src/line/line.service.ts`
+
+Final responsibilities:
+
+- send admin order message
+- send customer order message
+- expose `canPushToUser()` as the shared deliverability probe
+
+#### `backend/src/auth/auth.controller.ts`
+
+Final responsibilities:
+
+- `GET /api/auth/line`
+- `GET /api/auth/line/callback`
+- `POST /api/auth/line/start`
+- `POST /api/auth/line/confirm-order`
+- `GET /api/auth/line/pending-order/:id`
+- `GET /api/auth/line/message-eligibility`
+
+Important detail:
+
+- the linked-user path no longer trusts `line_user_id` by itself
+
+#### `backend/src/line/line.controller.ts`
+
+Final responsibilities:
+
+- enforce a defensive customer reachability check before customer push
+- return structured failure payloads such as `needs_friend`
+
+#### `backend/src/checkout/checkout.service.ts`
+
+Final responsibilities:
+
+- create the order from a pending checkout
+- attach the app user
+- merge the cart/session state
+- send LINE notifications
+- return the final success redirect URL
+
+### Frontend
+
+#### `frontend/src/features/checkout/use-checkout-flow.ts`
+
+Final responsibilities:
+
+- detect whether checkout must start LINE Login
+- for linked users, call `/api/auth/line/message-eligibility` first
+- block order creation if the customer cannot currently receive LINE messages
+
+#### `frontend/src/app/cart/page.tsx`
+
+Final responsibilities:
+
+- collect the checkout form
+- call `submitCheckout()`
+- route blocked linked users to `/checkout/failed?reason=not_friend`
+
+#### `frontend/src/app/checkout/pending/page.tsx`
+
+Final responsibilities:
+
+- let users recover after LINE Login when they still need to add or unblock the official account
+- submit `POST /api/auth/line/confirm-order`
+
+## Consolidated Lessons from Earlier Fix Iterations
+
+The older internal notes exposed several important engineering lessons that remain relevant:
+
+### 1. Serverless callbacks cannot rely on in-memory state
+
+One-time codes stored in process memory are unsafe on serverless infrastructure.
+Persistent state must live in the database or be carried in a redirect-safe form.
+
+### 2. Mobile OAuth flows are hostile to browser-only persistence
+
+`localStorage` and related client-only assumptions are fragile in LINE's in-app browser and cross-app redirect flows.
+
+### 3. Success pages must reflect business success, not partial technical success
+
+For this checkout, "order row exists" is not enough.
+The business success condition is:
+
+- order created
+- bakery can reach the customer through LINE
+
+### 4. A historical LINE link is not a current delivery guarantee
+
+Persisted identity solves recipient addressing.
+It does not prove current message reachability.
+
+## Regression Coverage
+
+### Existing targeted tests
+
+- `backend/src/auth/auth.controller.spec.ts`
+  - covers pending callback and message-eligibility logic
+- `backend/src/checkout/checkout.service.spec.ts`
+  - covers pending checkout completion
+- `frontend/src/features/checkout/use-checkout-flow.spec.ts`
+  - covers the linked-user pre-check and structured `needs_friend` result
+
+### New end-to-end style regression test
+
+Added:
+
+- `frontend/src/app/cart/page.spec.tsx`
+
+Scenario covered:
+
+1. shopper is logged in and already has `line_user_id`
+2. backend reports `can_receive_messages=false`
+3. shopper fills the cart form and submits
+4. no order is created
+5. no LINE send is attempted
+6. router navigates to `/checkout/failed?reason=not_friend`
+
+This test protects the exact user-facing regression that triggered the latest fix.
+
+## Verification Commands Used
+
+### Frontend
+
+```bash
+npm test -- --runInBand src/features/checkout/use-checkout-flow.spec.ts
+npm test -- --runInBand src/app/cart/page.spec.tsx
+npx tsc --noEmit
 ```
-1. User selects "LINE 聯繫，銀行轉帳"
-2. Sees LINE ID field + CTA "透過 LINE 聯繫" + hint text: "點擊後將先進行 LINE 登入..."
-3. Fills customer info (+ optionally LINE ID) → CTA enables
-4. Clicks "透過 LINE 聯繫"
-   → Form validates (customer info required)
-   → Saves all form values to localStorage('cart_form_data')
-   → Saves localStorage('line_login_return_url') = '/cart'
-   → Redirects to /api/auth/line → LINE OAuth flow
-5. After LINE login, callback page reads return URL → redirects to /cart
-6. Cart page mounts → restores form data from localStorage → form auto-filled
-7. User now has line_user_id → green "已連結 LINE" notice appears, hint text gone
-8. Clicks "透過 LINE 聯繫" again → order created → admin + customer receive flex messages
-9. Redirect to /checkout/success
+
+### Backend
+
+```bash
+npm test -- --runInBand auth/auth.controller.spec.ts checkout/checkout.service.spec.ts
+npm run build
 ```
 
-## Testing Steps
+## Maintenance Guidance
 
-1. **Not logged in, LINE transfer selected**: LINE ID field + CTA disabled + hint text visible
-2. **Fill customer info**: CTA enables (LINE ID is optional)
-3. **Click "透過 LINE 聯繫" (not logged in)**: Form data saved to localStorage, redirects to LINE OAuth
-4. **After LINE login callback**: Redirects to `/cart` (not `/`), form data restored
-5. **Logged in via LINE, LINE transfer selected**: Green notice, LINE ID label shows "(選填)", no hint text
-6. **Click "透過 LINE 聯繫" (logged in)**: Submits order, customer receives automated push
-7. **Order in Supabase**: Verify `customer_line_id` column populated (if filled)
-8. **Admin flex message**: Verify LINE ID row appears in green when present
-9. **Credit card orders**: Verify `customer_line_id` is NOT sent
+If a future change touches LINE checkout, review these rules before merging:
 
-## Dependencies
+1. Never infer checkout success from `pushMessage` response alone.
+2. Never treat `profiles.line_user_id` as proof of current reachability.
+3. Keep the pre-order eligibility check and the order-send fallback check aligned.
+4. Keep pending-order state server-side.
+5. Keep failure routing explicit so the user never lands on success when the bakery cannot message them.
 
-- Depends on: DB migration (Step 1), shared types (Step 2)
-- Parallel with: Frontend UI rewrite (see `frontend-ui.md`)
+## Official References
 
-## Notes
+- LINE Developers, "Get user IDs"
+  - https://developers.line.biz/en/docs/messaging-api/getting-user-ids/
+- LINE Developers, "Gain friends of your LINE Official Account"
+  - https://developers.line.biz/en/docs/messaging-api/sharing-bot/
+- LINE Developers, "LINE Login v2.1 API reference"
+  - `Get user profile`: https://developers.line.biz/en/reference/line-login/#get-user-profile
+  - `Get friendship status`: https://developers.line.biz/en/reference/line-login/#get-friendship-status
+- LINE Developers FAQ, Messaging API
+  - https://developers.line.biz/en/faq/tags/messaging-api/
 
-- `line_user_id` (existing column in `profiles` and `orders`) stores the internal LINE userId from OAuth — used for automated push messages
-- `customer_line_id` (new column in `orders`) stores the user-entered LINE ID handle — used for admin manual contact
-- These two columns serve different purposes and should not be confused
-- The auth callback return URL is stored in localStorage (not a query parameter) to avoid passing it through the LINE OAuth state flow, which would require backend changes
-- **Form data persistence:** `localStorage('cart_form_data')` stores serialized form values before LINE OAuth redirect. Restored on mount via `form.reset()`, then immediately cleaned up. This ensures the user doesn't have to re-fill customer info after LINE Login.
-- **Dual-purpose CTA:** There is no separate "使用 LINE 登入" button. The "透過 LINE 聯繫" CTA is `type="submit"` — react-hook-form validates the form first, then `onSubmit` checks `hasLineUserId` and either redirects to LINE Login or submits the order. A small hint text below the CTA ("點擊後將先進行 LINE 登入...") is shown only when the user is not logged in via LINE.
+## Consolidated Internal History
+
+This document replaces the fragmented implementation notes from the earlier FEAT-2 iterations:
+
+### Original `send-line-to-user.md`
+
+Core idea:
+
+- Introduce customer-facing LINE messaging as part of the LINE transfer checkout
+- Persist `customer_line_id` for admin reference
+- Start using LINE Login so the app can get the internal LINE `userId`
+
+Problem it was trying to solve:
+
+- The bakery needed both an automated LINE path and a manual fallback path
+- At that point the project still treated "linked LINE account" as the main prerequisite and had not yet fully modeled runtime reachability failures
+
+What the solution was:
+
+- Add `customer_line_id`
+- Use LINE Login to obtain `profiles.line_user_id`
+- Push an order message to the customer when a LINE-linked account exists
+
+Still valid or stale:
+
+- Still valid:
+  - `customer_line_id` remains useful for manual operator reference
+  - LINE Login is still the correct way to obtain the internal `userId`
+- Stale:
+  - The old document did not yet encode the stronger business rule that checkout must fail when the official account cannot currently reach the customer
+
+What is used now:
+
+- The project still uses LINE Login and `customer_line_id`
+- The final system now adds a server-side message-eligibility gate before success is possible
+
+### `send-line-to-user-fix.md`
+
+Core idea:
+
+- Stabilize the LINE OAuth callback in production
+- Make the Vercel/serverless flow actually work
+
+Problems encountered:
+
+- Missing middleware in the Vercel entrypoint
+- In-memory one-time code exchange was incompatible with serverless execution
+- Callback errors were not surfaced clearly
+- Redirects using hash fragments were broken by `res.redirect()`
+
+What the solution was:
+
+- Add missing middleware parity
+- Stop relying on in-memory one-time code state
+- Move auth data through URL hash fragments
+- Improve callback error handling and redirect behavior
+
+Still valid or stale:
+
+- Still valid:
+  - The lessons about serverless statelessness, callback hardening, and redirect behavior remain important
+- Stale:
+  - The intermediate "one-time code" design is no longer part of the final architecture
+  - The specific debugging narrative is historical rather than operational guidance
+
+What is used now:
+
+- Server-side pending state and the current callback flow described in this document
+- Explicit callback error handling remains part of the final implementation
+
+### `send-line-to-user-fix-2.md`
+
+Core idea:
+
+- Fix post-login frontend instability and profile-link persistence problems
+
+Problems encountered:
+
+- The frontend callback page had a `useEffect` race condition
+- `profiles.line_user_id` updates could fail silently
+- The user experience after login was confusing and unstable
+
+What the solution was:
+
+- Guard callback processing against duplicate effect runs
+- Fix profile persistence and strengthen the LINE-linked account path
+- Improve the callback error UX
+
+Still valid or stale:
+
+- Still valid:
+  - The warning that profile persistence must be verified, not assumed
+  - The broader lesson that auth callback flows are sensitive to race conditions
+- Stale:
+  - The intermediate callback-page auto-submit direction is no longer the final design
+  - The exact frontend callback workaround is superseded by the server-side pending-order flow
+
+What is used now:
+
+- The final system avoids relying on fragile browser-side state restoration for order completion
+- Profile linkage remains required, but checkout finalization is centered on server-side pending-order orchestration
+
+### `send-line-to-user-fix-3.md`
+
+Core idea:
+
+- Move checkout intent and order completion logic to the server side
+
+Problems encountered:
+
+- Mobile OAuth flows could lose `localStorage`
+- LINE in-app browser behavior made client-only persistence unreliable
+- Session/cart continuity was fragile after the OAuth round trip
+
+What the solution was:
+
+- Introduce `pending_line_orders`
+- Store checkout form data and cart snapshot on the server before redirecting to LINE Login
+- Finalize order creation using server-side pending data instead of browser-only state
+
+Still valid or stale:
+
+- Still valid:
+  - Server-side pending-order storage is a core part of the final implementation
+  - The cart snapshot and server-side continuation model remain current
+- Stale:
+  - Some intermediate debugging sub-fixes in that document were stepping stones, not the final conceptual model
+
+What is used now:
+
+- Pending orders remain the source of truth
+- Server-side checkout completion is still the active implementation
+
+### `send-line-to-user-fix-4.md`
+
+Core idea:
+
+- Add explicit not-friend handling and a pending confirmation page
+
+Problems encountered:
+
+- Users could decline LINE Login or refuse the add-friend prompt
+- Users who were not reachable could still fall into an inconsistent flow
+- The system needed a recovery state between login and final order submission
+
+What the solution was:
+
+- Add `bot_prompt=aggressive`
+- Add the pending confirmation page
+- Add `/api/auth/line/confirm-order`
+- Strengthen pending-order lifecycle rules and ownership checks
+
+Still valid or stale:
+
+- Still valid:
+  - The pending confirmation page is still part of the final user journey
+  - The pending-order hardening work remains relevant
+  - The idea that not-friend must be modeled explicitly is still correct
+- Stale:
+  - The original document framed the solution mainly around friend handling during fresh LINE Login
+  - It did not yet close the separate regression where an already-linked user later blocks the official account
+
+What is used now:
+
+- Everything from fix-4 that supports pending-order recovery is still active
+- The final system adds one more layer on top of fix-4:
+  - a linked-user pre-check through `/api/auth/line/message-eligibility`
+  - a defensive fallback check in `POST /api/orders/:id/line-send`
+  - a regression test ensuring blocked linked users are routed to `/checkout/failed?reason=not_friend`
+
+## Cleanup Note
+
+The four incremental fix documents are now historical and have been removed because their essential lessons are consolidated above and in the rest of this document.

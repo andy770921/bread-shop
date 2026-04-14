@@ -42,6 +42,34 @@ export class LineService {
     });
   }
 
+  /**
+   * LINE docs: Get profile returns 404 when the target user isn't a friend of the
+   * official account, has blocked it, or their account no longer exists. Push
+   * messages are not reliable for this check because LINE may still return 200.
+   */
+  async canPushToUser(lineUserId: string): Promise<boolean> {
+    try {
+      const botToken = this.configService.getOrThrow('LINE_CHANNEL_ACCESS_TOKEN');
+      const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
+        headers: { Authorization: `Bearer ${botToken}` },
+      });
+
+      if (res.status === 404) {
+        return false;
+      }
+
+      if (!res.ok) {
+        console.error('canPushToUser: HTTP', res.status);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('canPushToUser error:', err);
+      return false;
+    }
+  }
+
   private buildOrderFlexMessage(order: any): any {
     const itemContents = order.items.map((item: any) => ({
       type: 'box',

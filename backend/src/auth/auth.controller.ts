@@ -25,6 +25,7 @@ import { RegisterDto } from './dto/register.dto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { OrderService } from '../order/order.service';
 import { CheckoutService } from '../checkout/checkout.service';
+import { LineService } from '../line/line.service';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -35,6 +36,7 @@ export class AuthController {
     private configService: ConfigService,
     private orderService: OrderService,
     private checkoutService: CheckoutService,
+    private lineService: LineService,
   ) {}
 
   @Post('register')
@@ -68,6 +70,31 @@ export class AuthController {
   @UseGuards(AuthGuard)
   async me(@CurrentUser() user: any) {
     return this.authService.getMe(user.id);
+  }
+
+  @Get('line/message-eligibility')
+  @UseGuards(AuthGuard)
+  async getLineMessageEligibility(@CurrentUser() user: any) {
+    const lineOaId = this.configService.get('LINE_OA_ID', '@papabakery');
+    const addFriendUrl = `https://line.me/R/ti/p/${lineOaId}`;
+    const { data: profile } = await this.supabaseService
+      .getClient()
+      .from('profiles')
+      .select('line_user_id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!profile?.line_user_id) {
+      return {
+        can_receive_messages: false,
+        add_friend_url: addFriendUrl,
+      };
+    }
+
+    return {
+      can_receive_messages: await this.lineService.canPushToUser(profile.line_user_id),
+      add_friend_url: addFriendUrl,
+    };
   }
 
   /**
@@ -213,10 +240,10 @@ export class AuthController {
       const result = await this.authService.handleLineLogin(code, backendOrigin, linkToUserId);
 
       if (pending && pendingId) {
-        const isFriend = await this.checkLineFriendship(result.lineUserId);
-        console.log('lineCallback: friendship status =', isFriend);
+        const canReceiveMessages = await this.lineService.canPushToUser(result.lineUserId);
+        console.log('lineCallback: friendship status =', canReceiveMessages);
 
-        if (!isFriend) {
+        if (!canReceiveMessages) {
           // User is NOT friends with the bot. Store auth data in the pending order
           // so the confirm-order endpoint can use it later, then redirect to the
           // "pending confirmation" page where user can add the bot and retry.
@@ -279,30 +306,6 @@ export class AuthController {
       const errorUrl = `${frontendUrl}/cart?error=${encodeURIComponent(message)}`;
       res.setHeader('Location', errorUrl);
       res.status(302).end();
-    }
-  }
-
-  /**
-   * Check if the LINE user is friends with the Messaging API bot.
-   * Uses the long-lived bot channel access token (not the user's LINE Login token)
-   * so the check works regardless of LINE Login token expiration.
-   * https://developers.line.biz/en/reference/messaging-api/#get-profile
-   */
-  private async checkLineFriendship(lineUserId: string): Promise<boolean> {
-    try {
-      const botToken = this.configService.getOrThrow('LINE_CHANNEL_ACCESS_TOKEN');
-      const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
-        headers: { Authorization: `Bearer ${botToken}` },
-      });
-      if (res.status === 404) return false;
-      if (!res.ok) {
-        console.error('checkLineFriendship: HTTP', res.status);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('checkLineFriendship error:', err);
-      return false;
     }
   }
 
@@ -387,8 +390,8 @@ export class AuthController {
       throw new BadRequestException('LINE authentication expired. Please try again from the cart.');
     }
 
-    const isFriend = await this.checkLineFriendship(lineUserId);
-    if (!isFriend) {
+    const canReceiveMessages = await this.lineService.canPushToUser(lineUserId);
+    if (!canReceiveMessages) {
       throw new BadRequestException('not_friend');
     }
 

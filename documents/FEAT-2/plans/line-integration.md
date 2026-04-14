@@ -1,144 +1,286 @@
-# LINE Integration Research & Findings
+# FEAT-2 Plan: LINE Checkout Integration
 
-## 1. Core Limitation: LINE ID vs LINE userId
+## Scope
 
-The LINE Messaging API **cannot** send push messages using a LINE ID handle (the `@john123` username that users set in their LINE app settings). It exclusively requires the internal **userId** — a 33-character string in the format `U` followed by 32 hex characters (e.g., `U8622f7b8c5d4a3e...`).
+This document captures the product and architecture decisions for the FEAT-2 LINE checkout flow.
+It answers:
 
-There is **no LINE API** to convert a LINE ID handle to an internal userId. LINE intentionally separates these two identifiers. The LINE ID is a vanity username for human discovery; the userId is an opaque platform identifier for API operations.
+- What the bakery needs from LINE integration
+- What the LINE platform can and cannot guarantee
+- Why the checkout flow must treat LINE message deliverability as a hard requirement
+- Why the current design uses both LINE Login and a server-side deliverability check
 
-**Sources:**
-- [Get user IDs — LINE Developers](https://developers.line.biz/en/docs/messaging-api/getting-user-ids/)
-- [Send messages — LINE Developers](https://developers.line.biz/en/docs/messaging-api/sending-messages/)
-- [LINE Community confirmation: no conversion API exists](https://www.line-community.me/en/question/5f154e95851f74ab9c191a26)
+Implementation details live in `documents/FEAT-2/development/send-line-to-user.md`.
 
-## 2. How to Obtain a User's Internal userId
+## Business Requirement
 
-There are only three ways to obtain a user's internal userId:
+For the `LINE Contact / Bank Transfer` checkout path, the order is valid only if the bakery can send a LINE message to the customer.
 
-### A. LINE Login OAuth (Already implemented)
+This is stricter than "the customer once linked a LINE account" and stricter than "the customer once added the official account."
 
-When a user authenticates via LINE Login, the profile endpoint (`https://api.line.me/v2/profile`) returns their `userId`. Our codebase already implements this:
+The real business rule is:
 
-- `backend/src/auth/auth.service.ts` — `handleLineLogin()` fetches `lineProfile.userId` and stores it as `profiles.line_user_id`
-- Uses LINE Login Channel ID `2008445583`
-- The userId is permanently stored in the `profiles` table and available via `GET /api/auth/me`
+> If the bakery cannot reach the customer through the LINE Official Account at checkout time, the order must be treated as failed.
 
-### B. Webhook Events (Not implemented)
+That rule exists because the bakery relies on LINE Messaging API delivery to confirm bank-transfer instructions.
 
-When a user sends a message to the LINE Official Account, follows it, or joins a group, LINE sends a webhook containing their userId. This would require:
+## What We Learned from the LINE Platform
 
-- A webhook endpoint to receive LINE platform events
-- Webhook signature verification
-- A way to link the webhook userId back to a website user/order
+### 1. A LINE ID handle is not enough
 
-This is more complex and not currently implemented.
+The Messaging API can't send a push message to a user's LINE ID handle such as `@john123`.
+It requires LINE's internal `userId`.
 
-### C. Get Followers List API (Not applicable)
+Implication:
 
-Available only for verified/premium LINE Official Accounts. Not suitable for real-time checkout flows.
+- The customer-entered `customer_line_id` is useful for manual fallback and admin reference
+- It is not usable as a Messaging API recipient identifier
 
-## 3. Push Message Prerequisites
+### 2. The internal LINE `userId` comes from platform-controlled flows
 
-To send a push message to a user via the LINE Messaging API:
+There are only practical ways for this project to get the internal `userId`:
 
-1. **Must have the user's internal userId** (see above)
-2. **User must have added the LINE Official Account as a friend**. If not, `pushMessage` returns HTTP 400. Our code handles this in `line.controller.ts` — returns `{ success: false, needs_friend: true, add_friend_url }`.
-3. **Must use the Messaging API Channel Access Token** (Channel ID `2008443478`, Bot `@737nfsrc`)
+- LINE Login OAuth
+- LINE webhook events such as `follow` / `unfollow`
 
-## 4. Current Implementation in Codebase
+For FEAT-2, LINE Login is the correct choice because it fits checkout and does not require a webhook-based identity-linking workflow.
 
-### LINE Channels
+### 3. LINE Login can prompt users to add the official account
 
-| Channel | ID | Purpose |
-|---------|------|---------|
-| LINE Login | 2008445583 | OAuth2 authentication, obtains userId |
-| Messaging API | 2008443478 (Bot @737nfsrc) | Push messages to admin and customers |
+LINE supports the add-friend option during login.
+The relevant mechanism is `bot_prompt=aggressive` on the LINE Login authorization URL, provided the LINE Login channel is linked to the Messaging API channel in the LINE Developers Console.
 
-### Message Sending Flow (`POST /api/orders/:id/line-send`)
+Implication:
 
-```
-1. Always: sendOrderToAdmin(orderId)
-   → Push flex message to LINE_ADMIN_USER_ID
-   → If 400 error: return { needs_friend: true, add_friend_url }
+- We should use LINE Login not only for authentication, but also to increase the chance that the user becomes reachable by the bakery's official account before order submission
 
-2. If user is logged in AND has line_user_id in profiles:
-   → sendOrderMessage(orderId, profile.line_user_id)
-   → Push flex message to customer
-   → Best-effort (failures silently caught)
+### 4. "Friendship" and "deliverability" are related, but not identical implementation concepts
 
-3. Return { success: true }
-```
+LINE gives different signals depending on the phase:
 
-### Flex Message Template
+- During fresh LINE Login, `GET /friendship/v1/status` returns `friendFlag`
+- `friendFlag=true` means the user has added the linked official account and has not blocked it
+- Outside the fresh-login context, the Messaging API FAQ explicitly states there is no Messaging API endpoint whose purpose is "determine whether a user is a friend"
 
-The `buildOrderFlexMessage()` in `line.service.ts` creates a bubble-style Flex Message with:
-- Header: Shop name ("周爸烘焙坊") + order number (brown/tan theme)
-- Body: Item list with quantities/prices, subtotal, shipping, total
-- Customer details: Name, phone, address, LINE ID (green), notes
-- Footer: "We will process your order shortly!"
+This distinction matters.
+The product requirement is not "store a friendship flag"; the product requirement is "can the bakery deliver a LINE message right now?"
 
-### Database Schema
+### 5. Push-message success is not a safe checkout signal
 
-| Table | Column | Purpose |
-|-------|--------|---------|
-| `profiles` | `line_user_id` (text, nullable) | Internal LINE userId from OAuth login |
-| `orders` | `line_user_id` (text, nullable) | Internal LINE userId recorded when message sent |
-| `orders` | `customer_line_id` (text, nullable) | User-entered LINE ID handle for admin reference |
+The LINE FAQ states that if you send a message to a user who blocked the official account, the API may still return HTTP `200` and no error occurs.
 
-## 5. Recommended Flow for FEAT-2
+Implication:
 
-### When user selects "LINE 聯繫，銀行轉帳" on cart page:
+- "Try to send, and if it throws then fail checkout" is not correct
+- "Order created + push attempted" is also not correct
+- We must check reachability before treating checkout as successful
 
-**Scenario A: User is logged in via LINE (`user.line_user_id` exists)**
-- Show green notice: "已連結 LINE 帳號，訂單確認將自動傳送至您的 LINE"
-- LINE ID field becomes **optional** (for admin reference only)
-- On submit: order created → admin gets flex message → customer gets automated push message
+This insight is the key reason behind the April 14, 2026 regression fix for linked users who had blocked the official account.
 
-**Scenario B: User is not logged in (or logged in without LINE)**
-- Show prompt: "使用 LINE 登入後，我們可以透過 LINE 自動傳送訂單確認給您"
-- Show "使用 LINE 登入" button → initiates LINE OAuth → returns to /cart
-- LINE ID field is **required** (admin needs it for manual contact)
-- On submit: order created → admin gets flex message (includes customer LINE ID) → admin manually contacts customer via LINE
+## Design Consequences
 
-### Why This Works
+### Required product behavior
 
-LINE Login solves the "LINE ID → userId" problem by having the user authenticate directly with LINE. The OAuth flow provides the internal userId that the Messaging API requires. No lookup or conversion is needed.
+The checkout must branch as follows:
 
-The LINE ID text field serves as a fallback: when automated messaging isn't available (user didn't log in via LINE), the admin can search for the customer's LINE ID in the LINE app and contact them manually about the bank transfer.
+1. User is not logged in with LINE:
+   - Start LINE Login
+   - Preserve checkout intent server-side
+   - Decide after login whether the user is reachable
 
-## 6. Alternative Approaches Considered
+2. User completes LINE Login and is reachable:
+   - Create order
+   - Send LINE messages
+   - Show success page
 
-### LINE Notification Messages API (Phone-number based)
-- Sends messages using phone number instead of userId
-- Available in Japan, Thailand, and **Taiwan**
-- Requires LINE partner program approval and template review
-- Only transactional/non-commercial content allowed
-- Could use `customer_phone` already collected in orders
-- **Status:** Not pursued due to partner program complexity, but viable for future
+3. User completes LINE Login but is not reachable:
+   - Do not finalize checkout immediately
+   - Route to a pending/failed recovery flow
 
-### Account Linking (Link Token flow)
-- LINE provides a formal account linking flow using link tokens
-- User clicks a link in LINE chat, authenticates on website, accounts linked
-- Requires webhook infrastructure + account linking endpoint
-- **Status:** Over-engineered for current needs; LINE Login already solves this
+4. User already has a persisted `line_user_id` but later blocks the official account:
+   - Do not trust the historical link alone
+   - Re-check current message eligibility before order creation
+   - Treat failure as checkout failure, not as a best-effort warning
 
-### Add Friend + Webhook
-- Prompt user to add OA as friend via `https://line.me/R/ti/p/{OA_ID}`
-- User sends a message → webhook captures userId
-- Link userId back to order/session
-- **Status:** Complex UX, requires webhook infra, poor for checkout flow
+### Why the current solution has two checks
 
-## 7. Environment Variables
+The final architecture uses two complementary mechanisms:
 
-```
-# LINE Login (OAuth2)
-LINE_LOGIN_CHANNEL_ID=2008445583
-LINE_LOGIN_CHANNEL_SECRET=<secret>
+1. **LINE Login + add-friend prompt**
+   - Solves identity (`userId`)
+   - Improves reachability before order submission
 
-# LINE Messaging API
-LINE_CHANNEL_ACCESS_TOKEN=<token>
-LINE_ADMIN_USER_ID=<admin-user-id>
+2. **Server-side message-eligibility check**
+   - Protects the already-linked-user path
+   - Prevents success pages for users who blocked the official account after the original link
 
-# Optional
-LINE_OA_ID=@papabakery  # defaults to @papabakery if not set
-```
+## Options Considered
+
+### Option A: Store only customer LINE ID and let staff contact manually
+
+Pros:
+
+- Simple
+- No OAuth complexity
+
+Cons:
+
+- No automated message delivery
+- Fails the product goal of sending checkout communication through LINE automatically
+
+Decision:
+
+- Not sufficient as the main flow
+
+### Option B: Create the order first, then attempt `pushMessage`
+
+Pros:
+
+- Simple implementation
+
+Cons:
+
+- Incorrect for blocked users because push can return `200` even when nothing is delivered
+- Creates false-positive success pages
+- Violates the business rule
+
+Decision:
+
+- Rejected
+
+### Option C: Use only `friendship/v1/status`
+
+Pros:
+
+- Official friend-status signal during fresh LINE Login
+
+Cons:
+
+- Requires a current LINE Login access token
+- Doesn't cover already-linked users returning later without a fresh login token
+- Does not remove the need for a post-link reachability strategy
+
+Decision:
+
+- Useful conceptually, but not sufficient as the sole runtime check
+
+### Option D: LINE Login + server-side pending order + message-eligibility gate
+
+Pros:
+
+- Works for guest checkout and linked users
+- Protects against mobile redirect storage loss
+- Prevents false success for blocked users
+- Keeps checkout semantics aligned with business needs
+
+Cons:
+
+- More moving parts
+- Requires pending-order persistence and explicit recovery states
+
+Decision:
+
+- Chosen
+
+## Final Planned Experience
+
+### Path A: Guest or non-LINE user
+
+1. User fills cart form and chooses LINE transfer
+2. Frontend stores checkout intent on the server as a pending order
+3. User is redirected to LINE Login with `bot_prompt=aggressive`
+4. Backend processes the callback
+5. If reachable, create the order and redirect to success
+6. If not reachable, redirect to the pending confirmation page or failure page depending on the flow state
+
+### Path B: Already linked LINE user who is still reachable
+
+1. User chooses LINE transfer
+2. Frontend asks the backend whether the linked `line_user_id` can currently receive messages
+3. If yes, create order and continue
+4. If LINE send succeeds, confirm order and show success
+
+### Path C: Already linked LINE user who blocked the official account
+
+1. User chooses LINE transfer
+2. Frontend asks the backend whether the linked `line_user_id` can currently receive messages
+3. Backend returns `can_receive_messages=false`
+4. Frontend does not create an order
+5. User is routed to `/checkout/failed?reason=not_friend`
+
+This path closes the regression where the user previously saw a success page despite being unreachable.
+
+## Risk Assessment
+
+### Risk 1: Historical linkage can drift from current deliverability
+
+Example:
+
+- User linked LINE last week
+- User blocks the official account today
+- `profiles.line_user_id` still exists
+
+Mitigation:
+
+- Never treat `line_user_id` alone as proof that checkout may proceed
+- Re-check message eligibility before order creation
+
+### Risk 2: Mobile OAuth flows may lose browser-side storage
+
+Example:
+
+- LINE in-app browser
+- OAuth redirect crosses domains/apps
+- `localStorage` is unavailable after the return
+
+Mitigation:
+
+- Pending order state is stored server-side, not only in browser storage
+
+### Risk 3: Messaging API success response can be misleading
+
+Example:
+
+- Blocked user
+- `pushMessage` returns HTTP `200`
+- Message is still not delivered
+
+Mitigation:
+
+- Checkout correctness must not depend on push response alone
+
+## Decision Summary
+
+The FEAT-2 checkout flow is designed around one operational truth:
+
+> The bakery must verify customer reachability through the LINE Official Account before an order is considered successfully placed.
+
+That is why the final architecture combines:
+
+- LINE Login to obtain the internal LINE `userId`
+- `bot_prompt=aggressive` to prompt add-friend during login
+- server-side pending-order storage for resilience
+- a dedicated message-eligibility check for already-linked users
+- failure routing when the customer cannot currently receive LINE messages
+
+## Official References
+
+- LINE Developers, "Get user IDs"
+  - https://developers.line.biz/en/docs/messaging-api/getting-user-ids/
+- LINE Developers, "Gain friends of your LINE Official Account"
+  - https://developers.line.biz/en/docs/messaging-api/sharing-bot/
+- LINE Developers, "LINE Login v2.1 API reference"
+  - `Get user profile`: https://developers.line.biz/en/reference/line-login/#get-user-profile
+  - `Get friendship status`: https://developers.line.biz/en/reference/line-login/#get-friendship-status
+- LINE Developers FAQ, Messaging API
+  - https://developers.line.biz/en/faq/tags/messaging-api/
+
+## Internal Notes Consolidated into This Plan
+
+This document supersedes the earlier iterative research and fix notes in:
+
+- `documents/FEAT-2/development/send-line-to-user.md`
+- `documents/FEAT-2/development/send-line-to-user-fix.md`
+- `documents/FEAT-2/development/send-line-to-user-fix-2.md`
+- `documents/FEAT-2/development/send-line-to-user-fix-3.md`
+- `documents/FEAT-2/development/send-line-to-user-fix-4.md`

@@ -15,6 +15,11 @@ export type CheckoutSubmitResult =
   | { status: 'redirected' }
   | { status: 'needs_friend'; addFriendUrl: string };
 
+interface LineMessageEligibilityResponse {
+  can_receive_messages: boolean;
+  add_friend_url: string;
+}
+
 export function extractCheckoutErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== 'object') {
     return undefined;
@@ -52,8 +57,21 @@ export function useCheckoutFlow() {
         return { status: 'redirected' };
       }
 
-      const orderData = await createOrder(toCreateOrderBody(values));
       const isLineTransfer = values.paymentMethod === 'line_transfer';
+      if (isLineTransfer) {
+        const messageEligibility = await authedFetchFn<LineMessageEligibilityResponse>(
+          'api/auth/line/message-eligibility',
+        );
+
+        if (!messageEligibility.can_receive_messages) {
+          return {
+            status: 'needs_friend',
+            addFriendUrl: messageEligibility.add_friend_url,
+          };
+        }
+      }
+
+      const orderData = await createOrder(toCreateOrderBody(values));
 
       if (isLineTransfer) {
         const lineData = await lineSend(orderData.id);

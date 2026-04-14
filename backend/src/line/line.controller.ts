@@ -20,6 +20,39 @@ export class LineController {
   async sendViaLine(@Param('id', ParseIntPipe) orderId: number, @Req() req: Request) {
     const lineOaId = this.configService.get('LINE_OA_ID', '@papabakery');
     const addFriendUrl = `https://line.me/R/ti/p/${lineOaId}`;
+    const user = req.user;
+    const missingFriendResponse = {
+      success: false,
+      needs_friend: true,
+      add_friend_url: addFriendUrl,
+      message: 'Please add our LINE Official Account as a friend first.',
+    };
+
+    if (!user) {
+      return {
+        success: false,
+        message: 'LINE login required.',
+      };
+    }
+
+    const supabase = this.supabaseService.getClient();
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('line_user_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.line_user_id) {
+      return {
+        success: false,
+        message: 'LINE account is not linked.',
+      };
+    }
+
+    const canPushToCustomer = await this.lineService.canPushToUser(profile.line_user_id);
+    if (!canPushToCustomer) {
+      return missingFriendResponse;
+    }
 
     // Always send order details to shop admin
     try {
@@ -27,12 +60,7 @@ export class LineController {
     } catch (error: any) {
       // LINE API 400 = recipient hasn't added the bot as friend
       if (error?.statusCode === 400) {
-        return {
-          success: false,
-          needs_friend: true,
-          add_friend_url: addFriendUrl,
-          message: 'Please add our LINE Official Account as a friend first.',
-        };
+        return missingFriendResponse;
       }
       return {
         success: false,
@@ -40,23 +68,13 @@ export class LineController {
       };
     }
 
-    // Also send confirmation to customer if logged in with LINE linked
-    const user = req.user;
-    if (user) {
-      const supabase = this.supabaseService.getClient();
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('line_user_id')
-        .eq('id', user.id)
-        .single();
-
-      if (profile?.line_user_id) {
-        try {
-          await this.lineService.sendOrderMessage(orderId, profile.line_user_id);
-        } catch {
-          // Customer notification is best-effort; admin push already succeeded
-        }
-      }
+    try {
+      await this.lineService.sendOrderMessage(orderId, profile.line_user_id);
+    } catch {
+      return {
+        success: false,
+        message: 'Failed to send order via LINE',
+      };
     }
 
     return { success: true, message: 'Order sent via LINE.' };

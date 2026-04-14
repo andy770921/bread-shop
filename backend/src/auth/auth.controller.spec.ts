@@ -29,6 +29,9 @@ describe('AuthController', () => {
   let checkoutService: {
     completePendingLineCheckout: jest.Mock;
   };
+  let lineService: {
+    canPushToUser: jest.Mock;
+  };
 
   const createResponse = (): Response =>
     ({
@@ -87,8 +90,9 @@ describe('AuthController', () => {
     };
 
     configService = {
-      get: jest.fn((key: string) => {
+      get: jest.fn((key: string, defaultValue?: string) => {
         if (key === 'FRONTEND_URL') return frontendUrl;
+        if (key === 'LINE_OA_ID') return defaultValue;
         return undefined;
       }),
       getOrThrow: jest.fn((key: string) => {
@@ -107,13 +111,42 @@ describe('AuthController', () => {
       completePendingLineCheckout: jest.fn(),
     };
 
+    lineService = {
+      canPushToUser: jest.fn(),
+    };
+
     controller = new AuthController(
       authService as any,
       supabaseService as any,
       configService as any,
       orderService as any,
       checkoutService as any,
+      lineService as any,
     );
+  });
+
+  describe('getLineMessageEligibility', () => {
+    it('returns false when the linked LINE user cannot receive messages', async () => {
+      supabaseService.getClient.mockReturnValue({
+        from: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { line_user_id: 'line-user-id' },
+              }),
+            }),
+          }),
+        }),
+      });
+      lineService.canPushToUser.mockResolvedValue(false);
+
+      await expect(
+        controller.getLineMessageEligibility({ id: 'bread-user-1' }),
+      ).resolves.toEqual({
+        can_receive_messages: false,
+        add_friend_url: 'https://line.me/R/ti/p/@papabakery',
+      });
+    });
   });
 
   describe('lineStart', () => {
@@ -188,7 +221,7 @@ describe('AuthController', () => {
       });
       authService.updatePendingOrderAuth.mockResolvedValue(undefined);
 
-      jest.spyOn(controller as any, 'checkLineFriendship').mockResolvedValue(false);
+      lineService.canPushToUser.mockResolvedValue(false);
 
       await controller.lineCallback(
         'oauth-code',
@@ -249,7 +282,7 @@ describe('AuthController', () => {
 
       authService.readPendingOrder.mockResolvedValue(pending);
       authService.deletePendingOrder.mockResolvedValue(pending);
-      jest.spyOn(controller as any, 'checkLineFriendship').mockResolvedValue(true);
+      lineService.canPushToUser.mockResolvedValue(true);
       checkoutService.completePendingLineCheckout.mockResolvedValue(
         `${frontendUrl}/checkout/success?order=ORD-0001`,
       );

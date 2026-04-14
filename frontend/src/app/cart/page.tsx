@@ -125,8 +125,7 @@ function CartContent() {
       const result = await submitCheckout(values);
 
       if (result.status === 'needs_friend') {
-        toast.error(t('cart.lineAddFriend'));
-        window.open(result.addFriendUrl, '_blank');
+        router.push('/checkout/failed?reason=not_friend');
       }
     } catch (error) {
       const message = extractCheckoutErrorMessage(error);

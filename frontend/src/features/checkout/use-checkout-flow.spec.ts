@@ -94,8 +94,13 @@ describe('[useCheckoutFlow]', () => {
   });
 
   it('completes the linked LINE checkout flow and clears cart cache', async () => {
+    const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
     const { useAuth } = jest.requireMock('@/lib/auth-context');
     useAuth.mockReturnValue({ user: { line_user_id: 'line-user-1' } });
+    authedFetchFn.mockResolvedValue({
+      can_receive_messages: true,
+      add_friend_url: 'https://line.me/friend',
+    });
     createOrder.mockResolvedValue({ id: 9, order_number: 'ORD-9' });
     lineSend.mockResolvedValue({ success: true });
     confirmOrder.mockResolvedValue({ success: true });
@@ -115,9 +120,37 @@ describe('[useCheckoutFlow]', () => {
     expect(push).toHaveBeenCalledWith('/checkout/success?order=ORD-9');
   });
 
-  it('surfaces add-friend handling as a structured result', async () => {
+  it('stops before order creation when a linked LINE user has blocked the official account', async () => {
+    const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
     const { useAuth } = jest.requireMock('@/lib/auth-context');
     useAuth.mockReturnValue({ user: { line_user_id: 'line-user-1' } });
+    authedFetchFn.mockResolvedValue({
+      can_receive_messages: false,
+      add_friend_url: 'https://line.me/friend',
+    });
+
+    const { result } = renderHook(() => useCheckoutFlow());
+
+    await act(async () => {
+      await expect(result.current.submitCheckout(baseValues)).resolves.toEqual({
+        status: 'needs_friend',
+        addFriendUrl: 'https://line.me/friend',
+      });
+    });
+
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(lineSend).not.toHaveBeenCalled();
+    expect(confirmOrder).not.toHaveBeenCalled();
+  });
+
+  it('surfaces add-friend handling as a structured result when the server-side send fallback rejects it', async () => {
+    const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
+    const { useAuth } = jest.requireMock('@/lib/auth-context');
+    useAuth.mockReturnValue({ user: { line_user_id: 'line-user-1' } });
+    authedFetchFn.mockResolvedValue({
+      can_receive_messages: true,
+      add_friend_url: 'https://line.me/friend',
+    });
     createOrder.mockResolvedValue({ id: 9, order_number: 'ORD-9' });
     lineSend.mockResolvedValue({
       success: false,
