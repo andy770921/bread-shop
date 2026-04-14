@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CartPage from './page';
 import { QUERY_KEYS } from '@/queries/query-keys';
 
@@ -114,6 +114,13 @@ jest.mock('sonner', () => ({
 }));
 
 describe('[cart checkout e2e regression]', () => {
+  const renderCartPage = async () => {
+    await act(async () => {
+      render(<CartPage />);
+      await Promise.resolve();
+    });
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -196,7 +203,7 @@ describe('[cart checkout e2e regression]', () => {
   });
 
   it('keeps blocked linked users out of the success page and redirects to checkout failed', async () => {
-    render(<CartPage />);
+    await renderCartPage();
 
     await waitFor(() => {
       expect(flushPendingCartMutations).toHaveBeenCalled();
@@ -256,7 +263,7 @@ describe('[cart checkout e2e regression]', () => {
         }),
     );
 
-    render(<CartPage />);
+    await renderCartPage();
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'line_transfer' },
@@ -278,7 +285,10 @@ describe('[cart checkout e2e regression]', () => {
     const submitButton = screen.getByRole('button', { name: 'Contact via LINE' });
     expect(submitButton).toBeDisabled();
 
-    resolveFlush?.();
+    await act(async () => {
+      resolveFlush?.();
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
@@ -288,8 +298,8 @@ describe('[cart checkout e2e regression]', () => {
     });
   });
 
-  it('shows the credit-card service pending notice instead of checkout inputs', () => {
-    render(<CartPage />);
+  it('shows the credit-card service pending notice instead of checkout inputs', async () => {
+    await renderCartPage();
 
     fireEvent.change(screen.getByRole('combobox'), {
       target: { value: 'credit_card' },
