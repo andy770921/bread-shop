@@ -105,7 +105,7 @@ export class AuthService {
   async handleLineLogin(
     code: string,
     backendOrigin: string,
-  ): Promise<AuthResponse & { lineAccessToken: string }> {
+  ): Promise<AuthResponse & { lineAccessToken: string; lineUserId: string }> {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
     const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
 
@@ -168,6 +168,7 @@ export class AuthService {
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
         lineAccessToken: lineTokens.access_token,
+        lineUserId: lineProfile.userId,
       };
     } else {
       const { error: createError } = await authClient.auth.admin.createUser({
@@ -209,6 +210,7 @@ export class AuthService {
         access_token: createdUser.session.access_token,
         refresh_token: createdUser.session.refresh_token,
         lineAccessToken: lineTokens.access_token,
+        lineUserId: lineProfile.userId,
       };
     }
   }
@@ -301,7 +303,7 @@ export class AuthService {
   /** Store auth data in the pending order so the confirm-order endpoint can use it later. */
   async updatePendingOrderAuth(
     pendingId: string,
-    auth: { lineAccessToken: string; userId: string },
+    auth: { lineUserId: string; userId: string },
   ): Promise<void> {
     const supabase = this.supabaseService.getClient();
     // Read current form_data, merge auth into it, extend expiration to 30 min
@@ -313,7 +315,7 @@ export class AuthService {
     if (!current) return;
     const updatedFormData = {
       ...(current.form_data as Record<string, unknown>),
-      _line_access_token: auth.lineAccessToken,
+      _line_user_id: auth.lineUserId,
       _user_id: auth.userId,
     };
     await supabase

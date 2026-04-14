@@ -9,6 +9,10 @@ export class OrderService {
     private cartService: CartService,
   ) {}
 
+  async getCartForSession(sessionId: string) {
+    return this.cartService.getCart(sessionId);
+  }
+
   async createOrder(
     sessionId: string,
     userId: string | null,
@@ -22,10 +26,14 @@ export class OrderService {
       customer_line_id?: string;
       skip_cart_clear?: boolean;
     },
+    cartOverride?: { items: any[]; subtotal: number; shipping_fee: number; total: number },
   ) {
     const supabase = this.supabaseService.getClient();
 
-    const cart = await this.cartService.getCart(sessionId, userId || undefined);
+    // Use cart override (snapshot from pending order) if provided,
+    // otherwise read from session. The override is needed when the
+    // session cookie was lost during LINE OAuth redirect on mobile.
+    const cart = cartOverride || (await this.cartService.getCart(sessionId, userId || undefined));
 
     if (cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');

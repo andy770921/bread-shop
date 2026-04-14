@@ -124,7 +124,8 @@
     "submitting": "Submitting...",
     "orderSubmitFailed": "Order submission failed. Please try again.",
     "lineLoginFailed": "Failed to start LINE login. Please try again.",
-    "checkoutFailed": "Checkout failed"
+    "checkoutFailed": "Checkout failed",
+    "pendingLoadFailed": "Unable to load order details. Please go back to the cart and try again."
   },
   "status": {
     "pending": "Pending",

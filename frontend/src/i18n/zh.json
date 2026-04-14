@@ -124,7 +124,8 @@
     "submitting": "送出中...",
     "orderSubmitFailed": "訂單送出失敗，請重試。",
     "lineLoginFailed": "LINE 登入啟動失敗，請重試。",
-    "checkoutFailed": "結帳失敗"
+    "checkoutFailed": "結帳失敗",
+    "pendingLoadFailed": "無法載入訂單資料，請返回購物車重新操作。"
   },
   "status": {
     "pending": "待付款",

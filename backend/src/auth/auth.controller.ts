@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
+  Param,
   Post,
   Query,
   Req,
@@ -76,10 +78,21 @@ export class AuthController {
   async lineStart(@Req() req: Request, @Body() body: { form_data: Record<string, unknown> }) {
     const sessionId = req.sessionId;
     if (!sessionId) {
-      // Create a session if none exists (this is a POST, so middleware should have created one)
       throw new UnauthorizedException('No session');
     }
-    const pendingId = await this.authService.storePendingOrder(sessionId, body.form_data);
+    // Strip _ prefixed fields from client data to prevent injection of internal fields
+    const safeFormData = Object.fromEntries(
+      Object.entries(body.form_data).filter(([k]) => !k.startsWith('_')),
+    );
+    // Snapshot the cart now — session cookies may be lost during LINE OAuth redirect
+    // on mobile (LINE in-app browser, Safari ITP). The snapshot is used for:
+    // 1. Displaying order details on the pending confirmation page
+    // 2. Fallback for order creation if the session cart is empty after redirect
+    const cart = await this.orderService.getCartForSession(sessionId);
+    const pendingId = await this.authService.storePendingOrder(sessionId, {
+      ...safeFormData,
+      _cart_snapshot: cart,
+    });
     return { pendingId };
   }
 
@@ -176,7 +189,7 @@ export class AuthController {
       const result = await this.authService.handleLineLogin(code, backendOrigin);
 
       if (pending && pendingId) {
-        const isFriend = await this.checkLineFriendship(result.lineAccessToken);
+        const isFriend = await this.checkLineFriendship(result.lineUserId);
         console.log('lineCallback: friendship status =', isFriend);
 
         if (!isFriend) {
@@ -184,7 +197,7 @@ export class AuthController {
           // so the confirm-order endpoint can use it later, then redirect to the
           // "pending confirmation" page where user can add the bot and retry.
           await this.authService.updatePendingOrderAuth(pendingId, {
-            lineAccessToken: result.lineAccessToken,
+            lineUserId: result.lineUserId,
             userId: result.user.id,
           });
           const tokenParams = new URLSearchParams({
@@ -243,21 +256,23 @@ export class AuthController {
   }
 
   /**
-   * Check if the LINE user is friends with the linked Messaging API bot.
-   * Uses the LINE Login token (not the Messaging API token).
-   * https://developers.line.biz/en/reference/line-login/#get-friendship-status
+   * Check if the LINE user is friends with the Messaging API bot.
+   * Uses the long-lived bot channel access token (not the user's LINE Login token)
+   * so the check works regardless of LINE Login token expiration.
+   * https://developers.line.biz/en/reference/messaging-api/#get-profile
    */
-  private async checkLineFriendship(lineAccessToken: string): Promise<boolean> {
+  private async checkLineFriendship(lineUserId: string): Promise<boolean> {
     try {
-      const res = await fetch('https://api.line.me/friendship/v1/status', {
-        headers: { Authorization: `Bearer ${lineAccessToken}` },
+      const botToken = this.configService.getOrThrow('LINE_CHANNEL_ACCESS_TOKEN');
+      const res = await fetch(`https://api.line.me/v2/bot/profile/${lineUserId}`, {
+        headers: { Authorization: `Bearer ${botToken}` },
       });
+      if (res.status === 404) return false;
       if (!res.ok) {
         console.error('checkLineFriendship: HTTP', res.status);
         return false;
       }
-      const { friendFlag } = await res.json();
-      return friendFlag === true;
+      return true;
     } catch (err) {
       console.error('checkLineFriendship error:', err);
       return false;
@@ -307,18 +322,26 @@ export class AuthController {
   ): Promise<string> {
     const fd = pending.form_data;
 
-    // Create order with null userId — cart items are linked to the session,
-    // and getSessionIds(sessionId, null) looks up by session_id only.
-    const order = await this.orderService.createOrder(pending.session_id, null, {
-      customer_name: fd.customerName as string,
-      customer_phone: fd.customerPhone as string,
-      customer_email: (fd.customerEmail as string) || undefined,
-      customer_address: fd.customerAddress as string,
-      notes: (fd.notes as string) || undefined,
-      payment_method: 'line',
-      customer_line_id: (fd.lineId as string) || undefined,
-      skip_cart_clear: true,
-    });
+    // Use cart snapshot from pending order if available (session may be lost
+    // after LINE OAuth redirect on mobile). Falls back to session-based cart.
+    const cartSnapshot = fd._cart_snapshot as
+      | { items: any[]; subtotal: number; shipping_fee: number; total: number }
+      | undefined;
+    const order = await this.orderService.createOrder(
+      pending.session_id,
+      null,
+      {
+        customer_name: fd.customerName as string,
+        customer_phone: fd.customerPhone as string,
+        customer_email: (fd.customerEmail as string) || undefined,
+        customer_address: fd.customerAddress as string,
+        notes: (fd.notes as string) || undefined,
+        payment_method: 'line',
+        customer_line_id: (fd.lineId as string) || undefined,
+        skip_cart_clear: true,
+      },
+      cartSnapshot,
+    );
 
     // Assign user to the order and merge session AFTER order creation.
     // mergeSessionOnLogin deletes old sessions which CASCADE-deletes cart_items.
@@ -369,13 +392,36 @@ export class AuthController {
   }
 
   /**
+   * Returns pending order details for the frontend pending page to display.
+   * Includes cart snapshot and customer form data (strips internal fields).
+   */
+  @Get('line/pending-order/:id')
+  @UseGuards(AuthGuard)
+  async getPendingOrder(@Param('id') id: string, @CurrentUser() user: any) {
+    const pending = await this.authService.readPendingOrder(id);
+    if (!pending) throw new NotFoundException('Pending order not found or expired');
+
+    const fd = pending.form_data;
+    if (fd._user_id && fd._user_id !== user.id) {
+      throw new UnauthorizedException('Unauthorized');
+    }
+
+    // Return cart snapshot + customer info (strip internal auth fields)
+    const { _line_user_id, _user_id, _cart_snapshot, ...customerData } = fd;
+    return {
+      cart: _cart_snapshot || null,
+      customer: customerData,
+    };
+  }
+
+  /**
    * Called from the "pending confirmation" page when the user clicks "送出下訂".
    * Checks friendship, creates order, sends LINE messages.
    */
   @Post('line/confirm-order')
   @UseGuards(AuthGuard)
   async confirmLineOrder(@Body() body: { pendingId: string }, @CurrentUser() user: any) {
-    // Read first to validate ownership and get lineAccessToken
+    // Read first to validate ownership and get lineUserId
     const pending = await this.authService.readPendingOrder(body.pendingId);
     if (!pending) {
       throw new BadRequestException(
@@ -388,12 +434,12 @@ export class AuthController {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    const lineAccessToken = fd._line_access_token as string;
-    if (!lineAccessToken) {
+    const lineUserId = fd._line_user_id as string;
+    if (!lineUserId) {
       throw new BadRequestException('LINE authentication expired. Please try again from the cart.');
     }
 
-    const isFriend = await this.checkLineFriendship(lineAccessToken);
+    const isFriend = await this.checkLineFriendship(lineUserId);
     if (!isFriend) {
       throw new BadRequestException('not_friend');
     }
@@ -410,7 +456,6 @@ export class AuthController {
       user: { id: user.id, email: user.email },
       access_token: '',
       refresh_token: '',
-      lineAccessToken,
     };
 
     const successUrl = await this.handlePendingOrder(consumed, authResult, frontendUrl);

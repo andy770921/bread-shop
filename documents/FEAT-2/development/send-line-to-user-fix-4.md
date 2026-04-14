@@ -211,3 +211,112 @@ All three replaced with `t('checkout.xxx')` calls. Keys added to both `zh.json` 
 | `frontend/src/app/cart/page.tsx` | Two error toasts use i18n |
 | `frontend/src/i18n/zh.json` | Added `checkout.orderSubmitFailed`, `lineLoginFailed`, `checkoutFailed` |
 | `frontend/src/i18n/en.json` | Same keys in English |
+
+---
+
+## Fix 4b: Cart Snapshot + Pending Page Order Display (2026-04-14)
+
+### Problem
+
+After deploying fix 4, users who go through LINE Login but are NOT yet friends with the bot land on `/checkout/pending`. Two issues:
+
+1. **The pending page shows no order details** — just a generic "訂單還未送出" message and buttons. The user can't see what they're about to order (items, quantities, prices, customer info).
+
+2. **`createOrder` fails with "Cart is empty"** when the user clicks "送出下訂" — because the session cookie was lost during the LINE OAuth redirect on mobile (LINE in-app browser, Safari ITP). The cart items linked to the original session are inaccessible from the new browser context.
+
+### Root Cause
+
+`POST /api/auth/line/start` only stored form data (customer name, phone, etc.) in `pending_line_orders.form_data`. It did NOT store the cart contents. Later, `handlePendingOrder` / `confirmLineOrder` called `createOrder(session_id, null, ...)` which reads cart items from the session — but the session cookie was lost after the LINE OAuth redirect.
+
+### Solution: Cart Snapshot
+
+Snapshot the cart at the moment the user clicks the CTA (before any redirects), store it in the pending order, and use it for both display and order creation.
+
+#### 1. `lineStart` stores cart snapshot
+
+```typescript
+const cart = await this.orderService.getCartForSession(sessionId);
+const pendingId = await this.authService.storePendingOrder(sessionId, {
+  ...body.form_data,
+  _cart_snapshot: cart,  // { items, subtotal, shipping_fee, total }
+});
+```
+
+At this point the session is still valid (request goes through the frontend proxy with the session cookie).
+
+#### 2. New `GET /api/auth/line/pending-order/:id` endpoint
+
+Returns the pending order details for the frontend. Strips internal fields (`_line_access_token`, `_user_id`), returns:
+
+```json
+{
+  "cart": { "items": [...], "subtotal": 280, "shipping_fee": 0, "total": 280 },
+  "customer": { "customerName": "Test", "customerPhone": "..." }
+}
+```
+
+Protected by `AuthGuard`.
+
+#### 3. `createOrder` accepts cart override
+
+Added optional `cartOverride` parameter to `OrderService.createOrder()`. `handlePendingOrder` passes `_cart_snapshot`:
+
+```typescript
+const cartSnapshot = fd._cart_snapshot;
+const order = await this.orderService.createOrder(session_id, null, dto, cartSnapshot);
+```
+
+Eliminates the dependency on the session cookie for order creation.
+
+#### 4. `OrderService.getCartForSession()` proxy
+
+Exposes `CartService.getCart()` to the auth controller without needing to import `CartModule`.
+
+#### 5. Pending page displays order details
+
+`/checkout/pending` now fetches `GET /api/auth/line/pending-order/:id` and displays:
+- Item list with bilingual names, quantities, prices
+- Subtotal, shipping, total
+- Customer info (name, phone, address, LINE ID)
+- Loading skeleton while fetching
+
+#### 6. Error state on pending order fetch failure
+
+If the `GET /api/auth/line/pending-order/:id` call fails (expired, auth error, network), the page now shows a message "無法載入訂單資料" with a "返回購物車" link instead of silently showing an empty page.
+
+#### 7. `lineStart` strips `_`-prefixed fields from client form data
+
+Defense-in-depth: before storing `form_data`, internal-prefix fields (`_cart_snapshot`, `_user_id`, `_line_user_id`) submitted by the client are stripped. Only the server adds these fields.
+
+#### 8. Friendship check uses Messaging API bot token instead of LINE Login token
+
+**Problem**: The previous `checkLineFriendship` implementation used the user's LINE Login access token (via `GET https://api.line.me/friendship/v1/status`). LINE Login tokens expire in ~30 minutes. If the user stayed on the pending page longer than that before clicking "Submit Order", the friendship check would fail with HTTP 401 — returning `false` even if the user IS a friend. This incorrectly redirected the user to the failure page.
+
+**Approaches considered**:
+
+1. **Use Messaging API bot token (chosen)** — The `GET /v2/bot/profile/{userId}` endpoint uses the bot's long-lived channel access token instead of the user's short-lived LINE Login token. Returns 200 if the user is a friend, 404 if not. The bot token does not expire in the same way (long-lived or auto-refreshable), eliminating the timeout problem entirely.
+
+2. **Re-authenticate on token expiry** — Detect HTTP 401 from the friendship API and redirect the user back through LINE Login to obtain a fresh token. Downsides: poor UX (user goes through LINE Login a second time), adds complexity to the flow, and still race-prone if the second token also expires.
+
+3. **Refresh the LINE Login token periodically** — Store the LINE refresh token (valid ~90 days) and refresh the access token before it expires. Downsides: requires storing and managing an additional token, adds refresh logic, and the refresh token itself can be revoked.
+
+**Why option 1 wins**: Smallest change footprint, no dependency on user-side token lifetimes, and the bot token is already available in the codebase (`LINE_CHANNEL_ACCESS_TOKEN` used by `LineService` for push messages).
+
+**Changes**:
+
+- `handleLineLogin` now returns `lineUserId` (LINE profile user ID) alongside `lineAccessToken`
+- `checkLineFriendship(lineUserId)` calls `GET /v2/bot/profile/{userId}` with the bot's channel access token
+- `updatePendingOrderAuth` stores `_line_user_id` instead of `_line_access_token`
+- `confirmLineOrder` reads `_line_user_id` for the friendship check
+- `getPendingOrder` strips `_line_user_id` (instead of `_line_access_token`) from the response
+
+### Files Modified
+
+| File | Change |
+|---|---|
+| `backend/src/auth/auth.service.ts` | `handleLineLogin` returns `lineUserId`; `updatePendingOrderAuth` stores `_line_user_id` instead of `_line_access_token` |
+| `backend/src/order/order.service.ts` | New `getCartForSession()`; `createOrder` accepts optional `cartOverride` |
+| `backend/src/auth/auth.controller.ts` | `checkLineFriendship` rewritten to use Messaging API bot token; `lineStart` strips `_`-prefixed client fields + stores cart snapshot; new `GET line/pending-order/:id`; `confirmLineOrder` uses `_line_user_id`; `handlePendingOrder` passes cart snapshot |
+| `frontend/src/app/checkout/pending/page.tsx` | Rewritten — fetches + displays order details; error state on fetch failure |
+| `frontend/src/i18n/zh.json` | Added `checkout.pendingLoadFailed` |
+| `frontend/src/i18n/en.json` | Added `checkout.pendingLoadFailed` |
