@@ -1,5 +1,6 @@
 import {
   ensureCartSessionReady,
+  fetchCart,
   markCartSessionReady,
   primeCartSessionReady,
   resetCartSessionReadyForTests,
@@ -14,85 +15,159 @@ describe('[cart-session]', () => {
     authedFetchFn: jest.Mock;
   };
 
-  let ensureQueryDataMock: jest.Mock;
-  let mockQueryClient: { ensureQueryData: jest.Mock };
-
   beforeEach(() => {
     jest.clearAllMocks();
     resetCartSessionReadyForTests();
-
-    ensureQueryDataMock = jest.fn();
-    mockQueryClient = { ensureQueryData: ensureQueryDataMock };
   });
 
-  it('deduplicates via queryClient.ensureQueryData and caches the ready state', async () => {
-    ensureQueryDataMock.mockResolvedValue({ items: [] });
-
-    await ensureCartSessionReady(mockQueryClient as any);
-    await ensureCartSessionReady(mockQueryClient as any);
-
-    // First call goes through ensureQueryData, second short-circuits via cartSessionReady flag
-    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns immediately after markCartSessionReady is called', async () => {
-    markCartSessionReady();
-    await ensureCartSessionReady(mockQueryClient as any);
-
-    expect(ensureQueryDataMock).not.toHaveBeenCalled();
-  });
-
-  it('starts the bootstrap in the background only once', async () => {
-    let resolveEnsure: ((v: unknown) => void) | undefined;
-    ensureQueryDataMock.mockImplementation(
+  it('shares one real GET /api/cart bootstrap request across readers and writers', async () => {
+    let resolveFetch: ((value: unknown) => void) | undefined;
+    authedFetchFn.mockImplementation(
       () =>
         new Promise((resolve) => {
-          resolveEnsure = resolve;
+          resolveFetch = resolve;
         }),
     );
 
-    primeCartSessionReady(mockQueryClient as any);
-    primeCartSessionReady(mockQueryClient as any);
+    const cartPromise = fetchCart();
+    const readyPromise = ensureCartSessionReady();
 
-    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
-
-    resolveEnsure?.({ items: [] });
-    await ensureCartSessionReady(mockQueryClient as any);
-
-    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('passes the correct queryKey and queryFn to ensureQueryData', async () => {
-    authedFetchFn.mockResolvedValue({ items: [], subtotal: 0, shipping_fee: 0, total: 0 });
-    ensureQueryDataMock.mockImplementation(async (opts: any) => opts.queryFn());
-
-    await ensureCartSessionReady(mockQueryClient as any);
-
-    expect(ensureQueryDataMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        queryKey: ['cart'],
-        queryFn: expect.any(Function),
-      }),
-    );
+    expect(authedFetchFn).toHaveBeenCalledTimes(1);
     expect(authedFetchFn).toHaveBeenCalledWith('api/cart');
-  });
 
-  it('queryFn returns EMPTY_CART on fetch error', async () => {
-    authedFetchFn.mockRejectedValue(new Error('network error'));
-    let capturedResult: unknown;
-    ensureQueryDataMock.mockImplementation(async (opts: any) => {
-      capturedResult = await opts.queryFn();
-      return capturedResult;
-    });
-
-    await ensureCartSessionReady(mockQueryClient as any);
-
-    expect(capturedResult).toEqual({
+    resolveFetch?.({
       items: [],
       subtotal: 0,
       shipping_fee: 0,
       total: 0,
       item_count: 0,
     });
+
+    await expect(cartPromise).resolves.toEqual({
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    });
+    await expect(readyPromise).resolves.toBeUndefined();
+  });
+
+  it('starts the bootstrap in the background only once', async () => {
+    let resolveFetch: ((value: unknown) => void) | undefined;
+    authedFetchFn.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    primeCartSessionReady();
+    primeCartSessionReady();
+
+    expect(authedFetchFn).toHaveBeenCalledTimes(1);
+
+    resolveFetch?.({
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    });
+
+    await ensureCartSessionReady();
+    expect(authedFetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('performs a fresh cart fetch after the bootstrap is complete', async () => {
+    authedFetchFn
+      .mockResolvedValueOnce({
+        items: [],
+        subtotal: 0,
+        shipping_fee: 0,
+        total: 0,
+        item_count: 0,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 1,
+            product_id: 10,
+            quantity: 1,
+            product: {
+              id: 10,
+              name_zh: '吐司',
+              name_en: 'Toast',
+              price: 100,
+              image_url: null,
+              category_name_zh: '吐司',
+              category_name_en: 'Toast',
+            },
+            line_total: 100,
+          },
+        ],
+        subtotal: 100,
+        shipping_fee: 60,
+        total: 160,
+        item_count: 1,
+      });
+
+    await ensureCartSessionReady();
+    await expect(fetchCart()).resolves.toEqual({
+      items: [
+        {
+          id: 1,
+          product_id: 10,
+          quantity: 1,
+          product: {
+            id: 10,
+            name_zh: '吐司',
+            name_en: 'Toast',
+            price: 100,
+            image_url: null,
+            category_name_zh: '吐司',
+            category_name_en: 'Toast',
+          },
+          line_total: 100,
+        },
+      ],
+      subtotal: 100,
+      shipping_fee: 60,
+      total: 160,
+      item_count: 1,
+    });
+
+    expect(authedFetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not mark the cart session ready when the bootstrap request fails', async () => {
+    authedFetchFn.mockRejectedValueOnce(new Error('network error'));
+
+    await expect(fetchCart()).resolves.toEqual({
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    });
+
+    authedFetchFn.mockResolvedValueOnce({
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    });
+
+    await expect(ensureCartSessionReady()).resolves.toBeUndefined();
+    expect(authedFetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns immediately after markCartSessionReady is called', async () => {
+    markCartSessionReady();
+
+    await ensureCartSessionReady();
+
+    expect(authedFetchFn).not.toHaveBeenCalled();
   });
 });

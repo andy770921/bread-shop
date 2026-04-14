@@ -2,39 +2,19 @@ import { CART_CONSTANTS, CartResponse } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { QUERY_KEYS } from './query-keys';
-import {
-  ensureCartSessionReady,
-  markCartSessionReady,
-  primeCartSessionReady,
-} from './cart-session';
+import { ensureCartSessionReady, fetchCart, primeCartSessionReady } from './cart-session';
 import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-import {
-  EMPTY_CART,
-  applyPendingUpdates,
-  recalcCartTotals,
-  reconcileWithPending,
-} from '@/utils/cart-math';
+import { applyPendingUpdates, recalcCartTotals, reconcileWithPending } from '@/utils/cart-math';
 
 export function useCart() {
   return useQuery<CartResponse>({
     queryKey: QUERY_KEYS.cart,
-    queryFn: async () => {
-      try {
-        const data = await authedFetchFn<CartResponse>('api/cart');
-        markCartSessionReady();
-        return data;
-      } catch {
-        markCartSessionReady();
-        return EMPTY_CART;
-      }
-    },
+    queryFn: fetchCart,
   });
 }
 
 export function useAddToCart(options?: { onError?: () => void }) {
-  const queryClient = useQueryClient();
-
   const { run } = useDebouncedCartMutation<number, { productId: number; productPrice: number }>({
     onError: options?.onError,
     getKey: ({ productId }) => productId,
@@ -79,7 +59,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
       return recalcCartTotals(items);
     },
     send: async (productId, quantity) => {
-      await ensureCartSessionReady(queryClient);
+      await ensureCartSessionReady();
       return authedFetchFn<CartResponse>('api/cart/items', {
         method: 'POST',
         body: { product_id: productId, quantity },
@@ -91,10 +71,10 @@ export function useAddToCart(options?: { onError?: () => void }) {
 
   const addToCart = useCallback(
     (productId: number, productPrice: number) => {
-      primeCartSessionReady(queryClient);
+      primeCartSessionReady();
       run({ productId, productPrice });
     },
-    [queryClient, run],
+    [run],
   );
 
   return { addToCart };

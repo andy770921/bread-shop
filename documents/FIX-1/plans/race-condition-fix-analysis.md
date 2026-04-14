@@ -483,3 +483,112 @@ Without step 5, steps 1–4 are correct but the bootstrap GET races with the Hea
 2. **Browser termination before debounce** — same residual risk as before.
 
 3. **New checkout entrypoints** — must still call `flushPendingCartMutations()` first.
+
+## Post-FIX-1d Discovery: `ensureQueryData()` Still Allowed a False-Ready Bootstrap
+
+After re-testing the exact reported flow:
+
+1. rapidly add many different products on the homepage
+2. `/cart` still looks correct
+3. click `LINE 聯繫`
+4. while the CTA is loading, the `/cart` summary collapses to a smaller subset
+5. `/checkout/pending` shows the same truncated subset
+
+it became clear that FIX-1d had removed one race, but the session-bootstrap gate was still not strict enough.
+
+### What FIX-1d Actually Guaranteed
+
+`queryClient.ensureQueryData({ queryKey: ['cart'] })` guarantees that the query has data.
+
+It does **not** guarantee that:
+
+- a fresh network `GET /api/cart` actually completed
+- the browser has already processed the response `Set-Cookie`
+- the anonymous cart session is now stable for the upcoming `POST /api/cart/items` burst
+
+That distinction matters because cart readiness is a **cookie / transport boundary** problem, not just a React Query cache problem.
+
+### Why the UI Could Still Be Ahead of the Real Session
+
+The homepage add-to-cart flow does two things almost immediately:
+
+1. starts session bootstrap
+2. writes optimistic cart data into `['cart']`
+
+So the browser can very quickly have:
+
+- a correct optimistic cart in React Query
+
+before it has definitely received:
+
+- one successful `GET /api/cart` response that establishes the stable `session_id`
+
+If readiness is inferred from query-data availability, the app can proceed as if the session is ready while the server still treats later product POSTs as separate anonymous sessions.
+
+### Why the Symptom Appeared Exactly on CTA Click
+
+This matches the reported symptom precisely:
+
+1. homepage optimistic cache contains all 10 items
+2. `/cart` reuses that fresh cache, so it still looks correct
+3. CTA calls `flushPendingCartMutations()` and then `invalidateQueries(['cart'])`
+4. the active `/cart` query refetches from the server
+5. the server only returns the items belonging to the final surviving anonymous session
+6. the `/cart` summary shrinks during the loading state
+7. `POST /api/auth/line/start` snapshots that already-truncated server cart
+8. `/checkout/pending` therefore shows the same smaller subset
+
+So the disappearing items on `/cart` were not a rendering bug.
+They were the first visible proof that checkout had forced the app to stop trusting the optimistic cache and re-read the server cart.
+
+### Final Root Cause
+
+The remaining bug was:
+
+> the frontend treated `['cart']` query availability as proof that cart-session bootstrap had completed, but that is weaker than waiting for one real shared `GET /api/cart` network response.
+
+The result was that anonymous add-to-cart POSTs could still race before a truly-stable session cookie boundary existed.
+
+### Final Fix
+
+The bootstrap layer now uses a **shared real network promise**, not `ensureQueryData()`:
+
+1. `frontend/src/queries/cart-session.ts`
+   - owns a module-level `bootstrapCartSession()` promise built from `authedFetchFn('api/cart')`
+   - marks readiness only after that request succeeds
+   - resets the promise on failure instead of silently treating `EMPTY_CART` or cached data as success
+
+2. `frontend/src/queries/use-cart.ts`
+   - `useCart()` now calls `fetchCart()` from `cart-session.ts`
+   - before the first successful cart read, `useCart()` and add-to-cart share the same bootstrap promise
+   - after bootstrap is complete, later cart refetches use normal network reads
+
+3. `useAddToCart()`
+   - `primeCartSessionReady()` and `ensureCartSessionReady()` no longer depend on React Query cache inspection
+   - they wait on the shared transport-level bootstrap instead
+
+### Updated Final Mental Model
+
+The full cart-consistency model now needs six layers:
+
+1. **FIX-1**
+   - keep pending intent alive until API reconciliation
+
+2. **FIX-1b**
+   - preserve optimistic cache state against stale full-cart snapshots
+
+3. **Checkout-boundary hardening**
+   - flush pending debounced writes before checkout snapshots
+   - snapshot the merged cart shape used by `/cart`
+
+4. **Anonymous session bootstrap hardening** (FIX-1c)
+   - ensure a stable `session_id` exists before the first add-to-cart POST burst
+
+5. **Bootstrap deduplication** (FIX-1d)
+   - avoid the explicit dual-GET overwrite race
+
+6. **Real bootstrap completion** (final fix)
+   - do not treat query-cache availability as session readiness
+   - only a shared successful `GET /api/cart` response can close the bootstrap boundary
+
+Without step 6, steps 1–5 can still leave the browser showing the correct optimistic cart while checkout snapshots a smaller server-side cart.

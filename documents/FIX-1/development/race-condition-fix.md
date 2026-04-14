@@ -598,3 +598,211 @@ If a future feature sends `GET /api/cart` via `authedFetchFn` directly (not thro
 #### 2–4. Same as before
 
 Browser termination, new checkout entrypoints, and new debounced mutation paths carry the same risks documented in FIX-1c.
+
+---
+
+## FIX-1e: Replace Query-Cache Readiness with a Shared Real Bootstrap Request
+
+After re-testing the reported flow, FIX-1d turned out to be necessary but not sufficient.
+
+The failure pattern was:
+
+1. homepage optimistic cart looked correct
+2. `/cart` still looked correct
+3. clicking `LINE 聯繫` caused the `/cart` summary itself to shrink during loading
+4. `/checkout/pending` showed the same smaller subset
+
+That meant checkout was not inventing a new bug.
+It was exposing that the server cart still lagged behind the optimistic client cart.
+
+### Why FIX-1d Was Still Too Weak
+
+The FIX-1d version used:
+
+```typescript
+await queryClient.ensureQueryData({ queryKey: QUERY_KEYS.cart, ... });
+```
+
+as the session-readiness gate.
+
+That was still the wrong boundary.
+`ensureQueryData()` proves the query has data.
+It does **not** prove that one successful `GET /api/cart` response has already completed and established the browser's `session_id` cookie.
+
+For this bug, that distinction is critical.
+
+### Final Implementation
+
+#### A. `frontend/src/queries/cart-session.ts` — own one real bootstrap promise
+
+**Before (FIX-1d):**
+
+```typescript
+let cartSessionReady = false;
+let cartSessionPromise: Promise<void> | null = null;
+
+export async function ensureCartSessionReady(queryClient: QueryClient): Promise<void> {
+  if (cartSessionReady) return;
+
+  if (!cartSessionPromise) {
+    cartSessionPromise = queryClient
+      .ensureQueryData<CartResponse>({
+        queryKey: QUERY_KEYS.cart,
+        queryFn: async () => {
+          try {
+            return await authedFetchFn<CartResponse>('api/cart');
+          } catch {
+            return EMPTY_CART;
+          }
+        },
+      })
+      .then(() => {
+        cartSessionReady = true;
+      })
+      .catch(() => {
+        cartSessionPromise = null;
+      });
+  }
+
+  await cartSessionPromise;
+}
+```
+
+**After (FIX-1e):**
+
+```typescript
+let cartSessionReady = false;
+let cartSessionPromise: Promise<CartResponse> | null = null;
+
+async function bootstrapCartSession(): Promise<CartResponse> {
+  if (!cartSessionPromise) {
+    cartSessionPromise = authedFetchFn<CartResponse>('api/cart')
+      .then((data) => {
+        cartSessionReady = true;
+        return data;
+      })
+      .catch((error) => {
+        cartSessionPromise = null;
+        throw error;
+      });
+  }
+
+  return cartSessionPromise;
+}
+
+export async function fetchCart(): Promise<CartResponse> {
+  try {
+    if (!cartSessionReady) {
+      return await bootstrapCartSession();
+    }
+
+    return await authedFetchFn<CartResponse>('api/cart');
+  } catch {
+    return EMPTY_CART;
+  }
+}
+
+export async function ensureCartSessionReady(): Promise<void> {
+  if (cartSessionReady) return;
+  await bootstrapCartSession();
+}
+
+export function primeCartSessionReady(): void {
+  if (cartSessionReady || cartSessionPromise) return;
+  void bootstrapCartSession().catch(() => undefined);
+}
+```
+
+Key change:
+
+- session readiness is now tied to a **real shared `GET /api/cart` network promise**
+- failure no longer silently marks the session as ready
+- later reads still fetch normally after bootstrap is done
+
+#### B. `frontend/src/queries/use-cart.ts` — reuse the shared bootstrap from both read and write paths
+
+**Before (FIX-1d):**
+
+```typescript
+export function useCart() {
+  return useQuery<CartResponse>({
+    queryKey: QUERY_KEYS.cart,
+    queryFn: async () => {
+      try {
+        const data = await authedFetchFn<CartResponse>('api/cart');
+        markCartSessionReady();
+        return data;
+      } catch {
+        markCartSessionReady();
+        return EMPTY_CART;
+      }
+    },
+  });
+}
+
+send: async (productId, quantity) => {
+  await ensureCartSessionReady(queryClient);
+  return authedFetchFn<CartResponse>('api/cart/items', { ... });
+},
+
+const addToCart = useCallback((productId, productPrice) => {
+  primeCartSessionReady(queryClient);
+  run({ productId, productPrice });
+}, [queryClient, run]);
+```
+
+**After (FIX-1e):**
+
+```typescript
+export function useCart() {
+  return useQuery<CartResponse>({
+    queryKey: QUERY_KEYS.cart,
+    queryFn: fetchCart,
+  });
+}
+
+send: async (productId, quantity) => {
+  await ensureCartSessionReady();
+  return authedFetchFn<CartResponse>('api/cart/items', { ... });
+},
+
+const addToCart = useCallback((productId, productPrice) => {
+  primeCartSessionReady();
+  run({ productId, productPrice });
+}, [run]);
+```
+
+This makes `useCart()` and add-to-cart share the same bootstrap boundary instead of relying on React Query cache state.
+
+### Why This Fix Matches the Reported Symptom
+
+With the old FIX-1d implementation, checkout could still reach this state:
+
+- React Query cache contained all optimistic items
+- checkout invalidation forced a server refetch
+- the server returned only the items tied to the surviving anonymous session
+- `/cart` summary shrank during CTA loading
+- pending-order snapshot copied that smaller server cart
+
+With FIX-1e:
+
+- add-to-cart POSTs cannot proceed until one real `GET /api/cart` bootstrap response completes
+- all later anonymous POSTs share the same stable cookie boundary
+- checkout invalidation and pending-order snapshot now read the same cart the shopper saw
+
+### Tests Updated
+
+`frontend/src/queries/cart-session.spec.ts` now verifies:
+
+1. `fetchCart()` and `ensureCartSessionReady()` share one real bootstrap request
+2. `primeCartSessionReady()` only starts that bootstrap once
+3. later `fetchCart()` calls perform normal fresh network reads after bootstrap
+4. bootstrap failures do **not** mark the session as ready
+
+### Files Changed by FIX-1e
+
+| File                                        | Change |
+| ------------------------------------------- | ------ |
+| `frontend/src/queries/cart-session.ts`      | Replace `ensureQueryData()` readiness with a shared real `GET /api/cart` bootstrap promise |
+| `frontend/src/queries/use-cart.ts`          | Route `useCart()` through `fetchCart()` and remove `queryClient` dependency from cart-session bootstrap |
+| `frontend/src/queries/cart-session.spec.ts` | Update tests to cover shared bootstrap, retry-after-failure, and post-bootstrap fresh reads |
