@@ -47,28 +47,27 @@ function reconcileWithPending(
   pending: Map<number, PendingEntry>,
   optimisticCache?: CartResponse,
 ): CartResponse {
-  if (pending.size === 0) return serverCart;
-
   const serverProductIds = new Set(serverCart.items.map((i) => i.product_id));
 
-  // Adjust server items that have pending deltas
+  // For items in the server response: if they are still pending, prefer the
+  // optimistic cache value (avoids double-counting the delta that the server
+  // may have already applied). Otherwise trust the server.
   const items = serverCart.items.map((item) => {
-    const p = pending.get(item.product_id);
-    if (p) {
-      const newQty = Math.min(item.quantity + p.quantity, 99);
-      return { ...item, quantity: newQty, line_total: newQty * item.product.price };
+    if (pending.has(item.product_id) && optimisticCache) {
+      const cacheItem = optimisticCache.items.find((i) => i.product_id === item.product_id);
+      if (cacheItem) return cacheItem;
     }
     return item;
   });
 
-  // Preserve pending items not yet in server response (from optimistic cache)
+  // Preserve ALL cache items not present in the server response — not just
+  // pending ones.  A stale out-of-order response may omit products that were
+  // already confirmed by an earlier-received response; dropping them here
+  // would silently remove items from the cart.
   if (optimisticCache) {
-    for (const [productId] of pending) {
-      if (!serverProductIds.has(productId)) {
-        const optimisticItem = optimisticCache.items.find((i) => i.product_id === productId);
-        if (optimisticItem) {
-          items.push(optimisticItem);
-        }
+    for (const item of optimisticCache.items) {
+      if (!serverProductIds.has(item.product_id)) {
+        items.push(item);
       }
     }
   }
