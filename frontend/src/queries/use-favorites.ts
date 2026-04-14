@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FavoriteListResponse } from '@repo/shared';
+import { QUERY_KEYS } from './query-keys';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 
 export function useFavorites(enabled = false) {
   return useQuery<FavoriteListResponse>({
-    queryKey: ['favorites'],
+    queryKey: QUERY_KEYS.favorites,
     queryFn: () => authedFetchFn<FavoriteListResponse>('api/favorites'),
     enabled,
   });
@@ -19,7 +20,7 @@ export function useToggleFavorite() {
       return authedFetchFn(`api/favorites/${productId}`, { method });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.favorites });
     },
   });
 }

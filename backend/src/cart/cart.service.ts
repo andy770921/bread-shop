@@ -1,3 +1,4 @@
+import { CART_CONSTANTS } from '@repo/shared';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -60,7 +61,12 @@ export class CartService {
     }));
 
     const subtotal = cartItems.reduce((sum: number, item: any) => sum + item.line_total, 0);
-    const shipping_fee = subtotal >= 500 ? 0 : subtotal === 0 ? 0 : 60;
+    const shipping_fee =
+      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+        ? 0
+        : subtotal === 0
+          ? 0
+          : CART_CONSTANTS.SHIPPING_FEE;
 
     return {
       items: cartItems,

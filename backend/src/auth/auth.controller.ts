@@ -24,7 +24,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { OrderService } from '../order/order.service';
-import { LineService } from '../line/line.service';
+import { CheckoutService } from '../checkout/checkout.service';
 
 @ApiTags('Auth')
 @Controller('api/auth')
@@ -34,7 +34,7 @@ export class AuthController {
     private supabaseService: SupabaseService,
     private configService: ConfigService,
     private orderService: OrderService,
-    private lineService: LineService,
+    private checkoutService: CheckoutService,
   ) {}
 
   @Post('register')
@@ -242,7 +242,11 @@ export class AuthController {
         }
         this.sendLoadingPage(res);
         try {
-          const url = await this.handlePendingOrder(consumed, result, frontendUrl);
+          const url = await this.checkoutService.completePendingLineCheckout({
+            pending: consumed,
+            authResult: result,
+            frontendUrl,
+          });
           res.write(`<script>window.location.href=${JSON.stringify(url)}</script>`);
         } catch (err) {
           const msg = err instanceof Error ? err.message : 'Order creation failed';
@@ -331,91 +335,6 @@ export class AuthController {
   }
 
   /**
-   * Server-side order creation after LINE Login with pending form data.
-   * Returns the redirect URL (success or error). Does NOT send a response.
-   */
-  private async handlePendingOrder(
-    pending: { session_id: string; form_data: Record<string, unknown> },
-    authResult: {
-      user: { id: string; email: string };
-      access_token?: string;
-      refresh_token?: string;
-    },
-    frontendUrl: string,
-  ): Promise<string> {
-    const fd = pending.form_data;
-
-    // Use cart snapshot from pending order if available (session may be lost
-    // after LINE OAuth redirect on mobile). Falls back to session-based cart.
-    const cartSnapshot = fd._cart_snapshot as
-      | { items: any[]; subtotal: number; shipping_fee: number; total: number }
-      | undefined;
-    const order = await this.orderService.createOrder(
-      pending.session_id,
-      null,
-      {
-        customer_name: fd.customerName as string,
-        customer_phone: fd.customerPhone as string,
-        customer_email: (fd.customerEmail as string) || undefined,
-        customer_address: fd.customerAddress as string,
-        notes: (fd.notes as string) || undefined,
-        payment_method: 'line',
-        customer_line_id: (fd.lineId as string) || undefined,
-        skip_cart_clear: true,
-      },
-      cartSnapshot,
-    );
-
-    // Assign user to the order and merge session AFTER order creation.
-    // mergeSessionOnLogin deletes old sessions which CASCADE-deletes cart_items.
-    const supabase = this.supabaseService.getClient();
-    await supabase.from('orders').update({ user_id: authResult.user.id }).eq('id', order.id);
-    await this.authService.mergeSessionOnLogin(pending.session_id, authResult.user.id);
-
-    // Send LINE messages (best-effort, failures don't block the order)
-    try {
-      await this.lineService.sendOrderToAdmin(order.id);
-      console.log('LINE admin message sent for order', order.id);
-    } catch (adminErr) {
-      console.error('LINE admin message failed:', adminErr);
-    }
-
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('line_user_id')
-        .eq('id', authResult.user.id)
-        .single();
-      if (profile?.line_user_id) {
-        await this.lineService.sendOrderMessage(order.id, profile.line_user_id);
-        console.log('LINE customer message sent to', profile.line_user_id);
-      } else {
-        console.log('LINE customer message skipped: no line_user_id in profile');
-      }
-    } catch (custErr) {
-      // Most common cause: user hasn't added the Messaging API bot as a friend.
-      // The bot_prompt=aggressive param in the LINE Login URL should fix this
-      // for new users, but existing users may need to manually add the bot.
-      console.error('LINE customer message failed:', custErr);
-    }
-
-    // Confirm order (clears cart)
-    try {
-      await this.orderService.confirmOrder(order.id, pending.session_id, authResult.user.id);
-    } catch {
-      // Non-critical
-    }
-
-    // Return success URL with auth tokens in hash fragment when a new session
-    // was issued (guest/new LINE account flow). Linked-account flow keeps the
-    // original Bread Shop token in localStorage.
-    return this.withAuthHash(`${frontendUrl}/checkout/success?order=${order.order_number}`, {
-      access_token: authResult.access_token,
-      refresh_token: authResult.refresh_token,
-    });
-  }
-
-  /**
    * Returns pending order details for the frontend pending page to display.
    * Includes cart snapshot and customer form data (strips internal fields).
    */
@@ -487,7 +406,11 @@ export class AuthController {
       refresh_token: '',
     };
 
-    const successUrl = await this.handlePendingOrder(consumed, authResult, frontendUrl);
+    const successUrl = await this.checkoutService.completePendingLineCheckout({
+      pending: consumed,
+      authResult,
+      frontendUrl,
+    });
     const orderMatch = successUrl.match(/order=([^#&]+)/);
     return { success: true, order_number: orderMatch?.[1] || null };
   }

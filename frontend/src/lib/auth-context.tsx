@@ -1,8 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { MeResponse } from '@repo/shared';
+import { authTokenStore } from './auth-token-store';
+import { invalidateAuthQueries } from '@/queries/query-keys';
 import { defaultFetchFn } from '@/utils/fetchers/fetchers.client';
 
 interface AuthContextType {
@@ -23,6 +25,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearAuthState = useCallback(() => {
+    authTokenStore.clear();
+    setToken(null);
+    setUser(null);
+  }, []);
+
   const fetchUserMutation = useMutation({
     mutationFn: (accessToken: string) =>
       defaultFetchFn<MeResponse>('api/auth/me', {
@@ -33,30 +41,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     },
     onError: () => {
-      localStorage.removeItem('access_token');
-      setToken(null);
+      clearAuthState();
       setIsLoading(false);
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: () => defaultFetchFn('api/auth/logout', { method: 'POST' }),
-    onSuccess: () => {
-      localStorage.removeItem('access_token');
-      setToken(null);
-      setUser(null);
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+    onSuccess: async () => {
+      clearAuthState();
+      await invalidateAuthQueries(queryClient);
     },
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem('access_token');
-    if (stored) {
-      setToken(stored);
-      fetchUserMutation.mutate(stored);
-    } else {
-      setIsLoading(false);
+    const storedToken = authTokenStore.get();
+    if (storedToken) {
+      setToken(storedToken);
+      fetchUserMutation.mutate(storedToken);
+      return;
     }
+
+    setIsLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -66,10 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: { email, password },
       });
-      localStorage.setItem('access_token', data.access_token);
+
+      authTokenStore.set(data.access_token);
       setToken(data.access_token);
       await fetchUserMutation.mutateAsync(data.access_token);
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      await invalidateAuthQueries(queryClient);
     },
     [fetchUserMutation, queryClient],
   );
@@ -80,10 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: { email, password, name },
       });
-      localStorage.setItem('access_token', data.access_token);
+
+      authTokenStore.set(data.access_token);
       setToken(data.access_token);
       await fetchUserMutation.mutateAsync(data.access_token);
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      await invalidateAuthQueries(queryClient);
     },
     [fetchUserMutation, queryClient],
   );
@@ -93,8 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [logoutMutation]);
 
   const refreshUser = useCallback(async () => {
-    const stored = localStorage.getItem('access_token');
-    if (stored) await fetchUserMutation.mutateAsync(stored);
+    const storedToken = authTokenStore.get();
+    if (!storedToken) {
+      setUser(null);
+      setToken(null);
+      return;
+    }
+
+    setToken(storedToken);
+    await fetchUserMutation.mutateAsync(storedToken);
   }, [fetchUserMutation]);
 
   return (

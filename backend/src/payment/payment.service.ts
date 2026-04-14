@@ -1,28 +1,16 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SupabaseService } from '../supabase/supabase.service';
+import { OrderService } from '../order/order.service';
 
 @Injectable()
 export class PaymentService {
   constructor(
     private configService: ConfigService,
-    private supabaseService: SupabaseService,
+    private orderService: OrderService,
   ) {}
 
   async createCheckout(orderId: number, sessionId?: string, userId?: string): Promise<string> {
-    const supabase = this.supabaseService.getClient();
-
-    let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
-
-    if (userId) {
-      query = query.eq('user_id', userId);
-    } else if (sessionId) {
-      query = query.eq('session_id', sessionId);
-    }
-
-    const { data: order } = await query.single();
-
-    if (!order) throw new BadRequestException('Order not found or access denied');
+    const order = await this.orderService.getOrderWithItemsForActor(orderId, sessionId, userId);
     if (order.status !== 'pending') throw new BadRequestException('Order already processed');
 
     const apiKey = this.configService.get('LEMON_SQUEEZY_API_KEY');
@@ -64,27 +52,48 @@ export class PaymentService {
       const status = event.data?.attributes?.status;
 
       if (orderId && status === 'paid') {
-        const supabase = this.supabaseService.getClient();
-        const { data } = await supabase
-          .from('orders')
-          .update({ status: 'paid', payment_id: lsOrderId })
-          .eq('id', parseInt(orderId))
-          .select('id')
-          .single();
-
-        if (!data) {
-          console.warn(
-            `[Webhook] Lemon Squeezy order_created for unknown order_id=${orderId}, ls_order=${lsOrderId}`,
-          );
-        }
+        await this.updateOrderStatusFromWebhook(
+          parseInt(orderId, 10),
+          'paid',
+          `order_created paid`,
+          { payment_id: lsOrderId },
+        );
       }
     }
 
     if (eventName === 'order_refunded') {
       if (orderId) {
-        const supabase = this.supabaseService.getClient();
-        await supabase.from('orders').update({ status: 'cancelled' }).eq('id', parseInt(orderId));
+        await this.updateOrderStatusFromWebhook(
+          parseInt(orderId, 10),
+          'cancelled',
+          'order_refunded',
+        );
       }
+    }
+  }
+
+  private async updateOrderStatusFromWebhook(
+    orderId: number,
+    newStatus: 'paid' | 'cancelled',
+    eventLabel: string,
+    extra?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.orderService.updateOrderStatus(orderId, newStatus, extra);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        console.warn(`[Webhook] Ignored ${eventLabel} for unknown order_id=${orderId}`);
+        return;
+      }
+
+      if (error instanceof BadRequestException) {
+        console.warn(
+          `[Webhook] Ignored ${eventLabel} for order_id=${orderId}: ${error.message}`,
+        );
+        return;
+      }
+
+      throw error;
     }
   }
 }

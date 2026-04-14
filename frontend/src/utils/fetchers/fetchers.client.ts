@@ -1,5 +1,6 @@
 'use client';
 
+import { authTokenStore } from '@/lib/auth-token-store';
 import { fetchApi, streamingFetchApi } from './fetchers';
 import { FetchOptions } from './fetchers.utils';
 
@@ -14,7 +15,7 @@ export const authedFetchFn = async <TResponseData, TRequestBody = unknown>(
   path: string,
   options?: FetchOptions<TRequestBody>,
 ): Promise<TResponseData> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  const token = authTokenStore.get();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   return fetchApi(`/${path}`, {
     ...options,

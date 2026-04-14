@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/lib/auth-context';
+import { authTokenStore } from '@/lib/auth-token-store';
 
 export default function AuthCallbackPage() {
   return (
@@ -52,10 +53,10 @@ function CallbackContent() {
     }
 
     // Store token and redirect
-    localStorage.setItem('access_token', accessToken);
+    authTokenStore.set(accessToken);
     window.history.replaceState(null, '', window.location.pathname);
     refreshUser().then(() => {
-      localStorage.setItem('access_token', accessToken); // Re-store after potential onError
+      authTokenStore.set(accessToken); // Re-store after potential onError
       router.push('/');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

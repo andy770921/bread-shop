@@ -1,9 +1,19 @@
+import { Order, OrderStatus } from '@repo/shared';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CartService } from '../cart/cart.service';
 
 @Injectable()
 export class OrderService {
+  private static readonly VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+    pending: ['paid', 'cancelled'],
+    paid: ['preparing', 'cancelled'],
+    preparing: ['shipping', 'cancelled'],
+    shipping: ['delivered'],
+    delivered: [],
+    cancelled: [],
+  };
+
   constructor(
     private supabaseService: SupabaseService,
     private cartService: CartService,
@@ -97,37 +107,105 @@ export class OrderService {
   }
 
   async confirmOrder(orderId: number, sessionId: string, userId: string | null) {
-    const supabase = this.supabaseService.getClient();
-
-    let query = supabase.from('orders').select('id').eq('id', orderId);
-    if (userId) {
-      query = query.eq('user_id', userId);
-    } else {
-      query = query.eq('session_id', sessionId);
-    }
-
-    const { data: order } = await query.single();
-    if (!order) throw new NotFoundException('Order not found');
+    await this.getOrderWithItemsForActor(orderId, sessionId, userId);
 
     await this.cartService.clearCart(sessionId, userId || undefined);
 
     return { success: true };
   }
 
-  async getOrderById(orderId: number, userId?: string | null) {
+  async getOrderWithItems(orderId: number): Promise<Order> {
     const supabase = this.supabaseService.getClient();
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('id', orderId)
+      .single();
 
+    if (error || !data) throw new NotFoundException('Order not found');
+
+    return data as Order;
+  }
+
+  async getOrderWithItemsForActor(
+    orderId: number,
+    sessionId?: string,
+    userId?: string | null,
+  ): Promise<Order> {
+    const supabase = this.supabaseService.getClient();
     let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
 
     if (userId) {
       query = query.eq('user_id', userId);
+    } else if (sessionId) {
+      query = query.eq('session_id', sessionId);
     }
 
     const { data, error } = await query.single();
 
     if (error || !data) throw new NotFoundException('Order not found');
 
-    return data;
+    return data as Order;
+  }
+
+  async getOrderById(orderId: number, userId?: string | null) {
+    if (!userId) {
+      return this.getOrderWithItems(orderId);
+    }
+
+    return this.getOrderWithItemsForActor(orderId, undefined, userId);
+  }
+
+  async updateOrderStatus(
+    orderId: number,
+    newStatus: OrderStatus,
+    extra?: Record<string, unknown>,
+  ): Promise<void> {
+    const order = await this.getOrderWithItems(orderId);
+    if (order.status === newStatus) {
+      return;
+    }
+    const validNext = OrderService.VALID_TRANSITIONS[order.status] ?? [];
+
+    if (!validNext.includes(newStatus)) {
+      throw new BadRequestException(
+        `Cannot transition from '${order.status}' to '${newStatus}'`,
+      );
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('orders')
+      .update({ status: newStatus, ...extra })
+      .eq('id', orderId)
+      .select('id')
+      .single();
+
+    if (error || !data) throw new NotFoundException('Order not found');
+  }
+
+  async assignUserToOrder(orderId: number, userId: string): Promise<void> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('orders')
+      .update({ user_id: userId })
+      .eq('id', orderId)
+      .select('id')
+      .single();
+
+    if (error || !data) throw new NotFoundException('Order not found');
+  }
+
+  async attachLineUserId(orderId: number, lineUserId: string): Promise<void> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('orders')
+      .update({ line_user_id: lineUserId })
+      .eq('id', orderId)
+      .select('id')
+      .single();
+
+    if (error || !data) throw new NotFoundException('Order not found');
   }
 
   async getOrderByNumber(orderNumber: string) {

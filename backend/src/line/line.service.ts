@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { messagingApi } from '@line/bot-sdk';
-import { SupabaseService } from '../supabase/supabase.service';
+import { OrderService } from '../order/order.service';
 
 @Injectable()
 export class LineService {
@@ -9,7 +9,7 @@ export class LineService {
 
   constructor(
     private configService: ConfigService,
-    private supabaseService: SupabaseService,
+    private orderService: OrderService,
   ) {
     this.messagingClient = new messagingApi.MessagingApiClient({
       channelAccessToken: this.configService.getOrThrow('LINE_CHANNEL_ACCESS_TOKEN'),
@@ -22,15 +22,7 @@ export class LineService {
       throw new BadRequestException('LINE_ADMIN_USER_ID is not configured');
     }
 
-    const supabase = this.supabaseService.getClient();
-    const { data: order } = await supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId)
-      .single();
-
-    if (!order) throw new BadRequestException('Order not found');
-
+    const order = await this.orderService.getOrderWithItems(orderId);
     const flexMessage = this.buildOrderFlexMessage(order);
 
     await this.messagingClient.pushMessage({
@@ -40,18 +32,8 @@ export class LineService {
   }
 
   async sendOrderMessage(orderId: number, lineUserId: string): Promise<void> {
-    const supabase = this.supabaseService.getClient();
-
-    const { data: order } = await supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId)
-      .single();
-
-    if (!order) throw new BadRequestException('Order not found');
-
-    await supabase.from('orders').update({ line_user_id: lineUserId }).eq('id', orderId);
-
+    const order = await this.orderService.getOrderWithItems(orderId);
+    await this.orderService.attachLineUserId(orderId, lineUserId);
     const flexMessage = this.buildOrderFlexMessage(order);
 
     await this.messagingClient.pushMessage({

@@ -17,7 +17,6 @@ import {
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,43 +34,12 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
-import { useAuth } from '@/lib/auth-context';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
-import { useCreateOrder, useLineSend, useConfirmOrder } from '@/queries/use-checkout';
-import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-
-const paymentMethods = ['credit_card', 'line_transfer'] as const;
-
-const cartFormSchema = z
-  .object({
-    customerName: z.string().min(1, 'required'),
-    customerPhone: z.string().min(1, 'required'),
-    customerEmail: z.string().email().or(z.literal('')).optional(),
-    customerAddress: z.string().min(1, 'required'),
-    notes: z.string().optional(),
-    paymentMethod: z.enum(paymentMethods, { required_error: 'required' }),
-    cardNumber: z.string().optional(),
-    cardExpiry: z.string().optional(),
-    cardCvv: z.string().optional(),
-    cardholderName: z.string().optional(),
-    lineId: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    const addRequired = (path: string) =>
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message: 'required' });
-    if (data.paymentMethod === 'credit_card') {
-      if (!data.cardNumber) addRequired('cardNumber');
-      if (!data.cardExpiry) addRequired('cardExpiry');
-      if (!data.cardCvv) addRequired('cardCvv');
-      if (!data.cardholderName) addRequired('cardholderName');
-    }
-    if (data.paymentMethod === 'line_transfer') {
-      if (!data.lineId) addRequired('lineId');
-    }
-  });
-
-type CartFormValues = z.infer<typeof cartFormSchema>;
+import { CartFormValues, cartFormSchema } from '@/features/checkout/cart-form';
+import {
+  extractCheckoutErrorMessage,
+  useCheckoutFlow,
+} from '@/features/checkout/use-checkout-flow';
 
 export default function CartPage() {
   return (
@@ -85,14 +53,10 @@ function CartContent() {
   const { locale, t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
   const { data: cart, isLoading } = useCart();
   const { updateItem } = useUpdateCartItem();
   const removeCartItem = useRemoveCartItem();
-  const createOrder = useCreateOrder();
-  const lineSend = useLineSend();
-  const confirmOrder = useConfirmOrder();
+  const { hasLineUserId, submitCheckout } = useCheckoutFlow();
 
   const form = useForm<CartFormValues>({
     resolver: zodResolver(cartFormSchema),
@@ -113,19 +77,6 @@ function CartContent() {
   });
 
   const selectedPayment = form.watch('paymentMethod');
-
-  // Restore form data after LINE Login redirect
-  useEffect(() => {
-    const saved = localStorage.getItem('cart_form_data');
-    if (saved) {
-      localStorage.removeItem('cart_form_data');
-      try {
-        form.reset(JSON.parse(saved));
-      } catch {
-        // ignore malformed JSON
-      }
-    }
-  }, [form]);
 
   // Show error from callback redirect (e.g. order creation failed after LINE Login)
   useEffect(() => {
@@ -170,72 +121,20 @@ function CartContent() {
   };
 
   const onSubmit = async (values: CartFormValues) => {
-    const isLine = values.paymentMethod === 'line_transfer';
-    const apiPaymentMethod = isLine ? 'line' : 'lemon_squeezy';
-
-    // LINE transfer requires LINE Login to get internal userId for messaging.
-    // Store form data on the server (not localStorage — unreliable in LINE's in-app browser)
-    // then redirect to LINE OAuth. The backend callback will create the order server-side.
-    if (isLine && !hasLineUserId) {
-      try {
-        const { pendingId } = await authedFetchFn<{ pendingId: string }>('api/auth/line/start', {
-          method: 'POST',
-          body: { form_data: values },
-        });
-        window.location.href = `/api/auth/line?pending=${pendingId}`;
-      } catch (error: any) {
-        const msg = error?.body?.message;
-        const message = Array.isArray(msg) ? msg[0] : msg || error?.message;
-        toast.error(message || t('checkout.lineLoginFailed'));
-      }
-      return;
-    }
-
     try {
-      const orderData = await createOrder.mutateAsync({
-        customer_name: values.customerName,
-        customer_phone: values.customerPhone,
-        customer_email: values.customerEmail || undefined,
-        customer_address: values.customerAddress,
-        notes: values.notes || undefined,
-        payment_method: apiPaymentMethod,
-        customer_line_id: isLine ? values.lineId : undefined,
-        skip_cart_clear: isLine,
-      });
+      const result = await submitCheckout(values);
 
-      if (isLine) {
-        const lineData = await lineSend.mutateAsync(orderData.id);
-
-        if (!lineData?.success) {
-          if (lineData?.needs_friend && lineData?.add_friend_url) {
-            toast.error(t('cart.lineAddFriend'));
-            window.open(lineData.add_friend_url, '_blank');
-          } else {
-            toast.error(t('cart.lineSendFailed'));
-          }
-          return;
-        }
-
-        await confirmOrder.mutateAsync(orderData.id);
-        queryClient.invalidateQueries({ queryKey: ['cart'] });
-        router.push(`/checkout/success?order=${orderData.order_number}`);
-        return;
+      if (result.status === 'needs_friend') {
+        toast.error(t('cart.lineAddFriend'));
+        window.open(result.addFriendUrl, '_blank');
       }
-
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
-
-      if (apiPaymentMethod === 'lemon_squeezy' && orderData.checkout_url) {
-        window.location.href = orderData.checkout_url;
-      } else {
-        router.push(`/checkout/success?order=${orderData.order_number}`);
-      }
-    } catch (error: any) {
-      toast.error(error.message || t('checkout.checkoutFailed'));
+    } catch (error) {
+      const message = extractCheckoutErrorMessage(error);
+      toast.error(message || t('checkout.checkoutFailed'));
     }
   };
 
   const submitting = form.formState.isSubmitting;
-  const hasLineUserId = !!user?.line_user_id;
 
   // Empty state
   if (!isLoading && items.length === 0) {

@@ -1,266 +1,126 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef, useCallback } from 'react';
-import { CartResponse } from '@repo/shared';
+import { CART_CONSTANTS, CartResponse } from '@repo/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { QUERY_KEYS } from './query-keys';
+import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-
-const EMPTY_CART: CartResponse = Object.freeze({
-  items: [],
-  subtotal: 0,
-  shipping_fee: 0,
-  total: 0,
-  item_count: 0,
-});
+import {
+  EMPTY_CART,
+  applyPendingUpdates,
+  recalcCartTotals,
+  reconcileWithPending,
+} from '@/utils/cart-math';
 
 export function useCart() {
   return useQuery<CartResponse>({
-    queryKey: ['cart'],
+    queryKey: QUERY_KEYS.cart,
     queryFn: async () => {
       try {
         return await authedFetchFn<CartResponse>('api/cart');
       } catch {
-        // Return empty cart if no session yet (first visit)
         return EMPTY_CART;
       }
     },
   });
 }
 
-interface PendingEntry {
-  quantity: number;
-  timer: ReturnType<typeof setTimeout>;
-}
-
-function recalcCartTotals(items: CartResponse['items']): CartResponse {
-  const subtotal = items.reduce((sum, i) => sum + i.line_total, 0);
-  const shipping_fee = subtotal >= 500 ? 0 : subtotal === 0 ? 0 : 60;
-  return {
-    items,
-    subtotal,
-    shipping_fee,
-    total: subtotal + shipping_fee,
-    item_count: items.reduce((sum, i) => sum + i.quantity, 0),
-  };
-}
-
-function reconcileWithPending(
-  serverCart: CartResponse,
-  pending: Map<number, PendingEntry>,
-  optimisticCache?: CartResponse,
-): CartResponse {
-  const serverProductIds = new Set(serverCart.items.map((i) => i.product_id));
-
-  // For items in the server response: if they are still pending, prefer the
-  // optimistic cache value (avoids double-counting the delta that the server
-  // may have already applied). Otherwise trust the server.
-  const items = serverCart.items.map((item) => {
-    if (pending.has(item.product_id) && optimisticCache) {
-      const cacheItem = optimisticCache.items.find((i) => i.product_id === item.product_id);
-      if (cacheItem) return cacheItem;
-    }
-    return item;
-  });
-
-  // Preserve ALL cache items not present in the server response — not just
-  // pending ones.  A stale out-of-order response may omit products that were
-  // already confirmed by an earlier-received response; dropping them here
-  // would silently remove items from the cart.
-  if (optimisticCache) {
-    for (const item of optimisticCache.items) {
-      if (!serverProductIds.has(item.product_id)) {
-        items.push(item);
-      }
-    }
-  }
-
-  return recalcCartTotals(items);
-}
-
 export function useAddToCart(options?: { onError?: () => void }) {
-  const queryClient = useQueryClient();
-  const pendingRef = useRef<Map<number, PendingEntry>>(new Map());
-  const serverCartRef = useRef<CartResponse | null>(null);
-  const onErrorRef = useRef(options?.onError);
-  onErrorRef.current = options?.onError;
+  const { run } = useDebouncedCartMutation<number, { productId: number; productPrice: number }>({
+    onError: options?.onError,
+    getKey: ({ productId }) => productId,
+    getInitialQuantity: () => 1,
+    updatePendingEntry: (entry) => {
+      entry.quantity += 1;
+    },
+    applyOptimistic: (cart, { productId, productPrice }) => {
+      const existing = cart.items.find((item) => item.product_id === productId);
+      const items = existing
+        ? cart.items.map((item) => {
+            if (item.product_id !== productId) {
+              return item;
+            }
+
+            const nextQuantity = Math.min(item.quantity + 1, CART_CONSTANTS.MAX_ITEM_QUANTITY);
+            return {
+              ...item,
+              quantity: nextQuantity,
+              line_total: nextQuantity * item.product.price,
+            };
+          })
+        : [
+            ...cart.items,
+            {
+              id: -(Date.now() + Math.random()),
+              product_id: productId,
+              quantity: 1,
+              product: {
+                id: productId,
+                name_zh: '',
+                name_en: '',
+                price: productPrice,
+                image_url: null,
+                category_name_zh: '',
+                category_name_en: '',
+              },
+              line_total: productPrice,
+            },
+          ];
+
+      return recalcCartTotals(items);
+    },
+    send: (productId, quantity) =>
+      authedFetchFn<CartResponse>('api/cart/items', {
+        method: 'POST',
+        body: { product_id: productId, quantity },
+      }),
+    reconcile: (serverCart, pending, optimisticCache) =>
+      reconcileWithPending(serverCart, pending, optimisticCache),
+  });
 
   const addToCart = useCallback(
     (productId: number, productPrice: number) => {
-      // Save server state before first optimistic update in this burst
-      if (!serverCartRef.current) {
-        serverCartRef.current = queryClient.getQueryData<CartResponse>(['cart']) ?? {
-          ...EMPTY_CART,
-          items: [],
-        };
-      }
-
-      // 1. Optimistic cache update
-      queryClient.setQueryData<CartResponse>(['cart'], (old) => {
-        const cart = old ?? { ...EMPTY_CART, items: [] };
-        const existing = cart.items.find((i) => i.product_id === productId);
-
-        const newItems = existing
-          ? cart.items.map((item) =>
-              item.product_id === productId
-                ? {
-                    ...item,
-                    quantity: Math.min(item.quantity + 1, 99),
-                    line_total: Math.min(item.quantity + 1, 99) * item.product.price,
-                  }
-                : item,
-            )
-          : [
-              ...cart.items,
-              {
-                id: -(Date.now() + Math.random()),
-                product_id: productId,
-                quantity: 1,
-                product: {
-                  id: productId,
-                  name_zh: '',
-                  name_en: '',
-                  price: productPrice,
-                  image_url: null,
-                  category_name_zh: '',
-                  category_name_en: '',
-                },
-                line_total: productPrice,
-              },
-            ];
-
-        return recalcCartTotals(newItems);
-      });
-
-      // 2. Accumulate pending quantity + reset debounce timer
-      const pending = pendingRef.current;
-      const entry = pending.get(productId);
-      if (entry) {
-        clearTimeout(entry.timer);
-        entry.quantity += 1;
-      } else {
-        pending.set(productId, {
-          quantity: 0,
-          timer: undefined as unknown as ReturnType<typeof setTimeout>,
-        });
-        pending.get(productId)!.quantity = 1;
-      }
-
-      const p = pending.get(productId)!;
-      p.timer = setTimeout(async () => {
-        const sentQty = p.quantity;
-
-        try {
-          const serverCart = await authedFetchFn<CartResponse>('api/cart/items', {
-            method: 'POST',
-            body: { product_id: productId, quantity: sentQty },
-          });
-          serverCartRef.current = serverCart;
-
-          // Only delete if user hasn't clicked again during the request
-          if (pending.get(productId)?.quantity === sentQty) {
-            pending.delete(productId);
-          }
-
-          const currentCache = queryClient.getQueryData<CartResponse>(['cart']);
-          queryClient.setQueryData(
-            ['cart'],
-            reconcileWithPending(serverCart, pending, currentCache),
-          );
-        } catch {
-          if (pending.get(productId)?.quantity === sentQty) {
-            pending.delete(productId);
-          }
-          const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
-          const cache = queryClient.getQueryData<CartResponse>(['cart']);
-          queryClient.setQueryData(['cart'], reconcileWithPending(rollback, pending, cache));
-          onErrorRef.current?.();
-        }
-      }, 500);
+      run({ productId, productPrice });
     },
-    [queryClient],
+    [run],
   );
 
   return { addToCart };
 }
 
-function applyPendingUpdates(cart: CartResponse, pending: Map<number, PendingEntry>): CartResponse {
-  if (pending.size === 0) return cart;
-  const items = cart.items.map((item) => {
-    const p = pending.get(item.id);
-    if (p) {
-      return { ...item, quantity: p.quantity, line_total: p.quantity * item.product.price };
-    }
-    return item;
-  });
-  return recalcCartTotals(items);
-}
-
 export function useUpdateCartItem() {
-  const queryClient = useQueryClient();
-  const pendingRef = useRef<Map<number, PendingEntry>>(new Map());
-  const serverCartRef = useRef<CartResponse | null>(null);
+  const { run } = useDebouncedCartMutation<number, { itemId: number; newQuantity: number }>({
+    getKey: ({ itemId }) => itemId,
+    getInitialQuantity: ({ newQuantity }) => Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY),
+    updatePendingEntry: (entry, { newQuantity }) => {
+      entry.quantity = Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY);
+    },
+    applyOptimistic: (cart, { itemId, newQuantity }) => {
+      const nextQuantity = Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY);
+      return recalcCartTotals(
+        cart.items.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                quantity: nextQuantity,
+                line_total: nextQuantity * item.product.price,
+              }
+            : item,
+        ),
+      );
+    },
+    send: (itemId, quantity) =>
+      authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
+        method: 'PATCH',
+        body: { quantity },
+      }),
+    reconcile: (serverCart, pending) => applyPendingUpdates(serverCart, pending),
+  });
 
   const updateItem = useCallback(
     (itemId: number, newQuantity: number) => {
-      // Save server state before first optimistic update in this burst
-      if (!serverCartRef.current) {
-        serverCartRef.current = queryClient.getQueryData<CartResponse>(['cart']) ?? {
-          ...EMPTY_CART,
-          items: [],
-        };
-      }
-
-      // 1. Optimistic cache update — immediately reflect new quantity
-      queryClient.setQueryData<CartResponse>(['cart'], (old) => {
-        if (!old) return old;
-        const newItems = old.items.map((item) =>
-          item.id === itemId
-            ? { ...item, quantity: newQuantity, line_total: newQuantity * item.product.price }
-            : item,
-        );
-        return recalcCartTotals(newItems);
-      });
-
-      // 2. Set target quantity + reset debounce timer
-      const pending = pendingRef.current;
-      const entry = pending.get(itemId);
-      if (entry) {
-        clearTimeout(entry.timer);
-        entry.quantity = newQuantity;
-      } else {
-        pending.set(itemId, {
-          quantity: newQuantity,
-          timer: undefined as unknown as ReturnType<typeof setTimeout>,
-        });
-      }
-
-      const p = pending.get(itemId)!;
-      p.timer = setTimeout(async () => {
-        const sentQty = p.quantity;
-
-        try {
-          const serverCart = await authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, {
-            method: 'PATCH',
-            body: { quantity: sentQty },
-          });
-          serverCartRef.current = serverCart;
-
-          // Only delete if user hasn't clicked again during the request
-          if (pending.get(itemId)?.quantity === sentQty) {
-            pending.delete(itemId);
-          }
-
-          queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
-          if (pending.size === 0) serverCartRef.current = null;
-        } catch {
-          if (pending.get(itemId)?.quantity === sentQty) {
-            pending.delete(itemId);
-          }
-          const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
-          queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
-          if (pending.size === 0) serverCartRef.current = null;
-        }
-      }, 500);
+      run({ itemId, newQuantity });
     },
-    [queryClient],
+    [run],
   );
 
   return { updateItem };
@@ -273,21 +133,21 @@ export function useRemoveCartItem() {
     mutationFn: (itemId: number) =>
       authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, { method: 'DELETE' }),
     onMutate: async (itemId) => {
-      await queryClient.cancelQueries({ queryKey: ['cart'] });
-      const previousCart = queryClient.getQueryData<CartResponse>(['cart']);
-      queryClient.setQueryData<CartResponse>(['cart'], (old) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.cart });
+      const previousCart = queryClient.getQueryData<CartResponse>(QUERY_KEYS.cart);
+      queryClient.setQueryData<CartResponse>(QUERY_KEYS.cart, (old) => {
         if (!old) return old;
         return recalcCartTotals(old.items.filter((item) => item.id !== itemId));
       });
       return { previousCart };
     },
-    onError: (_err, _itemId, context) => {
+    onError: (_error, _itemId, context) => {
       if (context?.previousCart) {
-        queryClient.setQueryData(['cart'], context.previousCart);
+        queryClient.setQueryData(QUERY_KEYS.cart, context.previousCart);
       }
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['cart'], data);
+      queryClient.setQueryData(QUERY_KEYS.cart, data);
     },
   });
 }

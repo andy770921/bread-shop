@@ -1,0 +1,5 @@
+export const CART_CONSTANTS = {
+  FREE_SHIPPING_THRESHOLD: 500,
+  SHIPPING_FEE: 60,
+  MAX_ITEM_QUANTITY: 99,
+} as const;

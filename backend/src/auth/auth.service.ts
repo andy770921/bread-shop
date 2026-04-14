@@ -1,3 +1,4 @@
+import { CART_CONSTANTS } from '@repo/shared';
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
@@ -93,7 +94,10 @@ export class AuthService {
       for (const oldItem of oldItems) {
         const existing = currentMap.get(oldItem.product_id);
         if (existing) {
-          const newQty = Math.min(existing.quantity + oldItem.quantity, 99);
+          const newQty = Math.min(
+            existing.quantity + oldItem.quantity,
+            CART_CONSTANTS.MAX_ITEM_QUANTITY,
+          );
           await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
         } else {
           await supabase.from('cart_items').insert({

@@ -26,7 +26,9 @@ describe('AuthController', () => {
   let orderService: {
     getCartForSession: jest.Mock;
   };
-  let lineService: Record<string, never>;
+  let checkoutService: {
+    completePendingLineCheckout: jest.Mock;
+  };
 
   const createResponse = (): Response =>
     ({
@@ -101,14 +103,16 @@ describe('AuthController', () => {
       getCartForSession: jest.fn(),
     };
 
-    lineService = {};
+    checkoutService = {
+      completePendingLineCheckout: jest.fn(),
+    };
 
     controller = new AuthController(
       authService as any,
       supabaseService as any,
       configService as any,
       orderService as any,
-      lineService as any,
+      checkoutService as any,
     );
   });
 
@@ -246,15 +250,24 @@ describe('AuthController', () => {
       authService.readPendingOrder.mockResolvedValue(pending);
       authService.deletePendingOrder.mockResolvedValue(pending);
       jest.spyOn(controller as any, 'checkLineFriendship').mockResolvedValue(true);
-      jest
-        .spyOn(controller as any, 'handlePendingOrder')
-        .mockResolvedValue(`${frontendUrl}/checkout/success?order=ORD-0001`);
+      checkoutService.completePendingLineCheckout.mockResolvedValue(
+        `${frontendUrl}/checkout/success?order=ORD-0001`,
+      );
 
       const result = await controller.confirmLineOrder(
         { pendingId: 'pending-guest' },
         { id: 'line-local-user', email: 'line_user@line.local' },
       );
 
+      expect(checkoutService.completePendingLineCheckout).toHaveBeenCalledWith({
+        pending,
+        authResult: {
+          user: { id: 'line-local-user', email: 'line_user@line.local' },
+          access_token: '',
+          refresh_token: '',
+        },
+        frontendUrl,
+      });
       expect(result).toEqual({ success: true, order_number: 'ORD-0001' });
     });
   });

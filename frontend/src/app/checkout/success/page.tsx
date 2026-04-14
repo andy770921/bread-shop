@@ -9,7 +9,9 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { authTokenStore } from '@/lib/auth-token-store';
 import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/queries/query-keys';
 
 export default function CheckoutSuccessPage() {
   return (
@@ -39,7 +41,7 @@ function SuccessContent() {
     if (processedRef.current) return;
     processedRef.current = true;
 
-    queryClient.invalidateQueries({ queryKey: ['cart'] });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
 
     const hash = window.location.hash.substring(1);
     if (!hash) return;
@@ -47,7 +49,7 @@ function SuccessContent() {
     const hashParams = new URLSearchParams(hash);
     const accessToken = hashParams.get('access_token');
     if (accessToken) {
-      localStorage.setItem('access_token', accessToken);
+      authTokenStore.set(accessToken);
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
       refreshUser();
     }

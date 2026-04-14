@@ -10,6 +10,7 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
 import { useAuth } from '@/lib/auth-context';
+import { authTokenStore } from '@/lib/auth-token-store';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import { toast } from 'sonner';
 
@@ -72,7 +73,7 @@ function PendingContent() {
       const hashParams = new URLSearchParams(hash);
       const accessToken = hashParams.get('access_token');
       if (accessToken) {
-        localStorage.setItem('access_token', accessToken);
+        authTokenStore.set(accessToken);
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
         refreshUser();
       }

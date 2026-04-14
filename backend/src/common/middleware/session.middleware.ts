@@ -18,6 +18,7 @@ declare global {
 export class SessionMiddleware implements NestMiddleware {
   constructor(private supabaseService: SupabaseService) {}
 
+  private readonly SESSION_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
   private sessionCache = new Map<string, { userId: string | null; expiresAt: number }>();
   private CACHE_TTL = 60_000;
   private MAX_CACHE_SIZE = 10_000;
@@ -49,7 +50,7 @@ export class SessionMiddleware implements NestMiddleware {
         supabase
           .from('sessions')
           .update({
-            expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+            expires_at: new Date(Date.now() + this.SESSION_MAX_AGE_MS).toISOString(),
           })
           .eq('id', sessionId)
           .then();
@@ -103,7 +104,7 @@ export class SessionMiddleware implements NestMiddleware {
           httpOnly: true,
           sameSite: 'lax',
           secure: process.env.NODE_ENV === 'production',
-          maxAge: 90 * 24 * 60 * 60 * 1000,
+          maxAge: this.SESSION_MAX_AGE_MS,
           path: '/',
         });
       }
