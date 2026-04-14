@@ -6,8 +6,10 @@
     "ignoreDeprecations": "6.0",
     "strict": true,
     "declaration": true,
+    "declarationMap": true,
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -20,9 +20,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@repo/shared": [
-        "../shared/src/index.ts"
       ]
     },
     "plugins": [
