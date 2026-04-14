@@ -55,6 +55,29 @@ export class CartService {
       .eq('id', sourceCartId);
   }
 
+  private async recoverCartAfterCreateConflict(
+    sessionId: string,
+    userId?: string,
+  ): Promise<{ id: string; version: number } | null> {
+    const supabase = this.supabaseService.getClient();
+    const userCart = userId ? await this.findActiveCartByUserId(userId) : null;
+    const sessionCart = await this.findActiveCartBySessionId(sessionId);
+    const recoveredCart = userCart ?? sessionCart;
+
+    if (!recoveredCart) {
+      return null;
+    }
+
+    if (userId) {
+      await supabase
+        .from('carts')
+        .update({ user_id: userId, session_id: sessionId })
+        .eq('id', recoveredCart.id);
+    }
+
+    return recoveredCart;
+  }
+
   /**
    * Resolve the single active cart for the actor.
    * Prefers user-owned cart if userId is provided, falls back to session cart.
@@ -105,7 +128,13 @@ export class CartService {
       .select('id, version')
       .single();
 
-    if (error) throw new BadRequestException('Failed to create cart');
+    if (error || !newCart) {
+      const recoveredCart = await this.recoverCartAfterCreateConflict(sessionId, userId);
+      if (recoveredCart) {
+        return recoveredCart;
+      }
+      throw new BadRequestException('Failed to create cart');
+    }
     return newCart;
   }
 

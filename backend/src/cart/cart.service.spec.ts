@@ -170,4 +170,77 @@ describe('CartService', () => {
     expect(service.resolveCart).toHaveBeenCalledWith('session-1', 'user-1');
     expect(service.getCart).toHaveBeenCalledWith('session-1', 'user-1');
   });
+
+  it('recovers by re-reading the active cart when cart creation loses a race', async () => {
+    let lookupCount = 0;
+    const carts = [
+      {
+        id: 'session-cart',
+        version: 1,
+        user_id: null,
+        session_id: 'session-1',
+        status: 'active',
+      },
+    ];
+
+    const supabase = {
+      from: jest.fn((table: string) => {
+        if (table === 'carts') {
+          const query: any = {};
+          const filters: Record<string, unknown> = {};
+
+          query.select = jest.fn(() => query);
+          query.eq = jest.fn((field: string, value: unknown) => {
+            filters[field] = value;
+            return query;
+          });
+          query.maybeSingle = jest.fn(async () => {
+            lookupCount += 1;
+            if (lookupCount === 1) {
+              return { data: null };
+            }
+
+            return {
+              data:
+                carts.find((cart) =>
+                  Object.entries(filters).every(([field, value]) => (cart as any)[field] === value),
+                ) ?? null,
+            };
+          });
+          query.insert = jest.fn(() => ({
+            select: jest.fn(() => ({
+              single: jest.fn(async () => ({
+                data: null,
+                error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+              })),
+            })),
+          }));
+          query.update = jest.fn((payload: Record<string, unknown>) => ({
+            eq: jest.fn(async (_field: string, value: unknown) => {
+              const target = carts.find((cart) => cart.id === value);
+              if (target) {
+                Object.assign(target, payload);
+              }
+              return { error: null };
+            }),
+          }));
+
+          return query;
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    const service = new CartService({
+      getClient: jest.fn(() => supabase),
+    } as any);
+
+    await expect(service.resolveCart('session-1')).resolves.toEqual(
+      expect.objectContaining({
+        id: 'session-cart',
+        version: 1,
+      }),
+    );
+  });
 });

@@ -43,6 +43,7 @@ export function useDebouncedCartMutation<TKey, TInput>(
   const queryClient = useQueryClient();
   const pendingRef = useRef<Map<TKey, PendingEntry>>(new Map());
   const serverCartRef = useRef<CartResponse | null>(null);
+  const executionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const onErrorRef = useRef(options.onError);
   const unmountedRef = useRef(false);
   const controllerRef = useRef<PendingController>({ flush: async () => undefined });
@@ -118,6 +119,15 @@ export function useDebouncedCartMutation<TKey, TInput>(
     [maybeCleanupController, options, queryClient],
   );
 
+  const schedulePendingEntry = useCallback(
+    (key: TKey) => {
+      const chained = executionQueueRef.current.then(() => executePendingEntry(key));
+      executionQueueRef.current = chained.catch(() => undefined);
+      return chained;
+    },
+    [executePendingEntry],
+  );
+
   useEffect(() => {
     pendingControllers.add(controllerRef.current);
     unmountedRef.current = false;
@@ -130,7 +140,9 @@ export function useDebouncedCartMutation<TKey, TInput>(
 
   controllerRef.current.flush = async () => {
     const keys = [...pendingRef.current.keys()];
-    await Promise.all(keys.map((key) => executePendingEntry(key)));
+    for (const key of keys) {
+      await schedulePendingEntry(key);
+    }
   };
 
   const run = useCallback(
@@ -163,10 +175,10 @@ export function useDebouncedCartMutation<TKey, TInput>(
 
       const entry = pending.get(key)!;
       entry.timer = setTimeout(() => {
-        void executePendingEntry(key);
+        void schedulePendingEntry(key);
       }, 500);
     },
-    [executePendingEntry, options, queryClient],
+    [options, queryClient, schedulePendingEntry],
   );
 
   return { run };

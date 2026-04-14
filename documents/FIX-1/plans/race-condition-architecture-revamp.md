@@ -369,6 +369,37 @@ The immediate architecture-safe follow-up is:
 
 This makes the cart page deterministic even if the homepage was still in an optimistic state during navigation.
 
+## Additional Finding: `/cart` Boundary Alone Is Not Enough
+
+Further rollout showed that the `/cart` synchronization boundary fixes only one half of the problem.
+
+Another failure mode still exists earlier in the flow:
+
+- the shopper rapidly adds several different products on the homepage
+- the header badge reaches the correct optimistic total
+- when `/cart` opens, some products are already missing before the shopper edits anything
+
+That means the server cart was already incomplete before `/cart` started reconciling.
+
+## Additional Architecture Decision
+
+The homepage add-to-cart path also needs a safer write boundary.
+
+The current architecture should therefore enforce both of these rules:
+
+1. `/cart` must synchronize before edit
+2. homepage multi-product cart writes must not race each other into cart creation
+
+## Additional Follow-up Implementation Direction
+
+The incremental architecture-safe follow-up is:
+
+1. serialize pending cart writes from the same frontend mutation controller instead of firing them in parallel
+2. make backend active-cart creation recover if another request created the cart first
+3. keep `/cart` as the read/edit synchronization boundary
+
+This still is not the final ecommerce architecture, but it prevents one optimistic cart from being split or partially lost before the shopper reaches `/cart`.
+
 ## Backend Consistency Requirement
 
 Rollout also exposed another important consistency rule:
@@ -392,3 +423,18 @@ So the active-cart resolver must be able to:
 - accept `userId` for authenticated cart writes
 - re-link a session cart to the authenticated user when needed
 - merge a split session cart into the active user cart when both exist
+- recover if cart creation loses a race to another in-flight request
+
+## Frontend Consistency Requirement
+
+The frontend mutation layer must also avoid creating its own backend race burst.
+
+That means debounced cart writes should not all flush in parallel when:
+
+- several different product keys become ready at the same time
+- no authoritative cart has been created yet
+
+The safer short-term behavior is:
+
+- keep optimistic UI
+- but serialize the actual network sends from the same mutation controller

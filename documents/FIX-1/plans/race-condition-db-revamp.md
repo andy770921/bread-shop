@@ -68,6 +68,25 @@ Instead, pages like `/cart` should own their own synchronization boundary:
 
 This principle is important because a click-triggered network request can be interrupted by navigation and because `/cart` may be reached from multiple entrypoints.
 
+### 7. Cart creation must be atomic under write concurrency
+
+The long-term DB design must assume that multiple different add-to-cart requests can arrive almost simultaneously for the same actor.
+
+So the cart layer must not rely only on:
+
+- read current cart
+- if missing, insert cart
+
+as separate application steps.
+
+That pattern is race-prone.
+
+The durable DB-level design should instead guarantee one active cart through an atomic mechanism such as:
+
+- a single stored procedure that resolves or creates the active cart
+- `insert ... on conflict ...` semantics
+- explicit retry-safe conflict recovery around unique active-cart indexes
+
 ## Target Data Model
 
 ### A. `carts`
@@ -288,6 +307,15 @@ That means the active-cart resolver should be able to:
 
 Without this, the system can still create split carts even after introducing `carts + cart_lines`.
 
+### Write-Concurrency Requirement
+
+Phase 1 also needs one more requirement:
+
+- multi-product add-to-cart bursts must be safe when no cart exists yet
+
+That means the server implementation for Phase 1 should not assume sequential arrival.
+Even if the frontend improves its own write behavior, the backend and DB must remain correct under concurrent requests.
+
 ## Phase 2: Introduce Explicit Checkout Draft Tables
 
 ### Goal
@@ -462,6 +490,17 @@ Even with a server-authoritative cart, the frontend should still treat `/cart` a
 
 This is not a replacement for server authority.
 It is the UI boundary that makes server authority visible and deterministic to the shopper.
+
+### Frontend Write Requirement
+
+Even after the DB redesign, the frontend should avoid bursting several cart writes in parallel from the same local mutation controller when a serialized send order is sufficient.
+
+Reason:
+
+- the backend must still be correct under concurrency
+- but the frontend should not create unnecessary contention if one controller can send its queued product updates one by one
+
+This is an application-level stability improvement, not the core trust boundary.
 
 ## Phase 5: Remove Legacy Checkout and Cart Tables
 

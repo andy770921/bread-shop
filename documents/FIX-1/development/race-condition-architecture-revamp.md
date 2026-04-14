@@ -252,3 +252,78 @@ Behavior:
 - authenticated session carts are re-linked to the current user/session when needed
 
 This reduces the chance that one shopper ends up editing one cart while another cart still contains some of their recent items.
+
+## Additional Production Observation: Missing Items On First `/cart` Render
+
+After the cart-page synchronization fix, another failure mode was still observed.
+
+Observed sequence:
+
+1. the shopper rapidly adds multiple different products on the homepage
+2. the header badge reaches the expected optimistic total
+3. the shopper navigates to `/cart`
+4. `/cart` already shows only a subset of the products on first render, before any cart-page edit happens
+
+This behavior means the problem is not only a `/cart` reconciliation problem.
+It also exists earlier in the write path.
+
+## Deeper Root Cause Extension
+
+The homepage add-to-cart flow was still allowing multiple different product writes to be sent nearly at the same time.
+
+That created a second race:
+
+- several debounced `POST /api/cart/items` requests could leave the homepage together
+- if no active cart existed yet, more than one request could race through cart creation
+- some requests would succeed against one cart while others would recover against another cart or fail during create timing
+- the header badge still looked correct because it was driven by optimistic cache
+- but the authoritative backend cart could already be missing some of those products before `/cart` was opened
+
+In short:
+
+- the previous fix established a safer read/edit boundary on `/cart`
+- but it did not yet fully stabilize the **write boundary on the homepage**
+
+## Additional Follow-up Code Changes
+
+The follow-up fix adds two more protections.
+
+### 3. Frontend cart writes are now serialized per hook instance
+
+Implemented in:
+
+- `frontend/src/queries/use-debounced-cart-mutation.ts`
+
+Behavior:
+
+- pending debounced cart writes are no longer fired in parallel from the same mutation controller
+- when multiple product writes are ready at the same time, they are sent one after another
+- this reduces the chance that several homepage requests all try to create or discover the active cart concurrently
+
+This is still compatible with optimistic UI, but it removes a dangerous write burst at the backend boundary.
+
+### 4. Backend cart creation now recovers from create-time races
+
+Implemented in:
+
+- `backend/src/cart/cart.service.ts`
+
+Behavior:
+
+- if `resolveCart()` loses a race while creating the active cart
+- it does not immediately fail the cart write
+- it re-reads the active cart for the session/user and continues if another request already created it
+
+This is a defensive recovery layer around the current application-level cart resolver.
+
+## Additional Regression Coverage
+
+Added tests:
+
+- `frontend/src/queries/use-debounced-cart-mutation.spec.tsx`
+- `backend/src/cart/cart.service.spec.ts`
+
+Covered cases:
+
+- multiple pending frontend cart writes are serialized instead of sent in parallel
+- cart creation can recover by re-reading the active cart after a create race
