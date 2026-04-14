@@ -5,6 +5,8 @@ export interface PendingCartEntry {
 }
 
 export const EMPTY_CART: CartResponse = Object.freeze({
+  cart_id: null,
+  version: 0,
   items: [],
   subtotal: 0,
   shipping_fee: 0,
@@ -12,7 +14,10 @@ export const EMPTY_CART: CartResponse = Object.freeze({
   item_count: 0,
 });
 
-export function recalcCartTotals(items: CartResponse['items']): CartResponse {
+export function recalcCartTotals(
+  items: CartResponse['items'],
+  meta?: Partial<Pick<CartResponse, 'cart_id' | 'version'>>,
+): CartResponse {
   const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
   const shipping_fee =
     subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
@@ -22,6 +27,8 @@ export function recalcCartTotals(items: CartResponse['items']): CartResponse {
         : CART_CONSTANTS.SHIPPING_FEE;
 
   return {
+    cart_id: meta?.cart_id ?? null,
+    version: meta?.version ?? 0,
     items,
     subtotal,
     shipping_fee,
@@ -56,12 +63,12 @@ export function reconcileWithPending(
     }
   }
 
-  return recalcCartTotals(items);
+  return recalcCartTotals(items, serverCart);
 }
 
 export function applyPendingUpdates(
   cart: CartResponse,
-  pending: ReadonlyMap<number, PendingCartEntry>,
+  pending: ReadonlyMap<number | string, PendingCartEntry>,
 ): CartResponse {
   if (pending.size === 0) {
     return cart;
@@ -80,5 +87,5 @@ export function applyPendingUpdates(
     };
   });
 
-  return recalcCartTotals(items);
+  return recalcCartTotals(items, cart);
 }

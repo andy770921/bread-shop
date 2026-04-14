@@ -199,7 +199,15 @@ export class OrderService {
     }
 
     if (orderedProductIds.length === 0) {
-      return { items: [], subtotal: 0, shipping_fee: 0, total: 0, item_count: 0 };
+      return {
+        cart_id: null,
+        version: 0,
+        items: [],
+        subtotal: 0,
+        shipping_fee: 0,
+        total: 0,
+        item_count: 0,
+      };
     }
 
     const { data: products } = await this.supabaseService
@@ -253,6 +261,8 @@ export class OrderService {
           : CART_CONSTANTS.SHIPPING_FEE;
 
     return {
+      cart_id: null,
+      version: 0,
       items,
       subtotal,
       shipping_fee,

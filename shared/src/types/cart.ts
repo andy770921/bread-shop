@@ -1,5 +1,5 @@
 export interface CartItem {
-  id: number;
+  id: number | string;
   product_id: number;
   quantity: number;
   product: {
@@ -15,6 +15,8 @@ export interface CartItem {
 }
 
 export interface CartResponse {
+  cart_id: string | null;
+  version: number;
   items: CartItem[];
   subtotal: number;
   shipping_fee: number;

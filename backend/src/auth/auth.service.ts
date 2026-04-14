@@ -1,4 +1,3 @@
-import { CART_CONSTANTS } from '@repo/shared';
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
@@ -66,50 +65,67 @@ export class AuthService {
   async mergeSessionOnLogin(sessionId: string, userId: string): Promise<void> {
     const supabase = this.supabaseService.getClient();
 
+    // Link current session to user
     await supabase.from('sessions').update({ user_id: userId }).eq('id', sessionId);
 
+    // Find the target cart: session cart or create one
+    let { data: targetCart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    // Also check if user already has an active cart from a previous session
+    const { data: userCart } = await supabase
+      .from('carts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (!targetCart && userCart) {
+      // User already has a cart from a different session — use it as target
+      targetCart = userCart;
+    } else if (targetCart && userCart && targetCart.id !== userCart.id) {
+      // Both exist — merge user's old cart lines into the session cart
+      const { data: oldLines } = await supabase
+        .from('cart_lines')
+        .select('product_id, quantity')
+        .eq('cart_id', userCart.id);
+
+      for (const line of oldLines || []) {
+        await supabase.rpc('upsert_cart_line', {
+          p_cart_id: targetCart.id,
+          p_product_id: line.product_id,
+          p_quantity: line.quantity,
+        });
+      }
+
+      // Mark old user cart as merged
+      await supabase
+        .from('carts')
+        .update({ status: 'merged', merged_into_cart_id: targetCart.id })
+        .eq('id', userCart.id);
+    }
+
+    // Assign user_id to the target cart
+    if (targetCart) {
+      await supabase.from('carts').update({ user_id: userId }).eq('id', targetCart.id);
+      await supabase.rpc('refresh_cart_aggregates', { p_cart_id: targetCart.id });
+    }
+
+    // Clean up old sessions (keep the current one)
     const { data: oldSessions } = await supabase
       .from('sessions')
       .select('id')
       .eq('user_id', userId)
       .neq('id', sessionId);
 
-    if (!oldSessions?.length) return;
-
-    const oldSessionIds = oldSessions.map((s) => s.id);
-
-    const { data: oldItems } = await supabase
-      .from('cart_items')
-      .select('product_id, quantity')
-      .in('session_id', oldSessionIds);
-
-    if (oldItems?.length) {
-      const { data: currentItems } = await supabase
-        .from('cart_items')
-        .select('id, product_id, quantity')
-        .eq('session_id', sessionId);
-
-      const currentMap = new Map((currentItems || []).map((item) => [item.product_id, item]));
-
-      for (const oldItem of oldItems) {
-        const existing = currentMap.get(oldItem.product_id);
-        if (existing) {
-          const newQty = Math.min(
-            existing.quantity + oldItem.quantity,
-            CART_CONSTANTS.MAX_ITEM_QUANTITY,
-          );
-          await supabase.from('cart_items').update({ quantity: newQty }).eq('id', existing.id);
-        } else {
-          await supabase.from('cart_items').insert({
-            session_id: sessionId,
-            product_id: oldItem.product_id,
-            quantity: oldItem.quantity,
-          });
-        }
-      }
+    if (oldSessions?.length) {
+      const oldSessionIds = oldSessions.map((s) => s.id);
+      await supabase.from('sessions').delete().in('id', oldSessionIds);
     }
-
-    await supabase.from('sessions').delete().in('id', oldSessionIds);
   }
 
   async handleLineLogin(

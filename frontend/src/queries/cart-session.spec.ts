@@ -36,6 +36,8 @@ describe('[cart-session]', () => {
     expect(authedFetchFn).toHaveBeenCalledWith('api/cart');
 
     resolveFetch?.({
+      cart_id: null,
+      version: 0,
       items: [],
       subtotal: 0,
       shipping_fee: 0,
@@ -44,6 +46,8 @@ describe('[cart-session]', () => {
     });
 
     await expect(cartPromise).resolves.toEqual({
+      cart_id: null,
+      version: 0,
       items: [],
       subtotal: 0,
       shipping_fee: 0,
@@ -68,6 +72,8 @@ describe('[cart-session]', () => {
     expect(authedFetchFn).toHaveBeenCalledTimes(1);
 
     resolveFetch?.({
+      cart_id: null,
+      version: 0,
       items: [],
       subtotal: 0,
       shipping_fee: 0,
@@ -82,6 +88,8 @@ describe('[cart-session]', () => {
   it('performs a fresh cart fetch after the bootstrap is complete', async () => {
     authedFetchFn
       .mockResolvedValueOnce({
+        cart_id: 'test-cart-id',
+        version: 1,
         items: [],
         subtotal: 0,
         shipping_fee: 0,
@@ -89,6 +97,8 @@ describe('[cart-session]', () => {
         item_count: 0,
       })
       .mockResolvedValueOnce({
+        cart_id: 'test-cart-id',
+        version: 1,
         items: [
           {
             id: 1,
@@ -114,6 +124,8 @@ describe('[cart-session]', () => {
 
     await ensureCartSessionReady();
     await expect(fetchCart()).resolves.toEqual({
+      cart_id: 'test-cart-id',
+      version: 1,
       items: [
         {
           id: 1,
@@ -144,6 +156,8 @@ describe('[cart-session]', () => {
     authedFetchFn.mockRejectedValueOnce(new Error('network error'));
 
     await expect(fetchCart()).resolves.toEqual({
+      cart_id: null,
+      version: 0,
       items: [],
       subtotal: 0,
       shipping_fee: 0,
@@ -152,6 +166,8 @@ describe('[cart-session]', () => {
     });
 
     authedFetchFn.mockResolvedValueOnce({
+      cart_id: null,
+      version: 0,
       items: [],
       subtotal: 0,
       shipping_fee: 0,

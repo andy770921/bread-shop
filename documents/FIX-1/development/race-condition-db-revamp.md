@@ -1,0 +1,392 @@
+# Race Condition DB Revamp Implementation Steps
+
+## Purpose
+
+This document translates the DB revamp plan into concrete implementation work for the current codebase.
+
+It is intentionally codebase-specific. The goal is to show which files should change, what each change should do, and in what order the work should happen.
+
+## Step 0: Establish a Migration Workflow in This Repository
+
+The current repository does not appear to contain a checked-in Supabase migration directory yet.
+
+Before changing production schema, create a standard migration location, for example:
+
+- `supabase/migrations/`
+
+Add one migration per phase from the plan:
+
+- `0001_create_carts.sql`
+- `0002_create_checkout_drafts.sql`
+- `0003_link_orders_to_drafts.sql`
+- `0004_cutover_cart_resolution.sql`
+- `0005_drop_legacy_cart_tables.sql`
+
+This should happen before application code starts depending on new tables.
+
+## Step 1: Introduce `carts` and `cart_lines`
+
+### DB Work
+
+Create:
+
+- `carts`
+- `cart_lines`
+
+Backfill active carts from the current `cart_items` table.
+
+### Backend Code Changes
+
+#### `backend/src/cart/cart.service.ts`
+
+Rewrite the service so the primary read/write path uses:
+
+- `carts`
+- `cart_lines`
+
+Main changes:
+
+- replace direct reads from `cart_items`
+- resolve one active cart for the actor
+- write cart lines by `cart_id`
+- recompute totals from `cart_lines`
+- increment cart `version` on every mutation
+
+#### `backend/src/cart/cart.controller.ts`
+
+Keep the public API shape stable at first, but update behavior so all handlers call the new `CartService` logic.
+
+#### `backend/src/auth/auth.service.ts`
+
+Rewrite `mergeSessionOnLogin()`:
+
+- stop merging raw `cart_items`
+- merge source cart into target cart
+- update `carts.user_id`
+- mark replaced carts as `merged`
+
+#### `backend/src/common/middleware/session.middleware.ts`
+
+Keep session creation behavior, but ensure the middleware remains responsible only for session identity, not cart business logic.
+
+### Shared Type Changes
+
+#### `shared/src/types/cart.ts`
+
+Extend the cart response with server-authoritative metadata:
+
+- `cart_id`
+- `version`
+
+Possibly also:
+
+- `status`
+
+### Frontend Code Changes
+
+#### `frontend/src/queries/use-cart.ts`
+
+Update all cart queries and mutations to expect the new authoritative response.
+
+#### `frontend/src/queries/use-debounced-cart-mutation.ts`
+
+Refactor this layer so it becomes a UI smoothing mechanism only, not the primary durability mechanism.
+
+Target direction:
+
+- optimistic UI is allowed
+- the server response must always replace cache truth
+- cart version conflicts should be surfaced instead of silently overwritten
+
+#### `frontend/src/hooks/use-add-to-cart-handler.ts`
+
+Keep the UX behavior, but make sure it does not assume the cart can live primarily in local optimistic state.
+
+### Test Work
+
+Add or update:
+
+- `backend/src/cart/cart.service.spec.ts`
+- `frontend/src/queries/use-cart.spec.ts` if introduced
+- `frontend/src/queries/cart-session.spec.ts`
+
+Primary test cases:
+
+- guest cart read/write
+- logged-in cart read/write
+- merge on login
+- version increments after mutation
+
+## Step 2: Introduce `checkout_drafts` and `checkout_draft_items`
+
+### DB Work
+
+Create:
+
+- `checkout_drafts`
+- `checkout_draft_items`
+
+Do not delete `pending_line_orders` yet. Run both systems in parallel during rollout.
+
+### Backend Code Changes
+
+#### `backend/src/auth/auth.controller.ts`
+
+Move `POST /api/auth/line/start` away from `pending_line_orders`.
+
+New responsibility:
+
+- resolve the active cart
+- freeze the current cart version into `checkout_drafts`
+- insert frozen items into `checkout_draft_items`
+- return the next orchestration decision
+
+During compatibility rollout, this endpoint can still keep the same public URL while changing its storage backend.
+
+#### `backend/src/auth/auth.service.ts`
+
+Replace:
+
+- `storePendingOrder()`
+- `readPendingOrder()`
+- `deletePendingOrder()`
+- `updatePendingOrderAuth()`
+
+with draft-oriented equivalents, for example:
+
+- `createCheckoutDraft()`
+- `getCheckoutDraft()`
+- `consumeCheckoutDraft()`
+- `attachDraftAuth()`
+
+#### `backend/src/checkout/checkout.service.ts`
+
+Refactor pending completion logic so it loads from:
+
+- `checkout_drafts`
+- `checkout_draft_items`
+
+not `pending_line_orders`.
+
+#### `backend/src/order/order.service.ts`
+
+Refactor order creation to accept a draft ID as the primary input.
+
+Target direction:
+
+- load frozen draft items
+- create `orders`
+- create `order_items`
+- never rebuild the order from the live mutable cart during normal checkout
+
+### Shared Type Changes
+
+Add new shared types in:
+
+- `shared/src/types/order.ts`
+- `shared/src/types/api.ts`
+
+Recommended types:
+
+- `CheckoutDraft`
+- `CheckoutDraftItem`
+- `CreateCheckoutDraftResponse`
+- `SubmitCheckoutDraftResponse`
+
+### Frontend Code Changes
+
+#### `frontend/src/queries/use-checkout.ts`
+
+Introduce draft-native APIs:
+
+- `useCreateCheckoutDraft()`
+- `useGetCheckoutDraft()`
+- `useSubmitCheckoutDraft()`
+
+The old LINE helpers should become compatibility wrappers and then be removed.
+
+#### `frontend/src/features/checkout/use-checkout-flow.ts`
+
+Change the flow to:
+
+1. create checkout draft
+2. follow LINE auth/friendship decision
+3. submit the draft
+
+The frontend should no longer pass a mutable cart snapshot as the normal safety mechanism once the draft is stored in DB.
+
+#### `frontend/src/app/checkout/pending/page.tsx`
+
+Load draft details from `checkout_drafts`, not from compatibility state.
+
+### Test Work
+
+Add or update:
+
+- `backend/src/auth/auth.controller.spec.ts`
+- `backend/src/checkout/checkout.service.spec.ts`
+- `backend/src/order/order.service.spec.ts`
+- `frontend/src/features/checkout/use-checkout-flow.spec.ts`
+- `frontend/src/app/cart/page.spec.tsx`
+- `frontend/src/app/checkout/pending/page.tsx` tests if introduced
+
+Primary test cases:
+
+- draft creation freezes the correct cart version
+- linked users and guests both produce drafts
+- pending page reads frozen items, not live cart items
+- checkout does not lose items if the cart changes after draft creation
+
+## Step 3: Link Orders to Drafts and Add Idempotency
+
+### DB Work
+
+Add:
+
+- `orders.checkout_draft_id`
+- `orders.idempotency_key`
+
+and unique indexes for both idempotent identities.
+
+### Backend Code Changes
+
+#### `backend/src/order/order.service.ts`
+
+Add an order creation method that is explicitly idempotent by draft:
+
+- if an order already exists for `checkout_draft_id`, return it
+- if submission is in progress, reject or retry safely
+
+#### `backend/src/checkout/checkout.service.ts`
+
+Make draft submission transactional at the application level:
+
+- move draft status to `submitting`
+- create or fetch the existing order
+- move draft status to `completed`
+
+#### `backend/src/auth/auth.controller.ts`
+
+Deprecate direct use of `POST /api/auth/line/confirm-order` once a more explicit draft submit route exists.
+
+### Frontend Code Changes
+
+#### `frontend/src/queries/use-checkout.ts`
+
+Replace compatibility submit calls with one explicit draft submission mutation.
+
+#### `frontend/src/features/checkout/use-checkout-flow.ts`
+
+Handle retry states cleanly:
+
+- duplicate click
+- repeat callback
+- refresh during submission
+
+### Test Work
+
+Primary test cases:
+
+- double submit creates one order
+- callback replay returns the same order
+- order remains linked to the originating draft
+
+## Step 4: Cut Over Cart Ownership and Session Merge
+
+### DB Work
+
+Backfill and normalize ownership in `carts`.
+
+Stop treating `cart_items` as live state.
+
+### Backend Code Changes
+
+#### `backend/src/auth/auth.service.ts`
+
+Finalize cart merge logic on `carts`.
+
+#### `backend/src/cart/cart.service.ts`
+
+Remove fallback reads from `cart_items`.
+
+#### `backend/src/order/order.service.ts`
+
+Stop using frontend snapshot fallback as a normal checkout path.
+
+The only remaining fallback should be explicit recovery or admin repair tooling if needed.
+
+### Frontend Code Changes
+
+#### `frontend/src/queries/cart-session.ts`
+
+Keep session bootstrap only for identity continuity, not as a proxy for cart correctness.
+
+#### `frontend/src/queries/use-cart.ts`
+
+Remove assumptions that the cart truth may temporarily live only in optimistic cache.
+
+### Test Work
+
+Primary test cases:
+
+- cart survives login merge cleanly
+- one actor resolves to one active cart
+- cart page and header stay consistent after login and checkout transitions
+
+## Step 5: Remove Legacy Tables and Compatibility Code
+
+### DB Work
+
+Drop:
+
+- `pending_line_orders`
+- `cart_items`
+- `upsert_cart_item`
+
+only after full cutover and data verification.
+
+### Backend Code Changes
+
+Delete legacy compatibility methods from:
+
+- `backend/src/auth/auth.service.ts`
+- `backend/src/cart/cart.service.ts`
+- `backend/src/auth/auth.controller.ts`
+
+### Frontend Code Changes
+
+Delete compatibility branches that exist only because of:
+
+- snapshot fallback
+- pending-line-order compatibility
+- mixed draft and non-draft checkout paths
+
+### Test Work
+
+Run full regression across:
+
+- cart add/update/remove
+- login merge
+- LINE auth
+- friend failure recovery
+- pending page
+- order success path
+
+## Recommended Delivery Order
+
+1. establish migration workflow
+2. ship `carts + cart_lines`
+3. ship `checkout_drafts + checkout_draft_items`
+4. link orders to drafts with idempotency
+5. cut over merge and cart resolution
+6. delete legacy tables and compatibility code
+
+## Definition of Done
+
+The DB revamp is complete when all of the following are true:
+
+- the storefront cart reads and writes only `carts + cart_lines`
+- checkout creates a `checkout_draft` before any external LINE interaction
+- orders are created only from immutable draft data
+- the same checkout request cannot create duplicate orders
+- `pending_line_orders`, `cart_items`, and `upsert_cart_item` are no longer required

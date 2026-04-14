@@ -56,7 +56,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
             },
           ];
 
-      return recalcCartTotals(items);
+      return recalcCartTotals(items, cart);
     },
     send: async (productId, quantity) => {
       await ensureCartSessionReady();
@@ -81,7 +81,10 @@ export function useAddToCart(options?: { onError?: () => void }) {
 }
 
 export function useUpdateCartItem() {
-  const { run } = useDebouncedCartMutation<number, { itemId: number; newQuantity: number }>({
+  const { run } = useDebouncedCartMutation<
+    number | string,
+    { itemId: number | string; newQuantity: number }
+  >({
     getKey: ({ itemId }) => itemId,
     getInitialQuantity: ({ newQuantity }) =>
       Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY),
@@ -100,6 +103,7 @@ export function useUpdateCartItem() {
               }
             : item,
         ),
+        cart,
       );
     },
     send: (itemId, quantity) =>
@@ -111,7 +115,7 @@ export function useUpdateCartItem() {
   });
 
   const updateItem = useCallback(
-    (itemId: number, newQuantity: number) => {
+    (itemId: number | string, newQuantity: number) => {
       run({ itemId, newQuantity });
     },
     [run],
@@ -124,14 +128,17 @@ export function useRemoveCartItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (itemId: number) =>
+    mutationFn: (itemId: number | string) =>
       authedFetchFn<CartResponse>(`api/cart/items/${itemId}`, { method: 'DELETE' }),
     onMutate: async (itemId) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.cart });
       const previousCart = queryClient.getQueryData<CartResponse>(QUERY_KEYS.cart);
       queryClient.setQueryData<CartResponse>(QUERY_KEYS.cart, (old) => {
         if (!old) return old;
-        return recalcCartTotals(old.items.filter((item) => item.id !== itemId));
+        return recalcCartTotals(
+          old.items.filter((item) => item.id !== itemId),
+          old,
+        );
       });
       return { previousCart };
     },

@@ -1,4 +1,4 @@
-import { CART_CONSTANTS } from '@repo/shared';
+import { CART_CONSTANTS, CartResponse } from '@repo/shared';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -6,27 +6,199 @@ import { SupabaseService } from '../supabase/supabase.service';
 export class CartService {
   constructor(private supabaseService: SupabaseService) {}
 
-  private async getSessionIds(sessionId: string, userId?: string): Promise<string[]> {
-    if (!userId) return [sessionId];
-
+  /**
+   * Resolve the single active cart for the actor.
+   * Prefers user-owned cart if userId is provided, falls back to session cart.
+   * Creates a new cart lazily if none exists.
+   */
+  async resolveCart(sessionId: string, userId?: string): Promise<{ id: string; version: number }> {
     const supabase = this.supabaseService.getClient();
-    const { data } = await supabase.from('sessions').select('id').eq('user_id', userId);
 
-    const ids = new Set(data?.map((s) => s.id) || []);
-    ids.add(sessionId); // Always include current session (may not be linked to user yet)
-    return [...ids];
+    if (userId) {
+      const { data: userCart } = await supabase
+        .from('carts')
+        .select('id, version')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (userCart) return userCart;
+    }
+
+    const { data: sessionCart } = await supabase
+      .from('carts')
+      .select('id, version')
+      .eq('session_id', sessionId)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (sessionCart) return sessionCart;
+
+    const { data: newCart, error } = await supabase
+      .from('carts')
+      .insert({
+        session_id: sessionId,
+        user_id: userId || null,
+      })
+      .select('id, version')
+      .single();
+
+    if (error) throw new BadRequestException('Failed to create cart');
+    return newCart;
   }
 
-  async getCart(sessionId: string, userId?: string) {
+  async getCart(sessionId: string, userId?: string): Promise<CartResponse> {
     const supabase = this.supabaseService.getClient();
-    const sessionIds = await this.getSessionIds(sessionId, userId);
 
-    const { data: items, error } = await supabase
-      .from('cart_items')
+    let cart: { id: string; version: number } | null = null;
+
+    if (userId) {
+      const { data } = await supabase
+        .from('carts')
+        .select('id, version')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      cart = data;
+    }
+
+    if (!cart) {
+      const { data } = await supabase
+        .from('carts')
+        .select('id, version')
+        .eq('session_id', sessionId)
+        .eq('status', 'active')
+        .maybeSingle();
+      cart = data;
+    }
+
+    if (!cart) {
+      return {
+        cart_id: null,
+        version: 0,
+        items: [],
+        subtotal: 0,
+        shipping_fee: 0,
+        total: 0,
+        item_count: 0,
+      };
+    }
+
+    return this.buildCartResponse(cart.id, cart.version);
+  }
+
+  async addItem(sessionId: string, productId: number, quantity: number) {
+    const supabase = this.supabaseService.getClient();
+
+    const { data: product } = await supabase
+      .from('products')
+      .select('id')
+      .eq('id', productId)
+      .eq('is_active', true)
+      .single();
+
+    if (!product) throw new BadRequestException('Product not found or inactive');
+
+    const cart = await this.resolveCart(sessionId);
+
+    const { error } = await supabase.rpc('upsert_cart_line', {
+      p_cart_id: cart.id,
+      p_product_id: productId,
+      p_quantity: quantity,
+    });
+
+    if (error) throw error;
+
+    await supabase.rpc('refresh_cart_aggregates', { p_cart_id: cart.id });
+
+    return this.getCart(sessionId);
+  }
+
+  async updateItem(sessionId: string, cartLineId: string, quantity: number, userId?: string) {
+    const supabase = this.supabaseService.getClient();
+    const cart = await this.resolveCart(sessionId, userId);
+
+    const { data, error } = await supabase
+      .from('cart_lines')
+      .update({ quantity })
+      .eq('id', cartLineId)
+      .eq('cart_id', cart.id)
+      .select()
+      .single();
+
+    if (error || !data) throw new NotFoundException('Cart item not found');
+
+    await supabase.rpc('refresh_cart_aggregates', { p_cart_id: cart.id });
+
+    return this.getCart(sessionId, userId);
+  }
+
+  async removeItem(sessionId: string, cartLineId: string, userId?: string) {
+    const supabase = this.supabaseService.getClient();
+    const cart = await this.resolveCart(sessionId, userId);
+
+    const { error } = await supabase
+      .from('cart_lines')
+      .delete()
+      .eq('id', cartLineId)
+      .eq('cart_id', cart.id);
+
+    if (error) throw error;
+
+    await supabase.rpc('refresh_cart_aggregates', { p_cart_id: cart.id });
+
+    return this.getCart(sessionId, userId);
+  }
+
+  async clearCart(sessionId: string, userId?: string): Promise<CartResponse> {
+    const supabase = this.supabaseService.getClient();
+
+    let cart: { id: string; version: number } | null = null;
+
+    if (userId) {
+      const { data } = await supabase
+        .from('carts')
+        .select('id, version')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+      cart = data;
+    }
+
+    if (!cart) {
+      const { data } = await supabase
+        .from('carts')
+        .select('id, version')
+        .eq('session_id', sessionId)
+        .eq('status', 'active')
+        .maybeSingle();
+      cart = data;
+    }
+
+    if (cart) {
+      await supabase.from('cart_lines').delete().eq('cart_id', cart.id);
+      await supabase.rpc('refresh_cart_aggregates', { p_cart_id: cart.id });
+    }
+
+    return {
+      cart_id: cart?.id || null,
+      version: cart ? cart.version + 1 : 0,
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    };
+  }
+
+  private async buildCartResponse(cartId: string, version: number): Promise<CartResponse> {
+    const supabase = this.supabaseService.getClient();
+
+    const { data: lines, error } = await supabase
+      .from('cart_lines')
       .select(
         `
         id,
-        session_id,
         product_id,
         quantity,
         product:products(
@@ -39,12 +211,12 @@ export class CartService {
         )
       `,
       )
-      .in('session_id', sessionIds)
+      .eq('cart_id', cartId)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
 
-    const cartItems = (items || []).map((item: any) => ({
+    const cartItems = (lines || []).map((item: any) => ({
       id: item.id,
       product_id: item.product_id,
       quantity: item.quantity,
@@ -69,75 +241,13 @@ export class CartService {
           : CART_CONSTANTS.SHIPPING_FEE;
 
     return {
+      cart_id: cartId,
+      version,
       items: cartItems,
       subtotal,
       shipping_fee,
       total: subtotal + shipping_fee,
       item_count: cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
     };
-  }
-
-  async addItem(sessionId: string, productId: number, quantity: number) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data: product } = await supabase
-      .from('products')
-      .select('id')
-      .eq('id', productId)
-      .eq('is_active', true)
-      .single();
-
-    if (!product) throw new BadRequestException('Product not found or inactive');
-
-    const { error } = await supabase.rpc('upsert_cart_item', {
-      p_session_id: sessionId,
-      p_product_id: productId,
-      p_quantity: quantity,
-    });
-
-    if (error) throw error;
-
-    return this.getCart(sessionId);
-  }
-
-  async updateItem(sessionId: string, cartItemId: number, quantity: number, userId?: string) {
-    const supabase = this.supabaseService.getClient();
-    const sessionIds = await this.getSessionIds(sessionId, userId);
-
-    const { data, error } = await supabase
-      .from('cart_items')
-      .update({ quantity })
-      .eq('id', cartItemId)
-      .in('session_id', sessionIds)
-      .select()
-      .single();
-
-    if (error || !data) throw new NotFoundException('Cart item not found');
-
-    return this.getCart(sessionId, userId);
-  }
-
-  async removeItem(sessionId: string, cartItemId: number, userId?: string) {
-    const supabase = this.supabaseService.getClient();
-    const sessionIds = await this.getSessionIds(sessionId, userId);
-
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('id', cartItemId)
-      .in('session_id', sessionIds);
-
-    if (error) throw error;
-
-    return this.getCart(sessionId, userId);
-  }
-
-  async clearCart(sessionId: string, userId?: string) {
-    const supabase = this.supabaseService.getClient();
-    const sessionIds = await this.getSessionIds(sessionId, userId);
-
-    await supabase.from('cart_items').delete().in('session_id', sessionIds);
-
-    return { items: [], subtotal: 0, shipping_fee: 0, total: 0, item_count: 0 };
   }
 }

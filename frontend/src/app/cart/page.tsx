@@ -97,12 +97,12 @@ function CartContent() {
   const shippingFee = cart?.shipping_fee ?? 0;
   const total = cart?.total ?? 0;
 
-  const handleQuantityChange = (itemId: number, newQuantity: number) => {
+  const handleQuantityChange = (itemId: number | string, newQuantity: number) => {
     if (newQuantity < 1) return;
     updateItem(itemId, newQuantity);
   };
 
-  const handleRemove = (itemId: number) => {
+  const handleRemove = (itemId: number | string) => {
     removeCartItem.mutate(itemId, {
       onSuccess: () => {
         toast.success(t('cart.remove'));
