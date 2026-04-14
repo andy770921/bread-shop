@@ -57,9 +57,8 @@ describe('[useCheckoutFlow]', () => {
     const { useQueryClient } = jest.requireMock('@tanstack/react-query');
     const { useAuth } = jest.requireMock('@/lib/auth-context');
     const { redirectTo: mockRedirectTo } = jest.requireMock('@/lib/browser-navigation');
-    const { useCreateOrder, useLineSend, useConfirmOrder } = jest.requireMock(
-      '@/queries/use-checkout',
-    );
+    const { useCreateOrder, useLineSend, useConfirmOrder } =
+      jest.requireMock('@/queries/use-checkout');
 
     useRouter.mockReturnValue({ push });
     useQueryClient.mockReturnValue({ invalidateQueries });

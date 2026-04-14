@@ -90,7 +90,8 @@ export function useAddToCart(options?: { onError?: () => void }) {
 export function useUpdateCartItem() {
   const { run } = useDebouncedCartMutation<number, { itemId: number; newQuantity: number }>({
     getKey: ({ itemId }) => itemId,
-    getInitialQuantity: ({ newQuantity }) => Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY),
+    getInitialQuantity: ({ newQuantity }) =>
+      Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY),
     updatePendingEntry: (entry, { newQuantity }) => {
       entry.quantity = Math.min(newQuantity, CART_CONSTANTS.MAX_ITEM_QUANTITY);
     },

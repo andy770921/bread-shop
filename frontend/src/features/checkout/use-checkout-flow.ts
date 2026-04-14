@@ -8,11 +8,7 @@ import { redirectTo } from '@/lib/browser-navigation';
 import { useConfirmOrder, useCreateOrder, useLineSend } from '@/queries/use-checkout';
 import { QUERY_KEYS } from '@/queries/query-keys';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-import {
-  CartFormValues,
-  shouldStartLineLogin,
-  toCreateOrderBody,
-} from './cart-form';
+import { CartFormValues, shouldStartLineLogin, toCreateOrderBody } from './cart-form';
 
 export type CheckoutSubmitResult =
   | { status: 'completed' }

@@ -1,8 +1,4 @@
-import {
-  cartFormSchema,
-  shouldStartLineLogin,
-  toCreateOrderBody,
-} from './cart-form';
+import { cartFormSchema, shouldStartLineLogin, toCreateOrderBody } from './cart-form';
 
 const baseValues = {
   customerName: 'Andy',

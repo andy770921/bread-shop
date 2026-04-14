@@ -98,7 +98,11 @@ describe('[cart-math]', () => {
       },
     ]);
 
-    const reconciled = reconcileWithPending(serverCart, new Map([[2, { quantity: 1 }]]), optimisticCart);
+    const reconciled = reconcileWithPending(
+      serverCart,
+      new Map([[2, { quantity: 1 }]]),
+      optimisticCart,
+    );
 
     expect(reconciled.items).toHaveLength(2);
     expect(reconciled.items.find((item) => item.product_id === 2)?.quantity).toBe(1);
