@@ -36,10 +36,34 @@ jest.mock('@/queries/use-debounced-cart-mutation', () => ({
 describe('[useCheckoutFlow]', () => {
   const push = jest.fn();
   const invalidateQueries = jest.fn().mockResolvedValue(undefined);
+  const getQueryData = jest.fn();
   const createOrder = jest.fn();
   const lineSend = jest.fn();
   const confirmOrder = jest.fn();
   const redirectTo = jest.fn();
+  const cartSnapshot = {
+    items: [
+      {
+        id: 1,
+        product_id: 10,
+        quantity: 3,
+        product: {
+          id: 10,
+          name_zh: '香濃奶油吐司',
+          name_en: 'Butter Toast',
+          price: 100,
+          image_url: null,
+          category_name_zh: '吐司',
+          category_name_en: 'Toast',
+        },
+        line_total: 300,
+      },
+    ],
+    subtotal: 300,
+    shipping_fee: 60,
+    total: 360,
+    item_count: 3,
+  };
   const baseValues: CartFormValues = {
     customerName: 'Andy',
     customerPhone: '0912345678',
@@ -62,13 +86,14 @@ describe('[useCheckoutFlow]', () => {
       jest.requireMock('@/queries/use-checkout');
 
     useRouter.mockReturnValue({ push });
-    useQueryClient.mockReturnValue({ invalidateQueries });
+    useQueryClient.mockReturnValue({ getQueryData, invalidateQueries });
     useAuth.mockReturnValue({ user: null });
     useCreateOrder.mockReturnValue({ mutateAsync: createOrder });
     useLineSend.mockReturnValue({ mutateAsync: lineSend });
     useConfirmOrder.mockReturnValue({ mutateAsync: confirmOrder });
     flushPendingCartMutations.mockResolvedValue(undefined);
     mockRedirectTo.mockImplementation(redirectTo);
+    getQueryData.mockReturnValue(cartSnapshot);
   });
 
   afterEach(() => {
@@ -90,10 +115,10 @@ describe('[useCheckoutFlow]', () => {
 
     expect(authedFetchFn).toHaveBeenCalledWith('api/auth/line/start', {
       method: 'POST',
-      body: { form_data: baseValues },
+      body: { form_data: baseValues, cart_snapshot: cartSnapshot },
     });
     expect(flushPendingCartMutations).toHaveBeenCalled();
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
+    expect(getQueryData).toHaveBeenCalledWith(QUERY_KEYS.cart);
     expect(redirectTo).toHaveBeenCalledWith('/api/auth/line?pending=pending-1');
     expect(createOrder).not.toHaveBeenCalled();
   });
@@ -118,7 +143,17 @@ describe('[useCheckoutFlow]', () => {
       });
     });
 
-    expect(createOrder).toHaveBeenCalled();
+    expect(createOrder).toHaveBeenCalledWith({
+      customer_name: 'Andy',
+      customer_phone: '0912345678',
+      customer_email: 'andy@example.com',
+      customer_address: 'Taipei',
+      notes: 'Ring bell',
+      payment_method: 'line',
+      customer_line_id: '@andy',
+      cart_snapshot: cartSnapshot,
+      skip_cart_clear: true,
+    });
     expect(lineSend).toHaveBeenCalledWith(9);
     expect(confirmOrder).toHaveBeenCalledWith(9);
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
@@ -188,7 +223,7 @@ describe('[useCheckoutFlow]', () => {
       ).rejects.toThrow('Credit card service is currently unavailable.');
     });
 
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
+    expect(getQueryData).toHaveBeenCalledWith(QUERY_KEYS.cart);
     expect(createOrder).not.toHaveBeenCalled();
     expect(lineSend).not.toHaveBeenCalled();
     expect(confirmOrder).not.toHaveBeenCalled();

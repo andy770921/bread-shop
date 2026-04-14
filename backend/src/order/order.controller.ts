@@ -15,7 +15,12 @@ export class OrderController {
   @Post()
   @UseGuards(OptionalAuthGuard)
   create(@Req() req: Request, @Body() dto: CreateOrderDto) {
-    return this.orderService.createOrder(req.sessionId!, req.user?.id || null, dto);
+    return this.orderService.createOrder(
+      req.sessionId!,
+      req.user?.id || null,
+      dto,
+      dto.cart_snapshot,
+    );
   }
 
   @Post(':id/confirm')

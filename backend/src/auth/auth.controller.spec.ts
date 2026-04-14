@@ -24,7 +24,7 @@ describe('AuthController', () => {
     getOrThrow: jest.Mock;
   };
   let orderService: {
-    getCartForSession: jest.Mock;
+    getCheckoutCartSnapshot: jest.Mock;
   };
   let checkoutService: {
     completePendingLineCheckout: jest.Mock;
@@ -104,7 +104,7 @@ describe('AuthController', () => {
     };
 
     orderService = {
-      getCartForSession: jest.fn(),
+      getCheckoutCartSnapshot: jest.fn(),
     };
 
     checkoutService = {
@@ -152,7 +152,7 @@ describe('AuthController', () => {
       const cartSnapshot = { items: [{ id: 1 }], subtotal: 100, shipping_fee: 60, total: 160 };
       const req = createRequest();
 
-      orderService.getCartForSession.mockResolvedValue(cartSnapshot);
+      orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
       authService.storePendingOrder.mockResolvedValue('pending-1');
 
       await controller.lineStart(req, {
@@ -161,6 +161,7 @@ describe('AuthController', () => {
           lineId: 'guest-line-id',
           _link_user_id: 'should-be-stripped',
         },
+        cart_snapshot: cartSnapshot,
       });
 
       expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
@@ -183,15 +184,20 @@ describe('AuthController', () => {
       supabaseService.getClient.mockReturnValue({
         auth: { getUser },
       });
-      orderService.getCartForSession.mockResolvedValue(cartSnapshot);
+      orderService.getCheckoutCartSnapshot.mockResolvedValue(cartSnapshot);
       authService.storePendingOrder.mockResolvedValue('pending-2');
 
       await controller.lineStart(req, {
         form_data: { customerName: 'Linked User' },
+        cart_snapshot: cartSnapshot,
       });
 
       expect(getUser).toHaveBeenCalledWith('existing-token');
-      expect(orderService.getCartForSession).toHaveBeenCalledWith('session-1', 'bread-user-1');
+      expect(orderService.getCheckoutCartSnapshot).toHaveBeenCalledWith(
+        'session-1',
+        'bread-user-1',
+        cartSnapshot,
+      );
       expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
         customerName: 'Linked User',
         _cart_snapshot: cartSnapshot,

@@ -4,6 +4,7 @@ import CartPage from './page';
 
 const push = jest.fn();
 const replace = jest.fn();
+const getQueryData = jest.fn();
 const invalidateQueries = jest.fn().mockResolvedValue(undefined);
 const createOrder = jest.fn();
 const lineSend = jest.fn();
@@ -128,7 +129,7 @@ describe('[cart checkout e2e regression]', () => {
 
     useRouter.mockReturnValue({ push, replace });
     useSearchParams.mockReturnValue(new URLSearchParams());
-    useQueryClient.mockReturnValue({ invalidateQueries });
+    useQueryClient.mockReturnValue({ getQueryData, invalidateQueries });
     useLocale.mockReturnValue({
       locale: 'en',
       t: (key: string) => translations[key] || key,
@@ -154,6 +155,29 @@ describe('[cart checkout e2e regression]', () => {
         total: 280,
       },
       isLoading: false,
+    });
+    getQueryData.mockReturnValue({
+      items: [
+        {
+          id: 1,
+          product_id: 101,
+          quantity: 1,
+          line_total: 220,
+          product: {
+            id: 101,
+            name_zh: '麵包',
+            name_en: 'Bread',
+            price: 220,
+            image_url: '/bread.jpg',
+            category_name_zh: 'Bread',
+            category_name_en: 'Bread',
+          },
+        },
+      ],
+      subtotal: 220,
+      shipping_fee: 60,
+      total: 280,
+      item_count: 1,
     });
     useUpdateCartItem.mockReturnValue({ updateItem: jest.fn() });
     useRemoveCartItem.mockReturnValue({ mutate: jest.fn() });

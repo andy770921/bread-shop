@@ -806,3 +806,148 @@ With FIX-1e:
 | `frontend/src/queries/cart-session.ts`      | Replace `ensureQueryData()` readiness with a shared real `GET /api/cart` bootstrap promise |
 | `frontend/src/queries/use-cart.ts`          | Route `useCart()` through `fetchCart()` and remove `queryClient` dependency from cart-session bootstrap |
 | `frontend/src/queries/cart-session.spec.ts` | Update tests to cover shared bootstrap, retry-after-failure, and post-bootstrap fresh reads |
+
+---
+
+## FIX-1f: Checkout Snapshot Hardening — Carry the Visible Cart Through Checkout
+
+After FIX-1e, the cart bootstrap was stricter, but the checkout boundary still had one weak point:
+
+- `/cart` could show the full intended cart
+- clicking `LINE 聯繫` triggered checkout work
+- the summary on `/cart` itself could shrink before redirect
+- pending LINE flow then used that smaller server snapshot
+
+This showed that checkout was still too dependent on forcing a fresh server cart read at submit time.
+
+### What Changed
+
+The checkout flow now treats the **visible cart on the CTA click** as the checkout snapshot:
+
+1. flush any pending cart mutations
+2. read the current `['cart']` cache from React Query
+3. pass that snapshot into the checkout API
+4. canonicalize it on the backend before persisting orders or pending-order snapshots
+
+### A. Frontend — remove pre-submit cart invalidation and pass `cart_snapshot`
+
+**Before:**
+
+```typescript
+await flushPendingCartMutations();
+await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+
+const { pendingId } = await authedFetchFn('api/auth/line/start', {
+  method: 'POST',
+  body: { form_data: values },
+});
+```
+
+**After:**
+
+```typescript
+await flushPendingCartMutations();
+
+const checkoutCartSnapshot = queryClient.getQueryData<CartResponse>(QUERY_KEYS.cart);
+
+const { pendingId } = await authedFetchFn('api/auth/line/start', {
+  method: 'POST',
+  body: { form_data: values, cart_snapshot: checkoutCartSnapshot },
+});
+```
+
+Direct linked-LINE checkout now does the same thing for `POST /api/orders`:
+
+```typescript
+const orderData = await createOrder(toCreateOrderBody(values, checkoutCartSnapshot));
+```
+
+Files:
+
+- `frontend/src/features/checkout/use-checkout-flow.ts`
+- `frontend/src/features/checkout/cart-form.ts`
+- `frontend/src/features/checkout/use-checkout-flow.spec.ts`
+
+### B. Backend — canonicalize the checkout snapshot before persistence
+
+The client snapshot is now used for quantity intent, but the backend does **not** trust its price or product metadata.
+
+`OrderService` now:
+
+1. accepts an optional checkout snapshot
+2. rebuilds the cart from `product_id + quantity`
+3. fetches active products from the database
+4. recalculates names, prices, line totals, subtotal, shipping fee, and total on the server
+
+Core additions:
+
+```typescript
+async getCheckoutCartSnapshot(sessionId: string, userId?: string, cartSnapshot?: CheckoutCartSnapshotInput) {
+  if (cartSnapshot?.items?.length) {
+    return this.normalizeCheckoutCart(cartSnapshot);
+  }
+
+  return this.cartService.getCart(sessionId, userId);
+}
+```
+
+```typescript
+private async normalizeCheckoutCart(cartSnapshot: CheckoutCartSnapshotInput): Promise<CartResponse> {
+  // collapse quantities by product_id
+  // fetch canonical active product rows
+  // rebuild totals on the server
+}
+```
+
+`createOrder()` then uses canonical server totals even when the snapshot came from the client.
+
+Files:
+
+- `backend/src/order/order.service.ts`
+- `backend/src/order/order.controller.ts`
+- `backend/src/order/dto/create-order.dto.ts`
+
+### C. Pending LINE checkout now stores the same checkout snapshot
+
+`POST /api/auth/line/start` now accepts `cart_snapshot` and stores a canonicalized `_cart_snapshot` in the pending-order row:
+
+```typescript
+const cart = await this.orderService.getCheckoutCartSnapshot(
+  sessionId,
+  linkUserId || undefined,
+  body.cart_snapshot as any,
+);
+```
+
+This keeps:
+
+- `/cart` visible summary
+- pending LINE snapshot
+- final order creation
+
+on the same checkout cart boundary.
+
+Files:
+
+- `backend/src/auth/auth.controller.ts`
+- `backend/src/auth/auth.controller.spec.ts`
+
+### Why FIX-1f Matters
+
+Earlier fixes focused on making optimistic cart behavior converge correctly.
+
+FIX-1f adds the final checkout guarantee:
+
+> when the shopper presses the checkout CTA, the app carries forward the cart they are actually approving, then re-validates it server-side before persistence.
+
+That is stronger than "refetch the server cart and hope it has already caught up."
+
+### Tests Updated
+
+- frontend:
+  - `frontend/src/features/checkout/use-checkout-flow.spec.ts`
+  - `frontend/src/app/cart/page.spec.tsx`
+  - `frontend/src/features/checkout/cart-form.spec.ts`
+- backend:
+  - `backend/src/auth/auth.controller.spec.ts`
+  - `backend/src/checkout/checkout.service.spec.ts`

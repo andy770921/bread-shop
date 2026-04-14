@@ -1,4 +1,4 @@
-import type { CreateOrderRequest } from '@repo/shared';
+import type { CartResponse, CreateOrderRequest } from '@repo/shared';
 import { z } from 'zod';
 
 export const paymentMethods = ['credit_card', 'line_transfer'] as const;
@@ -36,7 +36,10 @@ export function shouldStartLineLogin(
   return isLineTransferPayment(values.paymentMethod) && !hasLineUserId;
 }
 
-export function toCreateOrderBody(values: CartFormValues): CheckoutCreateOrderBody {
+export function toCreateOrderBody(
+  values: CartFormValues,
+  cartSnapshot?: CartResponse,
+): CheckoutCreateOrderBody {
   const isLineTransfer = isLineTransferPayment(values.paymentMethod);
 
   if (!isLineTransfer) {
@@ -51,6 +54,7 @@ export function toCreateOrderBody(values: CartFormValues): CheckoutCreateOrderBo
     notes: values.notes || undefined,
     payment_method: 'line',
     customer_line_id: values.lineId || undefined,
+    ...(cartSnapshot ? { cart_snapshot: cartSnapshot } : {}),
     skip_cart_clear: true,
   };
 }

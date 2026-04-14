@@ -102,7 +102,10 @@ export class AuthController {
    * Returns a pendingId that the frontend passes to GET /api/auth/line.
    */
   @Post('line/start')
-  async lineStart(@Req() req: Request, @Body() body: { form_data: Record<string, unknown> }) {
+  async lineStart(
+    @Req() req: Request,
+    @Body() body: { form_data: Record<string, unknown>; cart_snapshot?: Record<string, unknown> },
+  ) {
     const sessionId = req.sessionId;
     if (!sessionId) {
       throw new UnauthorizedException('No session');
@@ -130,7 +133,11 @@ export class AuthController {
     // on mobile (LINE in-app browser, Safari ITP). The snapshot is used for:
     // 1. Displaying order details on the pending confirmation page
     // 2. Fallback for order creation if the session cart is empty after redirect
-    const cart = await this.orderService.getCartForSession(sessionId, linkUserId || undefined);
+    const cart = await this.orderService.getCheckoutCartSnapshot(
+      sessionId,
+      linkUserId || undefined,
+      body.cart_snapshot as any,
+    );
     const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
       _cart_snapshot: cart,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import type { CartResponse } from '@repo/shared';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
@@ -50,7 +51,8 @@ export function useCheckoutFlow() {
   const submitCheckout = useCallback(
     async (values: CartFormValues): Promise<CheckoutSubmitResult> => {
       await flushPendingCartMutations();
-      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+
+      const checkoutCartSnapshot = queryClient.getQueryData<CartResponse>(QUERY_KEYS.cart);
 
       if (values.paymentMethod === 'credit_card') {
         throw new Error('Credit card service is currently unavailable.');
@@ -59,7 +61,7 @@ export function useCheckoutFlow() {
       if (shouldStartLineLogin(values, hasLineUserId)) {
         const { pendingId } = await authedFetchFn<{ pendingId: string }>('api/auth/line/start', {
           method: 'POST',
-          body: { form_data: values },
+          body: { form_data: values, cart_snapshot: checkoutCartSnapshot },
         });
         redirectTo(`/api/auth/line?pending=${pendingId}`);
         return { status: 'redirected' };
@@ -76,7 +78,7 @@ export function useCheckoutFlow() {
         };
       }
 
-      const orderData = await createOrder(toCreateOrderBody(values));
+      const orderData = await createOrder(toCreateOrderBody(values, checkoutCartSnapshot));
       const lineData = await lineSend(orderData.id);
 
       if (!lineData?.success) {

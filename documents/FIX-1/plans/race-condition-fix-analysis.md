@@ -592,3 +592,84 @@ The full cart-consistency model now needs six layers:
    - only a shared successful `GET /api/cart` response can close the bootstrap boundary
 
 Without step 6, steps 1–5 can still leave the browser showing the correct optimistic cart while checkout snapshots a smaller server-side cart.
+
+## Post-FIX-1e Discovery: Checkout Must Snapshot the Visible Client Cart, Not Just Refetch Server Cart
+
+After FIX-1e, another important detail remained:
+
+- `/cart` could still look correct before submit
+- but clicking `LINE 聯繫` could immediately shrink the summary
+- the missing products were typically the earliest repeated-add items
+
+That pattern means:
+
+1. the optimistic cart cache still contained the shopper's intended cart
+2. the checkout flow itself forced a server re-read
+3. the server cart was still smaller than the visible cart at the exact checkout boundary
+
+### Why the Previous Checkout Flow Still Exposed the Bug
+
+`useCheckoutFlow()` originally started with:
+
+1. `flushPendingCartMutations()`
+2. `invalidateQueries(['cart'])`
+3. continue checkout using server-driven paths
+
+That `invalidateQueries()` was useful for forcing a committed read, but it had two side effects:
+
+- it visibly replaced the `/cart` summary with the smaller server cart during CTA loading
+- it meant pending LINE checkout and direct order creation still depended on the refetched server cart being fully converged already
+
+The reported symptom on `/cart` was therefore not separate from the pending-page bug.
+It was the same boundary problem becoming visible earlier.
+
+### Final Insight
+
+At checkout time, the most important source of truth is:
+
+> the cart the shopper can currently see and is explicitly approving when they press the CTA
+
+That client snapshot should not blindly become the order, but it **must** be captured and carried across the checkout boundary.
+
+### Final Fix Layer
+
+The checkout flow now adds one more guarantee:
+
+1. **Flush debounced mutations first**
+   - same as before
+
+2. **Capture the current visible cart snapshot from React Query**
+   - before any checkout-triggered refetch can overwrite the UI
+
+3. **Send that snapshot into checkout APIs**
+   - `POST /api/auth/line/start`
+   - `POST /api/orders`
+
+4. **Canonicalize server-side before persistence**
+   - backend rebuilds names, prices, line totals, subtotal, shipping, and total from active product records
+   - client snapshot quantity intent is preserved
+   - client price/name data is not trusted
+
+### Why This Solves the Remaining Gap
+
+This closes the last observed mismatch:
+
+- the shopper approves the visible `/cart`
+- checkout persists that same cart intent
+- pending LINE recovery and direct linked-LINE order creation now both use the same checkout snapshot
+- checkout no longer needs to overwrite the current `/cart` UI just to obtain a snapshot
+
+### Updated Final Model
+
+The full solution now has seven layers:
+
+1. FIX-1 — keep pending intent alive during async reconciliation
+2. FIX-1b — do not let stale full-cart responses erase optimistic cache state
+3. checkout-boundary hardening — flush pending writes before checkout
+4. FIX-1c — bootstrap an anonymous session before the first write burst
+5. FIX-1d — deduplicate early cart bootstrap requests
+6. FIX-1e — only treat a real shared `GET /api/cart` as bootstrap completion
+7. **FIX-1f — checkout snapshot hardening**
+   - capture the visible client cart at CTA time
+   - pass it through checkout APIs
+   - canonicalize it on the server before order persistence

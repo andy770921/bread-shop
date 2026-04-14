@@ -1,7 +1,14 @@
-import { Order, OrderStatus } from '@repo/shared';
+import { CART_CONSTANTS, CartResponse, Order, OrderStatus } from '@repo/shared';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CartService } from '../cart/cart.service';
+
+type CheckoutCartSnapshotInput = Partial<CartResponse> & {
+  items?: Array<{
+    product_id?: number;
+    quantity?: number;
+  }>;
+};
 
 @Injectable()
 export class OrderService {
@@ -23,6 +30,18 @@ export class OrderService {
     return this.cartService.getCart(sessionId, userId);
   }
 
+  async getCheckoutCartSnapshot(
+    sessionId: string,
+    userId?: string,
+    cartSnapshot?: CheckoutCartSnapshotInput,
+  ): Promise<CartResponse> {
+    if (cartSnapshot?.items?.length) {
+      return this.normalizeCheckoutCart(cartSnapshot);
+    }
+
+    return this.cartService.getCart(sessionId, userId);
+  }
+
   async createOrder(
     sessionId: string,
     userId: string | null,
@@ -35,34 +54,70 @@ export class OrderService {
       payment_method: 'line';
       customer_line_id?: string;
       skip_cart_clear?: boolean;
+      cart_snapshot?: CheckoutCartSnapshotInput;
     },
-    cartOverride?: { items: any[]; subtotal: number; shipping_fee: number; total: number },
+    cartOverride?: CheckoutCartSnapshotInput,
   ) {
     const supabase = this.supabaseService.getClient();
 
     // Use cart override (snapshot from pending order) if provided,
     // otherwise read from session. The override is needed when the
     // session cookie was lost during LINE OAuth redirect on mobile.
-    const cart = cartOverride || (await this.cartService.getCart(sessionId, userId || undefined));
+    const cart = await this.getCheckoutCartSnapshot(sessionId, userId || undefined, cartOverride);
 
     if (cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    // Validate all products are still active
+    // Canonicalize product data and totals on the server. This keeps checkout
+    // safe even when the snapshot originated from client state.
     const productIds = cart.items.map((i) => i.product_id);
     const { data: activeProducts } = await supabase
       .from('products')
-      .select('id')
+      .select(
+        `
+        id,
+        name_zh,
+        name_en,
+        price,
+        image_url,
+        category:categories(name_zh, name_en)
+      `,
+      )
       .in('id', productIds)
       .eq('is_active', true);
-    const activeIds = new Set(activeProducts?.map((p) => p.id) || []);
-    const inactiveItems = cart.items.filter((i) => !activeIds.has(i.product_id));
+    const activeMap = new Map((activeProducts || []).map((p: any) => [p.id, p]));
+    const inactiveItems = cart.items.filter((i) => !activeMap.has(i.product_id));
     if (inactiveItems.length > 0) {
       throw new BadRequestException(
         `Some products are no longer available: ${inactiveItems.map((i) => i.product.name_zh).join(', ')}`,
       );
     }
+
+    const canonicalItems = cart.items.map((item) => {
+      const product = activeMap.get(item.product_id)!;
+      return {
+        ...item,
+        line_total: item.quantity * product.price,
+        product: {
+          id: product.id,
+          name_zh: product.name_zh,
+          name_en: product.name_en,
+          price: product.price,
+          image_url: product.image_url,
+          category_name_zh: product.category.name_zh,
+          category_name_en: product.category.name_en,
+        },
+      };
+    });
+    const subtotal = canonicalItems.reduce((sum, item) => sum + item.line_total, 0);
+    const shipping_fee =
+      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+        ? 0
+        : subtotal === 0
+          ? 0
+          : CART_CONSTANTS.SHIPPING_FEE;
+    const total = subtotal + shipping_fee;
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
@@ -70,9 +125,9 @@ export class OrderService {
         session_id: sessionId,
         user_id: userId,
         status: 'pending',
-        subtotal: cart.subtotal,
-        shipping_fee: cart.shipping_fee,
-        total: cart.total,
+        subtotal,
+        shipping_fee,
+        total,
         customer_name: dto.customer_name,
         customer_phone: dto.customer_phone,
         customer_email: dto.customer_email,
@@ -86,7 +141,7 @@ export class OrderService {
 
     if (orderError) throw orderError;
 
-    const orderItems = cart.items.map((item) => ({
+    const orderItems = canonicalItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
       product_name_zh: item.product.name_zh,
@@ -112,6 +167,98 @@ export class OrderService {
     await this.cartService.clearCart(sessionId, userId || undefined);
 
     return { success: true };
+  }
+
+  private async normalizeCheckoutCart(
+    cartSnapshot: CheckoutCartSnapshotInput,
+  ): Promise<CartResponse> {
+    const quantities = new Map<number, number>();
+    const orderedProductIds: number[] = [];
+
+    for (const item of cartSnapshot.items || []) {
+      const productId = Number(item.product_id);
+      const quantity = Math.min(
+        Math.max(Number(item.quantity) || 0, 0),
+        CART_CONSTANTS.MAX_ITEM_QUANTITY,
+      );
+
+      if (!Number.isInteger(productId) || quantity <= 0) {
+        continue;
+      }
+
+      if (!quantities.has(productId)) {
+        orderedProductIds.push(productId);
+        quantities.set(productId, quantity);
+        continue;
+      }
+
+      quantities.set(
+        productId,
+        Math.min((quantities.get(productId) || 0) + quantity, CART_CONSTANTS.MAX_ITEM_QUANTITY),
+      );
+    }
+
+    if (orderedProductIds.length === 0) {
+      return { items: [], subtotal: 0, shipping_fee: 0, total: 0, item_count: 0 };
+    }
+
+    const { data: products } = await this.supabaseService
+      .getClient()
+      .from('products')
+      .select(
+        `
+        id,
+        name_zh,
+        name_en,
+        price,
+        image_url,
+        category:categories(name_zh, name_en)
+      `,
+      )
+      .in('id', orderedProductIds)
+      .eq('is_active', true);
+
+    const productMap = new Map((products || []).map((product: any) => [product.id, product]));
+    const missingIds = orderedProductIds.filter((productId) => !productMap.has(productId));
+    if (missingIds.length > 0) {
+      throw new BadRequestException('Some products are no longer available.');
+    }
+
+    const items = orderedProductIds.map((productId, index) => {
+      const product = productMap.get(productId)!;
+      const quantity = quantities.get(productId)!;
+      return {
+        id: -(index + 1),
+        product_id: productId,
+        quantity,
+        product: {
+          id: product.id,
+          name_zh: product.name_zh,
+          name_en: product.name_en,
+          price: product.price,
+          image_url: product.image_url,
+          category_name_zh: product.category.name_zh,
+          category_name_en: product.category.name_en,
+        },
+        line_total: quantity * product.price,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
+    const shipping_fee =
+      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+        ? 0
+        : subtotal === 0
+          ? 0
+          : CART_CONSTANTS.SHIPPING_FEE;
+
+    return {
+      items,
+      subtotal,
+      shipping_fee,
+      total: subtotal + shipping_fee,
+      item_count: items.reduce((sum, item) => sum + item.quantity, 0),
+    };
   }
 
   async getOrderWithItems(orderId: number): Promise<Order> {

@@ -1,3 +1,5 @@
+import type { CartResponse } from './cart';
+
 export type OrderStatus = 'pending' | 'paid' | 'preparing' | 'shipping' | 'delivered' | 'cancelled';
 export type PaymentMethod = 'line';
 
@@ -9,6 +11,7 @@ export interface CreateOrderRequest {
   notes?: string;
   payment_method: PaymentMethod;
   customer_line_id?: string;
+  cart_snapshot?: CartResponse;
 }
 
 export interface OrderItem {
