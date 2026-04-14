@@ -382,3 +382,104 @@ Any future cart write path that bypasses `useAddToCart()` must preserve the same
 
 - create or await cart session bootstrap first
 - only then send the first anonymous cart write
+
+## Post-FIX-1d Discovery: Dual GET /api/cart Session Split
+
+After all four layers (FIX-1 through FIX-1c) were in place, the exact same symptom returned:
+
+1. Rapidly add products on the homepage: toast ×3, cake ×3, cookie ×1, croissant ×1
+2. `/cart` shows all 8 items correctly
+3. Click "LINE 聯繫" → during loading wait, items shrink to only cookie ×1, croissant ×1
+4. `/checkout/pending` also shows only those 2 items
+
+### Why the FIX-1c Session Bootstrap Did Not Solve This
+
+FIX-1c (`cart-session.ts`) added `ensureCartSessionReady()` which sends a `GET /api/cart` to bootstrap the session before the first `POST /api/cart/items`. This was correct in principle.
+
+But it missed a second, independent `GET /api/cart` that **races** with the bootstrap: the Header component's `useCart()` query.
+
+### Root Cause: Two Independent GET /api/cart Requests Create Two Sessions
+
+On first page load:
+
+1. **Header mounts** → `useCart()` fires `GET /api/cart` (no cookie)
+2. **User clicks a product** → `primeCartSessionReady()` fires ANOTHER `GET /api/cart` (also no cookie — Header's response hasn't arrived yet)
+
+Both requests reach `SessionMiddleware` without a `session_id` cookie. Both create **different** anonymous sessions. Both return `Set-Cookie` with different session IDs.
+
+The browser stores the cookie from whichever response arrives **last**. Any `POST /api/cart/items` sent between the two responses uses the **first** cookie, which is later overwritten.
+
+### Detailed Timeline (Matching Reported Symptom)
+
+| Time    | Event                                             | Browser Cookie | Items Written To |
+| ------- | ------------------------------------------------- | -------------- | ---------------- |
+| t=0     | Header `useCart()` sends `GET /api/cart` (no cookie) | —           | —                |
+| t=10ms  | User clicks toast → `primeCartSessionReady()` sends `GET /api/cart` (no cookie) | — | — |
+| t=100ms | Bootstrap response arrives → `Set-Cookie: session_id=B` | **B**      | —                |
+| t=100ms | `cartSessionReady = true`                         | B              | —                |
+| t=200ms | Toast debounce fires → `POST` with cookie B       | B              | toast → **B**    |
+| t=300ms | Cake debounce fires → `POST` with cookie B        | B              | cake → **B**     |
+| t=350ms | Header `useCart()` response arrives → `Set-Cookie: session_id=A` | **A** (overwritten!) | — |
+| t=400ms | Cookie debounce fires → `POST` with cookie A      | A              | cookie → **A**   |
+| t=500ms | Croissant debounce fires → `POST` with cookie A   | A              | croissant → **A** |
+
+**Result:**
+- Session B: toast, cake
+- Session A: cookie, croissant
+- Browser cookie: `session_id=A`
+- `GET /api/cart` at checkout returns only session A → **cookie ×1, croissant ×1**
+
+### Why `/cart` Still Looked Correct
+
+The TanStack Query cache was updated optimistically on the homepage. With `staleTime: 60s`, navigating to `/cart` does not refetch. The UI shows the optimistic cache (all 8 items).
+
+### Why Items Disappeared Exactly When Checkout Started
+
+`submitCheckout()` calls `queryClient.invalidateQueries({ queryKey: ['cart'] })`, which forces a refetch from the server. The server returns only session A's items. The UI re-renders with the smaller set.
+
+### Why `flushPendingCartMutations()` Could Not Repair It
+
+The flush mechanism waits for pending debounced mutations. But by the time the user clicks "LINE 聯繫", all debounced POSTs have already completed. The items are already split across two sessions. Flushing cannot merge sessions after the fact.
+
+### Fix: Deduplicate the Bootstrap via TanStack Query
+
+The fix replaces the independent `GET /api/cart` in `cart-session.ts` with `queryClient.ensureQueryData()`, which deduplicates with any active `useCart()` fetch:
+
+1. **`cart-session.ts`**: `ensureCartSessionReady(queryClient)` now calls `queryClient.ensureQueryData({ queryKey: ['cart'], ... })` instead of `authedFetchFn('api/cart')` directly. If `useCart()` is already fetching, TanStack Query reuses the in-flight request.
+
+2. **`use-cart.ts`**: `useCart()` now calls `markCartSessionReady()` when its `GET /api/cart` completes (success or error). This signals that the browser has a stable session cookie.
+
+3. **`use-cart.ts`**: `useAddToCart()` passes `queryClient` to `ensureCartSessionReady()` and `primeCartSessionReady()`.
+
+Result: only **one** `GET /api/cart` is ever sent on first load, regardless of timing between Header mount and user clicks. All subsequent POSTs share the same session.
+
+### Updated Final Mental Model
+
+The full cart-consistency model now needs five layers:
+
+1. **FIX-1**
+   - keep pending intent alive until API reconciliation
+
+2. **FIX-1b**
+   - preserve optimistic cache state against stale full-cart snapshots
+
+3. **Checkout-boundary hardening**
+   - flush pending debounced writes before checkout snapshots
+   - snapshot the merged cart shape used by `/cart`
+
+4. **Anonymous session bootstrap hardening** (FIX-1c)
+   - ensure a stable `session_id` exists before the first add-to-cart POST burst
+
+5. **Bootstrap deduplication** (FIX-1d)
+   - deduplicate the bootstrap `GET /api/cart` with the Header's `useCart()` fetch via `queryClient.ensureQueryData()`
+   - signal session readiness from `useCart()` via `markCartSessionReady()`
+
+Without step 5, steps 1–4 are correct but the bootstrap GET races with the Header GET, re-creating the multi-session split that step 4 was designed to prevent.
+
+### Remaining Risks
+
+1. **Any new `GET /api/cart` path that bypasses TanStack Query** could re-introduce the dual-session race. All cart reads should go through the `['cart']` query key.
+
+2. **Browser termination before debounce** — same residual risk as before.
+
+3. **New checkout entrypoints** — must still call `flushPendingCartMutations()` first.

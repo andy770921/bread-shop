@@ -2,7 +2,11 @@ import { CART_CONSTANTS, CartResponse } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { QUERY_KEYS } from './query-keys';
-import { ensureCartSessionReady, primeCartSessionReady } from './cart-session';
+import {
+  ensureCartSessionReady,
+  markCartSessionReady,
+  primeCartSessionReady,
+} from './cart-session';
 import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import {
@@ -17,8 +21,11 @@ export function useCart() {
     queryKey: QUERY_KEYS.cart,
     queryFn: async () => {
       try {
-        return await authedFetchFn<CartResponse>('api/cart');
+        const data = await authedFetchFn<CartResponse>('api/cart');
+        markCartSessionReady();
+        return data;
       } catch {
+        markCartSessionReady();
         return EMPTY_CART;
       }
     },
@@ -26,6 +33,8 @@ export function useCart() {
 }
 
 export function useAddToCart(options?: { onError?: () => void }) {
+  const queryClient = useQueryClient();
+
   const { run } = useDebouncedCartMutation<number, { productId: number; productPrice: number }>({
     onError: options?.onError,
     getKey: ({ productId }) => productId,
@@ -70,7 +79,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
       return recalcCartTotals(items);
     },
     send: async (productId, quantity) => {
-      await ensureCartSessionReady();
+      await ensureCartSessionReady(queryClient);
       return authedFetchFn<CartResponse>('api/cart/items', {
         method: 'POST',
         body: { product_id: productId, quantity },
@@ -82,10 +91,10 @@ export function useAddToCart(options?: { onError?: () => void }) {
 
   const addToCart = useCallback(
     (productId: number, productPrice: number) => {
-      primeCartSessionReady();
+      primeCartSessionReady(queryClient);
       run({ productId, productPrice });
     },
-    [run],
+    [queryClient, run],
   );
 
   return { addToCart };

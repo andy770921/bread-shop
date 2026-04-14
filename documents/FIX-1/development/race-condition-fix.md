@@ -439,3 +439,162 @@ If a future cart mutation path uses debounce but does not register in the shared
 #### 4. New anonymous cart write paths must also bootstrap the session first
 
 If a future feature writes to the cart outside `useAddToCart()` and does not await the session bootstrap, the same multi-session split can return.
+
+---
+
+## FIX-1d: Bootstrap Deduplication — Dual GET /api/cart Session Split
+
+### Problem
+
+After FIX-1c, the session bootstrap (`primeCartSessionReady()`) sent its own `GET /api/cart` via `authedFetchFn` — completely independent of the Header component's `useCart()` query. On first page load, both requests could reach the backend without a `session_id` cookie, each creating a different anonymous session.
+
+The `Set-Cookie` from the later response overwrites the earlier one. Any `POST /api/cart/items` that was sent between the two responses goes to the first (now-overwritten) session. This splits cart items across two sessions, with the browser's final cookie pointing to only one.
+
+### Symptom
+
+Identical to FIX-1c: `/cart` shows all items (optimistic cache), but clicking "LINE 聯繫" triggers `invalidateQueries`, which refetches from the server and reveals only the items belonging to the surviving session.
+
+The items that disappear are the ones whose debounced POSTs fired between the bootstrap response and the Header response (i.e., before the cookie flip). The items that survive are the ones whose POSTs fired after the cookie was overwritten.
+
+### Implementation
+
+#### A. `cart-session.ts` — replace direct fetch with `queryClient.ensureQueryData()`
+
+**Before (FIX-1c):**
+
+```typescript
+let cartSessionReady = false;
+let cartSessionPromise: Promise<void> | null = null;
+
+async function bootstrapCartSession(): Promise<void> {
+  await authedFetchFn('api/cart');
+  cartSessionReady = true;
+}
+
+export async function ensureCartSessionReady(): Promise<void> {
+  if (cartSessionReady) return;
+  if (!cartSessionPromise) {
+    cartSessionPromise = bootstrapCartSession().catch((error) => {
+      cartSessionPromise = null;
+      throw error;
+    });
+  }
+  await cartSessionPromise;
+}
+
+export function primeCartSessionReady(): void {
+  if (cartSessionReady || cartSessionPromise) return;
+  void ensureCartSessionReady().catch(() => undefined);
+}
+```
+
+**After (FIX-1d):**
+
+```typescript
+let cartSessionReady = false;
+
+export function markCartSessionReady(): void {
+  cartSessionReady = true;
+}
+
+export async function ensureCartSessionReady(queryClient: QueryClient): Promise<void> {
+  if (cartSessionReady) return;
+
+  // Reuse the ['cart'] query — TanStack Query deduplicates with any active useCart() fetch.
+  await queryClient.ensureQueryData<CartResponse>({
+    queryKey: QUERY_KEYS.cart,
+    queryFn: async () => {
+      try {
+        return await authedFetchFn<CartResponse>('api/cart');
+      } catch {
+        return EMPTY_CART;
+      }
+    },
+  });
+  cartSessionReady = true;
+}
+
+export function primeCartSessionReady(queryClient: QueryClient): void {
+  if (cartSessionReady) return;
+  void ensureCartSessionReady(queryClient).catch(() => undefined);
+}
+```
+
+Key change: `queryClient.ensureQueryData()` checks for an in-flight `['cart']` query. If `useCart()` is already fetching, TanStack Query returns the same promise — no second request is sent.
+
+#### B. `use-cart.ts` — mark session ready from useCart, pass queryClient to bootstrap
+
+```typescript
+// useCart() — mark session ready after any GET /api/cart completes
+export function useCart() {
+  return useQuery<CartResponse>({
+    queryKey: QUERY_KEYS.cart,
+    queryFn: async () => {
+      try {
+        const data = await authedFetchFn<CartResponse>('api/cart');
+        markCartSessionReady();
+        return data;
+      } catch {
+        markCartSessionReady();
+        return EMPTY_CART;
+      }
+    },
+  });
+}
+
+// useAddToCart() — pass queryClient to session bootstrap
+export function useAddToCart(options?: { onError?: () => void }) {
+  const queryClient = useQueryClient();
+
+  const { run } = useDebouncedCartMutation<...>({
+    // ...
+    send: async (productId, quantity) => {
+      await ensureCartSessionReady(queryClient);
+      return authedFetchFn<CartResponse>('api/cart/items', { ... });
+    },
+  });
+
+  const addToCart = useCallback(
+    (productId: number, productPrice: number) => {
+      primeCartSessionReady(queryClient);
+      run({ productId, productPrice });
+    },
+    [queryClient, run],
+  );
+  // ...
+}
+```
+
+### Why This Works
+
+| Time    | Event                                                | Network Requests |
+| ------- | ---------------------------------------------------- | ---------------- |
+| t=0     | Header mounts → `useCart()` starts fetch             | `GET /api/cart` (1 request) |
+| t=10ms  | User clicks product → `primeCartSessionReady(qc)`   | — (reuses in-flight query via `ensureQueryData`) |
+| t=100ms | Fetch completes → session A created, cookie set      | — |
+| t=100ms | `markCartSessionReady()` called from `useCart()` queryFn | — |
+| t=100ms | `ensureCartSessionReady` also resolves (same promise) → `cartSessionReady = true` | — |
+| t=200ms | Toast POST → cookie A → toast in session A           | `POST /api/cart/items` |
+| t=300ms | Cake POST → cookie A → cake in session A             | `POST /api/cart/items` |
+| t=400ms | Cookie POST → cookie A → cookie in session A         | `POST /api/cart/items` |
+| t=500ms | Croissant POST → cookie A → croissant in session A   | `POST /api/cart/items` |
+
+Only **one** `GET /api/cart` is sent. All items go to session A.
+
+### Files Changed
+
+| File                                         | Change                                                    |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `frontend/src/queries/cart-session.ts`       | Replace direct `authedFetchFn` with `queryClient.ensureQueryData()`, add `markCartSessionReady()` |
+| `frontend/src/queries/use-cart.ts`           | Call `markCartSessionReady()` in `useCart()`, pass `queryClient` to bootstrap in `useAddToCart()` |
+| `frontend/src/queries/cart-session.spec.ts`  | Update tests for new API (queryClient parameter, markCartSessionReady) |
+
+### Updated Residual Risks
+
+#### 1. Any new `GET /api/cart` path that bypasses TanStack Query
+
+If a future feature sends `GET /api/cart` via `authedFetchFn` directly (not through the `['cart']` query), it could create a second session. All cart reads should use the `['cart']` query key.
+
+#### 2–4. Same as before
+
+Browser termination, new checkout entrypoints, and new debounced mutation paths carry the same risks documented in FIX-1c.

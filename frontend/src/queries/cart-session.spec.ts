@@ -1,5 +1,6 @@
 import {
   ensureCartSessionReady,
+  markCartSessionReady,
   primeCartSessionReady,
   resetCartSessionReadyForTests,
 } from './cart-session';
@@ -13,60 +14,85 @@ describe('[cart-session]', () => {
     authedFetchFn: jest.Mock;
   };
 
+  let ensureQueryDataMock: jest.Mock;
+  let mockQueryClient: { ensureQueryData: jest.Mock };
+
   beforeEach(() => {
     jest.clearAllMocks();
     resetCartSessionReadyForTests();
+
+    ensureQueryDataMock = jest.fn();
+    mockQueryClient = { ensureQueryData: ensureQueryDataMock };
   });
 
-  it('deduplicates concurrent bootstrap requests and reuses the ready state', async () => {
-    let resolveFetch: (() => void) | undefined;
-    authedFetchFn.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
+  it('deduplicates via queryClient.ensureQueryData and caches the ready state', async () => {
+    ensureQueryDataMock.mockResolvedValue({ items: [] });
 
-    const first = ensureCartSessionReady();
-    const second = ensureCartSessionReady();
+    await ensureCartSessionReady(mockQueryClient as any);
+    await ensureCartSessionReady(mockQueryClient as any);
 
-    expect(authedFetchFn).toHaveBeenCalledTimes(1);
-    resolveFetch?.();
-
-    await Promise.all([first, second]);
-    await ensureCartSessionReady();
-
-    expect(authedFetchFn).toHaveBeenCalledTimes(1);
-    expect(authedFetchFn).toHaveBeenCalledWith('api/cart');
+    // First call goes through ensureQueryData, second short-circuits via cartSessionReady flag
+    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
   });
 
-  it('allows retrying after a failed bootstrap request', async () => {
-    authedFetchFn.mockRejectedValueOnce(new Error('bootstrap failed'));
-    authedFetchFn.mockResolvedValueOnce({ items: [] });
+  it('returns immediately after markCartSessionReady is called', async () => {
+    markCartSessionReady();
+    await ensureCartSessionReady(mockQueryClient as any);
 
-    await expect(ensureCartSessionReady()).rejects.toThrow('bootstrap failed');
-    await expect(ensureCartSessionReady()).resolves.toBeUndefined();
-
-    expect(authedFetchFn).toHaveBeenCalledTimes(2);
+    expect(ensureQueryDataMock).not.toHaveBeenCalled();
   });
 
   it('starts the bootstrap in the background only once', async () => {
-    let resolveFetch: (() => void) | undefined;
-    authedFetchFn.mockImplementation(
+    let resolveEnsure: ((v: unknown) => void) | undefined;
+    ensureQueryDataMock.mockImplementation(
       () =>
-        new Promise<void>((resolve) => {
-          resolveFetch = resolve;
+        new Promise((resolve) => {
+          resolveEnsure = resolve;
         }),
     );
 
-    primeCartSessionReady();
-    primeCartSessionReady();
+    primeCartSessionReady(mockQueryClient as any);
+    primeCartSessionReady(mockQueryClient as any);
 
-    expect(authedFetchFn).toHaveBeenCalledTimes(1);
+    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
 
-    resolveFetch?.();
-    await ensureCartSessionReady();
+    resolveEnsure?.({ items: [] });
+    await ensureCartSessionReady(mockQueryClient as any);
 
-    expect(authedFetchFn).toHaveBeenCalledTimes(1);
+    expect(ensureQueryDataMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the correct queryKey and queryFn to ensureQueryData', async () => {
+    authedFetchFn.mockResolvedValue({ items: [], subtotal: 0, shipping_fee: 0, total: 0 });
+    ensureQueryDataMock.mockImplementation(async (opts: any) => opts.queryFn());
+
+    await ensureCartSessionReady(mockQueryClient as any);
+
+    expect(ensureQueryDataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['cart'],
+        queryFn: expect.any(Function),
+      }),
+    );
+    expect(authedFetchFn).toHaveBeenCalledWith('api/cart');
+  });
+
+  it('queryFn returns EMPTY_CART on fetch error', async () => {
+    authedFetchFn.mockRejectedValue(new Error('network error'));
+    let capturedResult: unknown;
+    ensureQueryDataMock.mockImplementation(async (opts: any) => {
+      capturedResult = await opts.queryFn();
+      return capturedResult;
+    });
+
+    await ensureCartSessionReady(mockQueryClient as any);
+
+    expect(capturedResult).toEqual({
+      items: [],
+      subtotal: 0,
+      shipping_fee: 0,
+      total: 0,
+      item_count: 0,
+    });
   });
 });
