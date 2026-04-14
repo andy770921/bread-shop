@@ -4,7 +4,7 @@
   "buildCommand": "true",
   "functions": {
     "api/index.ts": {
-      "includeFiles": ["../shared/dist/**", "../shared/package.json"]
+      "includeFiles": "../shared/**/*"
     }
   },
   "rewrites": [
