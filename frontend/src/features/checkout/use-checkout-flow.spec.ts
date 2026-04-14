@@ -29,6 +29,10 @@ jest.mock('@/lib/browser-navigation', () => ({
   redirectTo: jest.fn(),
 }));
 
+jest.mock('@/queries/use-debounced-cart-mutation', () => ({
+  flushPendingCartMutations: jest.fn(),
+}));
+
 describe('[useCheckoutFlow]', () => {
   const push = jest.fn();
   const invalidateQueries = jest.fn().mockResolvedValue(undefined);
@@ -57,6 +61,7 @@ describe('[useCheckoutFlow]', () => {
     const { useQueryClient } = jest.requireMock('@tanstack/react-query');
     const { useAuth } = jest.requireMock('@/lib/auth-context');
     const { redirectTo: mockRedirectTo } = jest.requireMock('@/lib/browser-navigation');
+    const { flushPendingCartMutations } = jest.requireMock('@/queries/use-debounced-cart-mutation');
     const { useCreateOrder, useLineSend, useConfirmOrder } =
       jest.requireMock('@/queries/use-checkout');
 
@@ -66,6 +71,7 @@ describe('[useCheckoutFlow]', () => {
     useCreateOrder.mockReturnValue({ mutateAsync: createOrder });
     useLineSend.mockReturnValue({ mutateAsync: lineSend });
     useConfirmOrder.mockReturnValue({ mutateAsync: confirmOrder });
+    flushPendingCartMutations.mockResolvedValue(undefined);
     mockRedirectTo.mockImplementation(redirectTo);
   });
 
@@ -75,6 +81,7 @@ describe('[useCheckoutFlow]', () => {
 
   it('starts LINE login when the shopper has not linked a LINE account yet', async () => {
     const { authedFetchFn } = jest.requireMock('@/utils/fetchers/fetchers.client');
+    const { flushPendingCartMutations } = jest.requireMock('@/queries/use-debounced-cart-mutation');
     authedFetchFn.mockResolvedValue({ pendingId: 'pending-1' });
 
     const { result } = renderHook(() => useCheckoutFlow());
@@ -89,6 +96,8 @@ describe('[useCheckoutFlow]', () => {
       method: 'POST',
       body: { form_data: baseValues },
     });
+    expect(flushPendingCartMutations).toHaveBeenCalled();
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
     expect(redirectTo).toHaveBeenCalledWith('/api/auth/line?pending=pending-1');
     expect(createOrder).not.toHaveBeenCalled();
   });

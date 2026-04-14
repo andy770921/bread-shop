@@ -12,22 +12,22 @@ Don't remove an item's pending entry until **after** the API response has been p
 
 ```typescript
 p.timer = setTimeout(async () => {
-    const qty = p.quantity;
-    pending.delete(itemId);     // ← deleted BEFORE API call
+  const qty = p.quantity;
+  pending.delete(itemId); // ← deleted BEFORE API call
 
-    try {
-      const serverCart = await authedFetchFn(`api/cart/items/${itemId}`, {
-        method: 'PATCH',
-        body: { quantity: qty },
-      });
-      serverCartRef.current = serverCart;
-      queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
-      if (pending.size === 0) serverCartRef.current = null;
-    } catch {
-      const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
-      queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
-      if (pending.size === 0) serverCartRef.current = null;
-    }
+  try {
+    const serverCart = await authedFetchFn(`api/cart/items/${itemId}`, {
+      method: 'PATCH',
+      body: { quantity: qty },
+    });
+    serverCartRef.current = serverCart;
+    queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
+    if (pending.size === 0) serverCartRef.current = null;
+  } catch {
+    const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
+    queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
+    if (pending.size === 0) serverCartRef.current = null;
+  }
 }, 500);
 ```
 
@@ -35,32 +35,32 @@ p.timer = setTimeout(async () => {
 
 ```typescript
 p.timer = setTimeout(async () => {
-    const sentQty = p.quantity;
-    // DO NOT delete from pending here — keep entry alive during API call
+  const sentQty = p.quantity;
+  // DO NOT delete from pending here — keep entry alive during API call
 
-    try {
-      const serverCart = await authedFetchFn(`api/cart/items/${itemId}`, {
-        method: 'PATCH',
-        body: { quantity: sentQty },
-      });
-      serverCartRef.current = serverCart;
+  try {
+    const serverCart = await authedFetchFn(`api/cart/items/${itemId}`, {
+      method: 'PATCH',
+      body: { quantity: sentQty },
+    });
+    serverCartRef.current = serverCart;
 
-      // Only delete if user hasn't clicked again during the request
-      if (pending.get(itemId)?.quantity === sentQty) {
-        pending.delete(itemId);
-      }
-
-      queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
-      if (pending.size === 0) serverCartRef.current = null;
-    } catch {
-      // On error: only rollback this item if intent hasn't changed
-      if (pending.get(itemId)?.quantity === sentQty) {
-        pending.delete(itemId);
-      }
-      const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
-      queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
-      if (pending.size === 0) serverCartRef.current = null;
+    // Only delete if user hasn't clicked again during the request
+    if (pending.get(itemId)?.quantity === sentQty) {
+      pending.delete(itemId);
     }
+
+    queryClient.setQueryData(['cart'], applyPendingUpdates(serverCart, pending));
+    if (pending.size === 0) serverCartRef.current = null;
+  } catch {
+    // On error: only rollback this item if intent hasn't changed
+    if (pending.get(itemId)?.quantity === sentQty) {
+      pending.delete(itemId);
+    }
+    const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
+    queryClient.setQueryData(['cart'], applyPendingUpdates(rollback, pending));
+    if (pending.size === 0) serverCartRef.current = null;
+  }
 }, 500);
 ```
 
@@ -93,31 +93,31 @@ p.timer = setTimeout(async () => {
 
 ```typescript
 p.timer = setTimeout(async () => {
-    const sentQty = p.quantity;
-    // DO NOT delete from pending here
+  const sentQty = p.quantity;
+  // DO NOT delete from pending here
 
-    try {
-      const serverCart = await authedFetchFn('api/cart/items', {
-        method: 'POST',
-        body: { product_id: productId, quantity: sentQty },
-      });
-      serverCartRef.current = serverCart;
+  try {
+    const serverCart = await authedFetchFn('api/cart/items', {
+      method: 'POST',
+      body: { product_id: productId, quantity: sentQty },
+    });
+    serverCartRef.current = serverCart;
 
-      if (pending.get(productId)?.quantity === sentQty) {
-        pending.delete(productId);
-      }
-
-      const currentCache = queryClient.getQueryData<CartResponse>(['cart']);
-      queryClient.setQueryData(['cart'], reconcileWithPending(serverCart, pending, currentCache));
-    } catch {
-      if (pending.get(productId)?.quantity === sentQty) {
-        pending.delete(productId);
-      }
-      const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
-      const cache = queryClient.getQueryData<CartResponse>(['cart']);
-      queryClient.setQueryData(['cart'], reconcileWithPending(rollback, pending, cache));
-      onErrorRef.current?.();
+    if (pending.get(productId)?.quantity === sentQty) {
+      pending.delete(productId);
     }
+
+    const currentCache = queryClient.getQueryData<CartResponse>(['cart']);
+    queryClient.setQueryData(['cart'], reconcileWithPending(serverCart, pending, currentCache));
+  } catch {
+    if (pending.get(productId)?.quantity === sentQty) {
+      pending.delete(productId);
+    }
+    const rollback = serverCartRef.current ?? { ...EMPTY_CART, items: [] };
+    const cache = queryClient.getQueryData<CartResponse>(['cart']);
+    queryClient.setQueryData(['cart'], reconcileWithPending(rollback, pending, cache));
+    onErrorRef.current?.();
+  }
 }, 500);
 ```
 
@@ -125,18 +125,18 @@ p.timer = setTimeout(async () => {
 
 Item A (qty=3), Item B (qty=2). Header badge: 5.
 
-| Time | Event | `pending` Map | Header |
-|------|-------|---------------|--------|
-| t=0 | Click + on A | `{A: {qty:4}}` | **6** |
-| t=100ms | Click + on B | `{A: {qty:4}, B: {qty:3}}` | **7** |
-| t=500ms | Timer A fires, PATCH A sent | `{A: {qty:4}, B: {qty:3}}` (A kept!) | **7** |
-| t=600ms | Timer B fires, PATCH B sent | `{A: {qty:4}, B: {qty:3}}` (B kept!) | **7** |
-| t=~800ms | PATCH A response {A:4, B:2} | | |
-| | `sentQty(4) === pending.get(A).qty(4)` → delete A | `{B: {qty:3}}` | |
-| | `applyPendingUpdates({A:4,B:2}, {B:3})` → {A:4, B:3} | | **7** (no drop!) |
-| t=~900ms | PATCH B response {A:4, B:3} | | |
-| | `sentQty(3) === pending.get(B).qty(3)` → delete B | `{}` | |
-| | `applyPendingUpdates({A:4,B:3}, {})` → {A:4, B:3} | | **7** |
+| Time     | Event                                                | `pending` Map                        | Header           |
+| -------- | ---------------------------------------------------- | ------------------------------------ | ---------------- |
+| t=0      | Click + on A                                         | `{A: {qty:4}}`                       | **6**            |
+| t=100ms  | Click + on B                                         | `{A: {qty:4}, B: {qty:3}}`           | **7**            |
+| t=500ms  | Timer A fires, PATCH A sent                          | `{A: {qty:4}, B: {qty:3}}` (A kept!) | **7**            |
+| t=600ms  | Timer B fires, PATCH B sent                          | `{A: {qty:4}, B: {qty:3}}` (B kept!) | **7**            |
+| t=~800ms | PATCH A response {A:4, B:2}                          |                                      |                  |
+|          | `sentQty(4) === pending.get(A).qty(4)` → delete A    | `{B: {qty:3}}`                       |                  |
+|          | `applyPendingUpdates({A:4,B:2}, {B:3})` → {A:4, B:3} |                                      | **7** (no drop!) |
+| t=~900ms | PATCH B response {A:4, B:3}                          |                                      |                  |
+|          | `sentQty(3) === pending.get(B).qty(3)` → delete B    | `{}`                                 |                  |
+|          | `applyPendingUpdates({A:4,B:3}, {})` → {A:4, B:3}    |                                      | **7**            |
 
 ### Edge Case: User Clicks Again During API Call
 
@@ -149,8 +149,8 @@ Item A (qty=3), Item B (qty=2). Header badge: 5.
 
 ### Files Changed
 
-| File | Change |
-|------|--------|
+| File                               | Change                                                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `frontend/src/queries/use-cart.ts` | Move `pending.delete()` to after API response in both `useUpdateCartItem` and `useAddToCart`; add `sentQty` guard condition |
 
 ---
@@ -176,23 +176,23 @@ intentRef.current.set(itemId, newQty);
 
 // After API response:
 if (serverQty === intentRef.current.get(itemId)) {
-    intentRef.current.delete(itemId);  // Converged — clear intent
-    queryClient.setQueryData(['cart'], serverCart);  // Trust server
+  intentRef.current.delete(itemId); // Converged — clear intent
+  queryClient.setQueryData(['cart'], serverCart); // Trust server
 } else {
-    // User clicked again during request — re-send
-    debouncedPatch(itemId, intentRef.current.get(itemId));
+  // User clicked again during request — re-send
+  debouncedPatch(itemId, intentRef.current.get(itemId));
 }
 ```
 
 ### Key Differences from Approach A
 
-| Aspect | Approach A | Approach B |
-|--------|-----------|-----------|
-| Display source | TanStack Query cache (updated optimistically) | Intent store with cache fallback |
-| Vulnerability to external cache writes | Possible: other code calling `setQueryData(['cart'])` could overwrite | Immune: display reads from intent store, not cache |
-| Implementation scope | 2 hooks modified (~6 lines each) | Hooks + components modified; display logic changes |
-| Convergence | Implicit via debounce + pending Map | Explicit loop: compare → re-send → compare |
-| When to use | First-line fix; sufficient for the identified multi-item race | If Approach A still shows drops due to other cache writers (e.g., `invalidateQueries`, auth context, etc.) |
+| Aspect                                 | Approach A                                                            | Approach B                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Display source                         | TanStack Query cache (updated optimistically)                         | Intent store with cache fallback                                                                           |
+| Vulnerability to external cache writes | Possible: other code calling `setQueryData(['cart'])` could overwrite | Immune: display reads from intent store, not cache                                                         |
+| Implementation scope                   | 2 hooks modified (~6 lines each)                                      | Hooks + components modified; display logic changes                                                         |
+| Convergence                            | Implicit via debounce + pending Map                                   | Explicit loop: compare → re-send → compare                                                                 |
+| When to use                            | First-line fix; sufficient for the identified multi-item race         | If Approach A still shows drops due to other cache writers (e.g., `invalidateQueries`, auth context, etc.) |
 
 ### Implementation Steps (If Needed)
 
@@ -210,3 +210,149 @@ if (serverQty === intentRef.current.get(itemId)) {
 - Approach A is deployed but the badge still drops in production
 - New features introduce additional `setQueryData(['cart'])` or `invalidateQueries(['cart'])` calls that interfere with optimistic updates
 - The cart page is embedded in a layout that causes frequent re-mounts (triggering query refetches despite staleTime)
+
+---
+
+## Post-FIX-1b Hardening: Checkout Boundary Flush + Merged Snapshot
+
+After the earlier cart-race fixes were deployed, a new regression was found in the LINE checkout flow:
+
+- the shopper could see the correct cart on `/cart`
+- but after LINE Login, `/checkout/pending` could show fewer items
+
+This was not a contradiction of FIX-1/FIX-1b.
+It exposed a different implementation boundary: **checkout correctness requires the server-side snapshot to catch up with the optimistic UI before redirecting or creating the pending order.**
+
+### What `race-condition-fix-2.md` Already Fixed
+
+`documents/FIX-1/development/race-condition-fix-2.md` fixed the stale-response overwrite problem inside the optimistic cart cache:
+
+- stale full-cart responses should not remove newer optimistic items
+- confirmed items should survive out-of-order server snapshots
+- the UI cache should converge without silently dropping products
+
+That remains valid and is still part of the final system.
+
+### What Was Still Missing
+
+Two gaps remained:
+
+#### 1. Checkout could begin while debounced cart writes were still pending
+
+The cart UI used optimistic updates plus a 500 ms debounce.
+That meant a shopper could:
+
+1. rapidly add the same product multiple times on the homepage
+2. see the correct quantity in the UI
+3. immediately enter checkout
+
+At that moment, the backend could still be behind the UI.
+
+So the pending-order snapshot could be created from stale database state, even though the optimistic cache was correct.
+
+#### 2. Pending LINE snapshots originally used only the current `sessionId`
+
+For signed-in users, `/cart` reads a merged cart across:
+
+- current `sessionId`
+- all sessions linked to the authenticated user
+
+But the original pending-order snapshot path only used the current `sessionId`.
+
+So a signed-in user could see the merged cart on `/cart`, while the pending-order snapshot captured only one session's rows.
+
+### Final Implementation Added
+
+#### A. Global flush support for debounced cart mutations
+
+The debounced mutation infrastructure now exposes:
+
+- `flushPendingCartMutations()`
+
+Implementation details:
+
+- every debounced cart hook registers a controller in a module-level registry
+- each controller can flush its pending timers immediately
+- if a request is already in flight for the same quantity, flush waits for it
+- after flush, checkout invalidates the cart query so the next read comes from committed server state
+
+Current implementation file:
+
+- `frontend/src/queries/use-debounced-cart-mutation.ts`
+
+This is broader than the original FIX-1 implementation, which lived conceptually inside `use-cart.ts`.
+The final code now centralizes the behavior in the generic debounced-mutation hook.
+
+#### B. Checkout now flushes before doing anything else
+
+The checkout flow now starts with:
+
+```typescript
+await flushPendingCartMutations();
+await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+```
+
+Current implementation file:
+
+- `frontend/src/features/checkout/use-checkout-flow.ts`
+
+This applies to:
+
+- LINE checkout
+- credit-card checkout
+
+So the fix is not LINE-specific.
+It protects any order path that depends on cart correctness.
+
+#### C. Pending LINE checkout snapshots now use merged cart semantics
+
+The backend now reads the cart snapshot with:
+
+- `sessionId`
+- plus `userId` when the shopper is already authenticated
+
+Current implementation files:
+
+- `backend/src/order/order.service.ts`
+- `backend/src/auth/auth.controller.ts`
+
+That makes the pending-order snapshot match the same merged cart model used by `/cart`.
+
+### Final Outcome
+
+The full protection is now layered:
+
+1. **FIX-1**
+   - do not delete pending intent before reconciliation
+
+2. **FIX-1b**
+   - do not let stale full-cart responses erase newer optimistic cache state
+
+3. **Checkout-boundary hardening**
+   - flush pending debounced writes before checkout
+   - build pending snapshots from the merged cart visible to the shopper
+
+### Additional Files Changed in the Final Form
+
+| File                                                  | Role in the final solution                                        |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
+| `frontend/src/queries/use-debounced-cart-mutation.ts` | Adds the shared flush registry and flush execution path           |
+| `frontend/src/features/checkout/use-checkout-flow.ts` | Flushes and refreshes cart state before any checkout path         |
+| `backend/src/order/order.service.ts`                  | Supports reading cart snapshot with optional `userId`             |
+| `backend/src/auth/auth.controller.ts`                 | Builds pending LINE checkout snapshots with merged cart semantics |
+
+### Residual Risks
+
+The current implementation covers the known regression, but a few limitations remain:
+
+#### 1. Browser termination before flush
+
+If the shopper closes the tab or the app process is killed before the debounce fires, the optimistic item may still never reach the server.
+
+#### 2. New checkout entrypoints must reuse the flush step
+
+Any future order flow that bypasses `useCheckoutFlow()` must explicitly flush pending cart mutations first.
+
+#### 3. New debounced cart hooks must participate in the shared registry
+
+If a future cart mutation path uses debounce but does not register in the shared flush mechanism, checkout can again snapshot stale state.

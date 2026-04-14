@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { redirectTo } from '@/lib/browser-navigation';
 import { useConfirmOrder, useCreateOrder, useLineSend } from '@/queries/use-checkout';
 import { QUERY_KEYS } from '@/queries/query-keys';
+import { flushPendingCartMutations } from '@/queries/use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import { CartFormValues, shouldStartLineLogin, toCreateOrderBody } from './cart-form';
 
@@ -48,6 +49,9 @@ export function useCheckoutFlow() {
 
   const submitCheckout = useCallback(
     async (values: CartFormValues): Promise<CheckoutSubmitResult> => {
+      await flushPendingCartMutations();
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+
       if (shouldStartLineLogin(values, hasLineUserId)) {
         const { pendingId } = await authedFetchFn<{ pendingId: string }>('api/auth/line/start', {
           method: 'POST',

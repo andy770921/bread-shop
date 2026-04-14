@@ -130,7 +130,7 @@ export class AuthController {
     // on mobile (LINE in-app browser, Safari ITP). The snapshot is used for:
     // 1. Displaying order details on the pending confirmation page
     // 2. Fallback for order creation if the session cart is empty after redirect
-    const cart = await this.orderService.getCartForSession(sessionId);
+    const cart = await this.orderService.getCartForSession(sessionId, linkUserId || undefined);
     const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
       _cart_snapshot: cart,

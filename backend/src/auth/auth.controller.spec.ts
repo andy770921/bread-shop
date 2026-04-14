@@ -191,6 +191,7 @@ describe('AuthController', () => {
       });
 
       expect(getUser).toHaveBeenCalledWith('existing-token');
+      expect(orderService.getCartForSession).toHaveBeenCalledWith('session-1', 'bread-user-1');
       expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
         customerName: 'Linked User',
         _cart_snapshot: cartSnapshot,

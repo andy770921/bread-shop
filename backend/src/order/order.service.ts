@@ -19,8 +19,8 @@ export class OrderService {
     private cartService: CartService,
   ) {}
 
-  async getCartForSession(sessionId: string) {
-    return this.cartService.getCart(sessionId);
+  async getCartForSession(sessionId: string, userId?: string) {
+    return this.cartService.getCart(sessionId, userId);
   }
 
   async createOrder(
