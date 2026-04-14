@@ -431,9 +431,14 @@ export class AuthController {
     }
 
     // Return cart snapshot + customer info (strip internal auth fields)
-    const { _line_user_id, _link_user_id, _user_id, _cart_snapshot, ...customerData } = fd;
+    const cartSnapshot = fd._cart_snapshot || null;
+    const customerData = { ...fd };
+    delete customerData._line_user_id;
+    delete customerData._link_user_id;
+    delete customerData._user_id;
+    delete customerData._cart_snapshot;
     return {
-      cart: _cart_snapshot || null,
+      cart: cartSnapshot,
       customer: customerData,
     };
   }
