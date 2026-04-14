@@ -1,130 +1,169 @@
-# Plan: Account Linking — Link LINE to Existing Bread Shop Account
+# Plan: Link LINE to the Existing Bread Shop Account
 
 ## Problem
 
-When a logged-in Bread Shop user (e.g., `test@papabakery.com`) clicks the LINE CTA, the current LINE Login flow creates a **separate** `line_xxx@line.local` account. The order is placed under the LINE account, not the original Bread Shop account. The user cannot find their order when logging back in with their email.
+The current cart LINE checkout flow already uses:
 
-| User State Before CTA | After LINE Login | Order `user_id` | Can Find Order? |
+- `POST /api/auth/line/start` to store form data in `pending_line_orders`
+- `GET /api/auth/line?pending=...` to redirect to LINE Login
+- `GET /api/auth/line/callback` to create the order server-side
+
+That flow works for guests, but it breaks for a logged-in email/password user who does **not** yet have `profiles.line_user_id`.
+
+Current behavior:
+
+| User state before CTA | After LINE Login | Order `user_id` | Result |
 |---|---|---|---|
-| Not logged in | New `line_xxx@line.local` account created | LINE account | Only via LINE Login |
-| Logged in as `test@papabakery.com` | **Switched** to `line_xxx@line.local` | LINE account | **No** — lost under email login |
+| Guest | New `line_xxx@line.local` account | LINE account | Expected |
+| Logged in as `test@papabakery.com` | Switched to `line_xxx@line.local` | LINE account | Wrong account owns the order |
+
+The order is then invisible from `/orders` when the user logs back in with email.
 
 ## Goal
 
-When a user is **already logged in** to Bread Shop, LINE Login should **link** the LINE account to their existing account (store `line_user_id` in their profile) instead of creating a separate account. The order should be placed under the original Bread Shop account.
+When a logged-in Bread Shop user clicks the LINE CTA from the cart:
 
-| User State Before CTA | After LINE Login | Order `user_id` | Can Find Order? |
+- link the LINE profile to the **existing** Bread Shop account
+- keep the order under the original Bread Shop `user_id`
+- keep the guest flow unchanged
+
+Target behavior:
+
+| User state before CTA | After LINE Login | Order `user_id` | Result |
 |---|---|---|---|
-| Not logged in | New `line_xxx@line.local` account created | LINE account | Via LINE Login |
-| Logged in as `test@papabakery.com` | **Same account**, `line_user_id` added to profile | Original account | **Yes** — via email or LINE |
+| Guest | New `line_xxx@line.local` account | LINE account | Unchanged |
+| Logged in as `test@papabakery.com` | Same account, `line_user_id` added | Original account | Order remains visible from email login |
+
+## Current Architecture Constraint
+
+This feature must fit the **existing** FEAT-2 checkout architecture:
+
+- The cart form is stored server-side in `pending_line_orders`
+- The OAuth `state` currently carries a signed `pendingId`, not arbitrary JWT payload
+- The backend callback may immediately create the order, or redirect to `/checkout/pending`
+- The frontend no longer relies on localStorage form restore for the LINE cart flow
+
+Because that infrastructure already exists, adding a second JWT-based state design is unnecessary and would drift from the real code path.
 
 ## Design
 
-### Key Insight: Pass Current User Context Through OAuth Flow
+### Key Idea
 
-The LINE OAuth flow is a full-page redirect. The browser leaves the app, goes to LINE, and comes back. The current user's identity must survive this round-trip.
+Persist the original logged-in user ID inside the existing pending order record.
 
-**Mechanism:** Use the OAuth `state` parameter to carry an encrypted reference to the current user session. The backend generates the state, stores the current user ID alongside it, and verifies it when the callback returns.
+When `POST /api/auth/line/start` receives a valid Bearer token:
 
-### Flow: Logged-In User
+- validate the token
+- store the original Bread Shop user ID in `pending_line_orders.form_data._link_user_id`
 
-```
-1. User logged in as test@papabakery.com (has access_token in localStorage)
-2. Clicks "透過 LINE 聯繫" CTA
-3. Frontend: saves form data + access_token to localStorage
-4. Frontend: redirects to /api/auth/line?link=true
-   (sends existing Bearer token via the frontend proxy)
-5. Backend GET /api/auth/line?link=true:
-   a. Reads Bearer token from Authorization header → validates → gets userId
-   b. Generates state = randomUUID()
-   c. Stores { state → userId } in a server-side map (or Supabase table)
-   d. Redirects to LINE OAuth with this state
-6. LINE OAuth → user authenticates → callback
-7. Backend GET /api/auth/line/callback?code=...&state=...:
-   a. Looks up state → finds stored userId (the original Bread Shop user)
-   b. Exchanges code for LINE tokens → fetches LINE profile
-   c. Updates profiles SET line_user_id = lineProfile.userId WHERE id = storedUserId
-   d. Signs in the ORIGINAL user (not a new line_xxx account)
-   e. Returns tokens for the original account (with line_user_id now set)
-8. Frontend callback: receives tokens → creates order under original account
-```
+The callback already reads the pending order before completing LINE login, so it can use `_link_user_id` to decide whether to:
 
-### Flow: Not Logged-In User (Unchanged)
+- create/sign in a `line_xxx@line.local` account, or
+- link the LINE account to the original Bread Shop user
 
-```
-1. User not logged in
-2. Clicks CTA → redirects to /api/auth/line (no ?link=true, no Bearer token)
-3. Backend: no stored userId → normal flow
-4. LINE Login → creates/signs in line_xxx@line.local account
-5. Callback: order created under LINE account
+### Logged-In User Flow
+
+```text
+1. User is already logged in as test@papabakery.com
+2. Cart submits LINE checkout
+3. Frontend POST /api/auth/line/start with Bearer token
+4. Backend validates token and stores:
+   - customer form data
+   - _cart_snapshot
+   - _link_user_id = original Bread Shop user id
+5. Frontend redirects to /api/auth/line?pending=<pendingId>
+6. Backend signs pendingId into OAuth state using existing HMAC scheme
+7. LINE OAuth redirects back to /api/auth/line/callback
+8. Backend reads pending order, extracts _link_user_id
+9. authService.handleLineLogin(..., linkToUserId) links LINE to that user
+10. Backend creates the order under the original Bread Shop user
+11. Success/pending redirect does not overwrite the browser's original access token
 ```
 
-### State Storage: Serverless-Safe
+### Guest Flow
 
-The `state → userId` mapping must persist across Lambda invocations (same issue as the one-time code problem from `send-line-to-user-fix.md`). Options:
-
-| Option | Pros | Cons |
-|---|---|---|
-| **Supabase table** (`oauth_states`) | Persistent, serverless-safe | Requires migration, cleanup job |
-| **Encode userId in state** (signed JWT) | No storage needed | State becomes long, must verify signature |
-| **Supabase table with TTL** | Self-cleaning | Slightly more complex migration |
-
-**Recommended:** Encode the userId in the state as a signed JWT. The backend signs a short-lived JWT containing `{ userId, nonce }` using `LINE_LOGIN_CHANNEL_SECRET` as the signing key. On callback, verify the signature and extract the userId. No database storage needed, no Lambda statefulness required.
-
-```typescript
-// Generate state (in GET /api/auth/line):
-const payload = { userId: currentUserId, nonce: randomUUID() };
-const state = jwt.sign(payload, channelSecret, { expiresIn: '5m' });
-
-// Verify state (in GET /api/auth/line/callback):
-try {
-  const { userId } = jwt.verify(state, channelSecret);
-  // userId is the original Bread Shop user → link LINE to this account
-} catch {
-  // Invalid/expired state → treat as new user flow
-}
+```text
+1. Guest submits LINE checkout
+2. /api/auth/line/start stores form data + cart snapshot only
+3. Callback sees no _link_user_id
+4. Existing behavior stays the same:
+   - create/sign in line_xxx@line.local
+   - create order under that LINE account
 ```
 
-### Edge Cases
+## Linking Rules
+
+When `linkToUserId` is present in `handleLineLogin`:
+
+1. Fetch the LINE profile from LINE Login as usual
+2. Check whether `profiles.line_user_id = lineProfile.userId` already exists
+3. Load the target Bread Shop profile (`linkToUserId`)
+4. Apply the following rules:
 
 | Scenario | Behavior |
 |---|---|
-| LINE userId already linked to a **different** Bread Shop account | Return error: "This LINE account is already linked to another user" |
-| User already has `line_user_id` in profile (re-linking) | Skip — already linked, proceed to sign in |
-| State JWT expired (>5 min) | Fall back to new-user flow (create `line_xxx` account) |
-| State JWT tampered | Fall back to new-user flow |
-| User clicks CTA when not logged in | No `?link=true`, no Bearer token → normal new-user flow |
+| LINE account already linked to another Bread Shop user | Fail with clear error |
+| Bread Shop account already linked to a different LINE account | Fail with clear error |
+| Bread Shop account already linked to the same LINE account | Treat as already linked |
+| Bread Shop account has no LINE link yet | Update `profiles.line_user_id` |
 
-### Database Changes
+Additional rule:
 
-None required. The existing `profiles.line_user_id` column is sufficient. The state is encoded in the JWT, not stored in the database.
+- Do **not** overwrite an existing Bread Shop profile name with the LINE display name
+- Only backfill `profiles.name` from LINE when the current name is empty
 
-### Backend Changes
+## Session Handling
+
+For the link flow, the backend does **not** mint a fresh Supabase session for the original user.
+
+Instead:
+
+- the original Bread Shop browser session is preserved
+- redirect URLs omit `#access_token=...` when no new session was created
+- the frontend keeps using the original token already stored in localStorage
+
+Why:
+
+- Supabase does not provide a simple, clean "issue session for arbitrary existing user" API for this use case
+- the cart LINE flow already runs in the same browser context that initiated the checkout
+- preserving the existing token is the smallest change that matches the current app architecture
+
+## Data / Schema Impact
+
+No migration is required for this feature.
+
+Existing schema already supports it:
+
+- `profiles.line_user_id`
+- `pending_line_orders.form_data`
+- `orders.user_id`
+
+Internal pending-order fields used by this flow:
+
+- `_cart_snapshot`
+- `_link_user_id`
+- `_user_id`
+- `_line_user_id`
+
+## Files To Change
 
 | File | Change |
 |---|---|
-| `auth.controller.ts` — `GET /api/auth/line` | Accept `?link=true` query param; read Bearer token; encode userId in state JWT |
-| `auth.controller.ts` — `GET /api/auth/line/callback` | Decode state JWT; if userId present, link LINE to existing account instead of creating new |
-| `auth.service.ts` | New method: `linkLineToUser(userId, lineUserId, displayName)` — updates profile |
-| `auth.service.ts` — `handleLineLogin` | Add `linkToUserId?: string` parameter; when set, skip user creation and link instead |
+| `backend/src/auth/auth.controller.ts` | Store `_link_user_id` during `line/start`; read it in callback; omit auth hash for link flow |
+| `backend/src/auth/auth.service.ts` | Add `linkToUserId?: string` branch in `handleLineLogin` |
+| `frontend/src/app/cart/page.tsx` | Surface backend error messages from `line/start` |
 
-### Frontend Changes
+## Risks / Residual Gaps
 
-| File | Change |
+| Risk | Notes |
 |---|---|
-| `cart/page.tsx` — `onSubmit` | When user is logged in (`user` exists) AND `!hasLineUserId`, redirect to `/api/auth/line?link=true` instead of `/api/auth/line`. Save current `access_token` alongside form data. |
-| `auth/callback/page.tsx` | No change — the callback already handles tokens from the hash fragment and creates orders |
+| `profiles.line_user_id` still has no DB uniqueness constraint | Code checks prevent most collisions, but DB constraint would harden it |
+| Existing browser token is assumed to survive the OAuth round-trip | This matches normal app login persistence, but is still a browser-level dependency |
+| Account merging remains unsupported | If someone already has orders under both email and `line_xxx@line.local`, histories stay separate |
 
-### Security Considerations
+## Out Of Scope
 
-- **State JWT signed with `LINE_LOGIN_CHANNEL_SECRET`** — cannot be forged without knowing the secret
-- **5-minute TTL** — limits replay window
-- **One-time nonce** — the nonce in the JWT prevents reuse (optional: store used nonces in a Set with TTL)
-- **Bearer token validation** — the backend validates the existing token before encoding the userId
-- **LINE userId uniqueness check** — prevents linking one LINE account to multiple Bread Shop accounts
-
-## Out of Scope
-
-- **Unlinking LINE from account** — not needed for the checkout flow
-- **Merging two existing accounts** — if a user already has both a Bread Shop account and a `line_xxx` account with orders, merging order history is complex and deferred
-- **LINE Login from the login page** — this plan only covers the cart CTA flow
+- Unlink LINE from an account
+- Merge two existing user histories
+- Rework the login-page LINE flow
+- Add a new OAuth state table or JWT state format just for this feature

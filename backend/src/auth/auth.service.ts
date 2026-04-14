@@ -4,6 +4,12 @@ import { createHash } from 'crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthResponse } from '@repo/shared';
 
+type LineLoginResult = AuthResponse & {
+  lineAccessToken: string;
+  lineUserId: string;
+  preserveExistingSession?: boolean;
+};
+
 @Injectable()
 export class AuthService {
   private oneTimeCodes = new Map<string, { tokens: AuthResponse; expiresAt: number }>();
@@ -105,7 +111,8 @@ export class AuthService {
   async handleLineLogin(
     code: string,
     backendOrigin: string,
-  ): Promise<AuthResponse & { lineAccessToken: string; lineUserId: string }> {
+    linkToUserId?: string,
+  ): Promise<LineLoginResult> {
     const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
     const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
 
@@ -147,7 +154,65 @@ export class AuthService {
       .from('profiles')
       .select('id')
       .eq('line_user_id', lineProfile.userId)
-      .single();
+      .maybeSingle();
+
+    if (linkToUserId) {
+      const { data: targetProfile } = await supabase
+        .from('profiles')
+        .select('id, name, line_user_id')
+        .eq('id', linkToUserId)
+        .maybeSingle();
+
+      if (!targetProfile) {
+        throw new BadRequestException('Original user not found');
+      }
+
+      if (existingProfile && existingProfile.id !== linkToUserId) {
+        throw new BadRequestException('This LINE account is already linked to another user.');
+      }
+
+      if (targetProfile.line_user_id && targetProfile.line_user_id !== lineProfile.userId) {
+        throw new BadRequestException(
+          'This Bread Shop account is already linked to a different LINE account.',
+        );
+      }
+
+      if (!targetProfile.line_user_id) {
+        const profileUpdates: { line_user_id: string; name?: string } = {
+          line_user_id: lineProfile.userId,
+        };
+        if (!targetProfile.name) {
+          profileUpdates.name = lineProfile.displayName;
+        }
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', linkToUserId);
+
+        if (updateError) {
+          throw new BadRequestException('Failed to link LINE account: ' + updateError.message);
+        }
+      }
+
+      const {
+        data: { user: linkedUser },
+        error: linkedUserError,
+      } = await supabase.auth.admin.getUserById(linkToUserId);
+
+      if (linkedUserError || !linkedUser?.email) {
+        throw new BadRequestException('Original user not found');
+      }
+
+      return {
+        user: { id: linkedUser.id, email: linkedUser.email },
+        access_token: '',
+        refresh_token: '',
+        lineAccessToken: lineTokens.access_token,
+        lineUserId: lineProfile.userId,
+        preserveExistingSession: true,
+      };
+    }
 
     const lineEmail = `line_${lineProfile.userId}@line.local`;
     // bcrypt has a 72-byte limit; hash the secret material to stay within it

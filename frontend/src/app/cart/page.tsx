@@ -183,8 +183,10 @@ function CartContent() {
           body: { form_data: values },
         });
         window.location.href = `/api/auth/line?pending=${pendingId}`;
-      } catch {
-        toast.error(t('checkout.lineLoginFailed'));
+      } catch (error: any) {
+        const msg = error?.body?.message;
+        const message = Array.isArray(msg) ? msg[0] : msg || error?.message;
+        toast.error(message || t('checkout.lineLoginFailed'));
       }
       return;
     }

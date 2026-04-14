@@ -80,6 +80,21 @@ export class AuthController {
     if (!sessionId) {
       throw new UnauthorizedException('No session');
     }
+    let linkUserId: string | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const {
+        data: { user },
+        error,
+      } = await this.supabaseService.getClient().auth.getUser(token);
+
+      if (error || !user) {
+        throw new UnauthorizedException('Login expired. Please sign in again.');
+      }
+
+      linkUserId = user.id;
+    }
     // Strip _ prefixed fields from client data to prevent injection of internal fields
     const safeFormData = Object.fromEntries(
       Object.entries(body.form_data).filter(([k]) => !k.startsWith('_')),
@@ -89,10 +104,14 @@ export class AuthController {
     // 1. Displaying order details on the pending confirmation page
     // 2. Fallback for order creation if the session cart is empty after redirect
     const cart = await this.orderService.getCartForSession(sessionId);
-    const pendingId = await this.authService.storePendingOrder(sessionId, {
+    const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
       _cart_snapshot: cart,
-    });
+    };
+    if (linkUserId) {
+      pendingFormData._link_user_id = linkUserId;
+    }
+    const pendingId = await this.authService.storePendingOrder(sessionId, pendingFormData);
     return { pendingId };
   }
 
@@ -185,8 +204,13 @@ export class AuthController {
         }
       }
 
+      const linkToUserId =
+        pending && typeof pending.form_data._link_user_id === 'string'
+          ? (pending.form_data._link_user_id as string)
+          : undefined;
+
       // LINE Login: exchange code, create/sign-in user
-      const result = await this.authService.handleLineLogin(code, backendOrigin);
+      const result = await this.authService.handleLineLogin(code, backendOrigin, linkToUserId);
 
       if (pending && pendingId) {
         const isFriend = await this.checkLineFriendship(result.lineUserId);
@@ -200,11 +224,10 @@ export class AuthController {
             lineUserId: result.lineUserId,
             userId: result.user.id,
           });
-          const tokenParams = new URLSearchParams({
-            access_token: result.access_token,
-            refresh_token: result.refresh_token,
-          });
-          const pendingUrl = `${frontendUrl}/checkout/pending?pendingId=${pendingId}#${tokenParams.toString()}`;
+          const pendingUrl = this.withAuthHash(
+            `${frontendUrl}/checkout/pending?pendingId=${pendingId}`,
+            result,
+          );
           res.redirect(pendingUrl);
           return;
         }
@@ -315,8 +338,8 @@ export class AuthController {
     pending: { session_id: string; form_data: Record<string, unknown> },
     authResult: {
       user: { id: string; email: string };
-      access_token: string;
-      refresh_token: string;
+      access_token?: string;
+      refresh_token?: string;
     },
     frontendUrl: string,
   ): Promise<string> {
@@ -383,12 +406,13 @@ export class AuthController {
       // Non-critical
     }
 
-    // Return success URL with auth tokens in hash fragment
-    const tokenParams = new URLSearchParams({
+    // Return success URL with auth tokens in hash fragment when a new session
+    // was issued (guest/new LINE account flow). Linked-account flow keeps the
+    // original Bread Shop token in localStorage.
+    return this.withAuthHash(`${frontendUrl}/checkout/success?order=${order.order_number}`, {
       access_token: authResult.access_token,
       refresh_token: authResult.refresh_token,
     });
-    return `${frontendUrl}/checkout/success?order=${order.order_number}#${tokenParams.toString()}`;
   }
 
   /**
@@ -407,7 +431,7 @@ export class AuthController {
     }
 
     // Return cart snapshot + customer info (strip internal auth fields)
-    const { _line_user_id, _user_id, _cart_snapshot, ...customerData } = fd;
+    const { _line_user_id, _link_user_id, _user_id, _cart_snapshot, ...customerData } = fd;
     return {
       cart: _cart_snapshot || null,
       customer: customerData,
@@ -468,5 +492,21 @@ export class AuthController {
     const tokens = await this.authService.consumeOneTimeCode(body.code);
     if (!tokens) throw new UnauthorizedException('Invalid or expired code');
     return tokens;
+  }
+
+  private withAuthHash(
+    url: string,
+    auth: { access_token?: string; refresh_token?: string },
+  ): string {
+    if (!auth.access_token) {
+      return url;
+    }
+
+    const tokenParams = new URLSearchParams({ access_token: auth.access_token });
+    if (auth.refresh_token) {
+      tokenParams.set('refresh_token', auth.refresh_token);
+    }
+
+    return `${url}#${tokenParams.toString()}`;
   }
 }

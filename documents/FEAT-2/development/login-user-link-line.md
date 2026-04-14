@@ -1,331 +1,202 @@
-# Implementation: Account Linking — Link LINE to Existing Bread Shop Account
+# Implementation: Link Logged-In Users to Their Existing Bread Shop Account
 
-See `documents/FEAT-2/plans/login-user-link-line.md` for the full plan and design rationale.
+See `documents/FEAT-2/plans/login-user-link-line.md` for the problem statement and target behavior.
 
-## Overview
+## Why The Earlier Draft Was Wrong
 
-When a logged-in Bread Shop user clicks the LINE CTA, pass their user ID through the OAuth state parameter (as a signed JWT). On callback, link the LINE account to their existing profile instead of creating a new account.
+The older draft assumed a different architecture:
 
-## Step 1: Install JWT Library
+- frontend saves form data locally
+- OAuth `state` carries a JWT with `userId`
+- callback returns tokens for the original user
+- frontend creates the order after the callback
 
-The backend already uses Supabase Auth (which uses JWTs internally), but we need a library to sign/verify our own short-lived JWTs for the OAuth state parameter.
+That is no longer how the real codebase works.
 
-```bash
-cd backend && npm install jsonwebtoken && npm install -D @types/jsonwebtoken
-```
+Current codebase already has:
 
-`jsonwebtoken` is lightweight (~30KB) and widely used. The alternative (using Node.js `crypto` to create HMAC-signed tokens manually) avoids a dependency but is more error-prone.
+- `pending_line_orders`
+- `POST /api/auth/line/start`
+- HMAC-signed `pendingId` in OAuth `state`
+- server-side order creation inside `GET /api/auth/line/callback`
+- `/checkout/pending` for the "not friend yet" path
 
-## Step 2: Backend — Encode User ID in OAuth State
+So the implementation must extend that existing flow rather than introduce a parallel JWT-state design.
 
-**File:** `backend/src/auth/auth.controller.ts` — `lineLogin` method
+## Final Approach
 
-Currently the state is a random UUID:
-```typescript
-const state = randomUUID();
-```
+### 1. Store the original logged-in user in the pending order
 
-Change to: if the request has a valid Bearer token AND `?link=true`, encode the user ID into the state.
+File: `backend/src/auth/auth.controller.ts`
 
-```typescript
-import jwt from 'jsonwebtoken';
+Inside `POST /api/auth/line/start`:
 
-@Get('line')
-async lineLogin(
-  @Query('link') link: string,
-  @Req() req: Request,
-  @Res() res: Response,
-) {
-  const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
-  const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.get('host');
-  const redirectUri = encodeURIComponent(`${protocol}://${host}/api/auth/line/callback`);
+- read `Authorization: Bearer ...` when present
+- validate it with Supabase
+- if valid, store `_link_user_id` in `pending_line_orders.form_data`
+- if a Bearer token is present but invalid, return `401 Login expired. Please sign in again.`
 
-  let state: string;
+The endpoint still strips all client-supplied `_` fields before saving.
 
-  if (link === 'true') {
-    // Attempt to read the current user from the Bearer token
-    const authHeader = req.headers.authorization;
-    let currentUserId: string | null = null;
+Resulting internal payload shape:
 
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const supabase = this.supabaseService.getClient();
-      const { data: { user } } = await supabase.auth.getUser(token);
-      if (user) currentUserId = user.id;
-    }
-
-    if (currentUserId) {
-      // Encode userId in state as a signed JWT
-      state = jwt.sign(
-        { userId: currentUserId, nonce: randomUUID() },
-        channelSecret,
-        { expiresIn: '5m' },
-      );
-    } else {
-      // Token invalid/expired — fall back to normal flow
-      state = randomUUID();
-    }
-  } else {
-    state = randomUUID();
-  }
-
-  const lineAuthUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${encodeURIComponent(state)}&scope=profile%20openid`;
-  res.redirect(lineAuthUrl);
+```ts
+{
+  customerName: '...',
+  customerPhone: '...',
+  customerAddress: '...',
+  lineId: '...',
+  _cart_snapshot: { ... },
+  _link_user_id: 'existing-bread-shop-user-id' // only for logged-in users
 }
 ```
 
-**Note:** The state JWT is signed with `LINE_LOGIN_CHANNEL_SECRET`, making it unforgeable. It has a 5-minute TTL.
+### 2. Read `_link_user_id` during the callback
 
-## Step 3: Backend — Decode State and Link Account on Callback
+File: `backend/src/auth/auth.controller.ts`
 
-**File:** `backend/src/auth/auth.controller.ts` — `lineCallback` method
+The callback already reads the pending order before `handleLineLogin()`.
 
-Add state decoding before `handleLineLogin`:
+Add:
 
-```typescript
-@Get('line/callback')
-async lineCallback(
-  @Query('code') code: string,
-  @Query('state') state: string,
-  @Req() req: Request,
-  @Res() res: Response,
-) {
-  const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-  // ... env check ...
+```ts
+const linkToUserId =
+  pending && typeof pending.form_data._link_user_id === 'string'
+    ? pending.form_data._link_user_id
+    : undefined;
 
-  try {
-    const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
-
-    // Decode state — check if this is an account linking flow
-    let linkToUserId: string | undefined;
-    try {
-      const payload = jwt.verify(state, channelSecret) as { userId: string };
-      if (payload.userId) {
-        linkToUserId = payload.userId;
-      }
-    } catch {
-      // Not a JWT state (normal flow) or expired — proceed without linking
-    }
-
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-    const host = req.get('host');
-    const backendOrigin = `${protocol}://${host}`;
-
-    const result = await this.authService.handleLineLogin(code, backendOrigin, linkToUserId);
-
-    // ... session merge, redirect with hash tokens ...
-  } catch (err) {
-    // ... error redirect ...
-  }
-}
+const result = await this.authService.handleLineLogin(code, backendOrigin, linkToUserId);
 ```
 
-## Step 4: Backend — handleLineLogin with Account Linking
+No new OAuth-state format is needed. The existing HMAC-signed `pendingId` remains the only thing encoded in `state`.
 
-**File:** `backend/src/auth/auth.service.ts` — `handleLineLogin` method
+### 3. Add a "link existing account" branch to `handleLineLogin`
 
-Add a `linkToUserId` parameter. When provided, link the LINE profile to the existing user instead of creating a new account.
+File: `backend/src/auth/auth.service.ts`
 
-```typescript
-async handleLineLogin(
-  code: string,
-  backendOrigin: string,
-  linkToUserId?: string,
-): Promise<AuthResponse> {
-  const channelId = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_ID');
-  const channelSecret = this.configService.getOrThrow('LINE_LOGIN_CHANNEL_SECRET');
+`handleLineLogin()` now accepts:
 
-  // Exchange code for LINE tokens (unchanged)
-  const tokenResponse = await fetch('https://api.line.me/oauth2/v2.1/token', { ... });
-  const lineTokens = await tokenResponse.json();
-  if (lineTokens.error) throw new BadRequestException(...);
-
-  // Fetch LINE profile (unchanged)
-  const profileResponse = await fetch('https://api.line.me/v2/profile', { ... });
-  const lineProfile = await profileResponse.json();
-
-  const supabase = this.supabaseService.getClient();
-
-  // Check if this LINE userId is already linked to ANY account
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('line_user_id', lineProfile.userId)
-    .single();
-
-  // --- ACCOUNT LINKING FLOW ---
-  if (linkToUserId) {
-    if (existingProfile && existingProfile.id !== linkToUserId) {
-      // LINE account already linked to a DIFFERENT user
-      throw new BadRequestException('This LINE account is already linked to another user');
-    }
-
-    if (!existingProfile || existingProfile.id === linkToUserId) {
-      // Link LINE to the existing Bread Shop account
-      await supabase
-        .from('profiles')
-        .update({
-          line_user_id: lineProfile.userId,
-          name: lineProfile.displayName, // optionally update name
-        })
-        .eq('id', linkToUserId);
-    }
-
-    // Sign in as the ORIGINAL user (not a new line_xxx account)
-    // Use admin API to get a session for the existing user
-    const { data: userData } = await supabase.auth.admin.getUserById(linkToUserId);
-    if (!userData.user) throw new BadRequestException('Original user not found');
-
-    // Generate a new session for the original user
-    // We need to sign in — but the original user might use email/password.
-    // Use admin.generateLink or a workaround:
-    const { data: session, error: sessionError } =
-      await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email: userData.user.email!,
-      });
-
-    // Alternative approach: if the above doesn't return a session directly,
-    // use the admin API to create a session token.
-    // This depends on Supabase version — see Implementation Notes below.
-
-    return {
-      user: { id: userData.user.id, email: userData.user.email! },
-      access_token: '...', // see Implementation Notes
-      refresh_token: '...',
-    };
-  }
-
-  // --- EXISTING FLOW (no linking) ---
-  // ... existing code for creating/signing in line_xxx@line.local account ...
-}
+```ts
+handleLineLogin(code: string, backendOrigin: string, linkToUserId?: string)
 ```
 
-### Implementation Notes: Generating a Session for the Original User
+When `linkToUserId` is set:
 
-The challenge: after LINE OAuth, we need to return an `access_token` for the **original** Bread Shop user (e.g., `test@papabakery.com`), not for a new `line_xxx@line.local` user.
+1. exchange the LINE auth code as usual
+2. fetch the LINE profile as usual
+3. load any existing profile already using that `line_user_id`
+4. load the target Bread Shop profile by `linkToUserId`
+5. enforce these checks:
 
-Supabase Auth doesn't have a direct "create session for user by ID" admin API. Options:
-
-**Option A: Use `signInWithPassword` with the original user's credentials**
-- Problem: We don't have the user's password.
-
-**Option B: Use Supabase Admin API to generate a link and extract the token**
-```typescript
-const { data } = await supabase.auth.admin.generateLink({
-  type: 'magiclink',
-  email: userData.user.email!,
-});
-// data.properties.hashed_token can be used to verify and create a session
-```
-- Requires additional token exchange logic.
-
-**Option C: Set a known password for linking, then sign in**
-- Not recommended — security risk.
-
-**Option D: Use Supabase's `admin.updateUserById` to set a temporary token**
-- Not directly supported.
-
-**Recommended: Option B** with the `generateLink` API. The magic link contains a token that can be used to create a session. This is the cleanest approach that doesn't require knowing the user's password.
-
-Alternative: Store the original user's `access_token` in localStorage before the redirect (the frontend already has it). Pass it back to the callback page, and use it directly for order creation without re-authenticating. This avoids the server-side session generation problem entirely.
-
-**Simplest approach (frontend-side):**
-```
-1. Frontend saves current access_token to localStorage('pre_line_login_token')
-2. After LINE Login callback, if linking flow:
-   a. Use the pre_line_login_token for order creation (the original user's token)
-   b. Call a new endpoint: POST /api/auth/line/link { line_code, redirect_uri }
-      → Backend exchanges LINE code, updates profile with line_user_id
-      → Returns the original user's profile (with line_user_id now set)
-   c. refreshUser() with the original token
-```
-
-This avoids the problem of generating a new session for the original user entirely.
-
-## Step 5: Frontend — Pass `?link=true` and Preserve Original Token
-
-**File:** `frontend/src/app/cart/page.tsx` — `onSubmit` handler
-
-```typescript
-// LINE transfer requires LINE Login
-if (isLine && !hasLineUserId) {
-  localStorage.setItem('cart_form_data', JSON.stringify(values));
-  localStorage.setItem('line_login_return_url', '/cart');
-
-  if (user) {
-    // Logged-in user — save current token for account linking
-    const currentToken = localStorage.getItem('access_token');
-    if (currentToken) {
-      localStorage.setItem('pre_line_login_token', currentToken);
-    }
-    window.location.href = '/api/auth/line?link=true';
-  } else {
-    window.location.href = '/api/auth/line';
-  }
-  return;
-}
-```
-
-## Step 6: Frontend — Callback Handles Linking Flow
-
-**File:** `frontend/src/app/auth/callback/page.tsx` — `handleCallback`
-
-After LINE Login succeeds, check if this was a linking flow:
-
-```typescript
-async function handleCallback(accessToken: string) {
-  const preLoginToken = localStorage.getItem('pre_line_login_token');
-  localStorage.removeItem('pre_line_login_token');
-
-  if (preLoginToken) {
-    // LINKING FLOW: Use the original user's token, not the LINE Login token.
-    // The backend already linked line_user_id to the original profile via state JWT.
-    // Use preLoginToken for order creation so the order belongs to the original account.
-    localStorage.setItem('access_token', preLoginToken);
-    await refreshUser(); // Refreshes with original user — now has line_user_id
-    localStorage.setItem('access_token', preLoginToken); // Re-store after onError race
-
-    const authHeaders = { Authorization: `Bearer ${preLoginToken}` };
-    // ... create order using authHeaders (same as current apiFetch pattern) ...
-  } else {
-    // NORMAL FLOW: New user, use the LINE Login token.
-    localStorage.setItem('access_token', accessToken);
-    await refreshUser();
-    localStorage.setItem('access_token', accessToken);
-
-    const authHeaders = { Authorization: `Bearer ${accessToken}` };
-    // ... create order using authHeaders ...
-  }
-}
-```
-
-## Summary of Changes
-
-| Layer | File | Change |
-|---|---|---|
-| Backend | `auth.controller.ts` | `GET /api/auth/line`: accept `?link=true`, encode userId in state JWT |
-| Backend | `auth.controller.ts` | `GET /api/auth/line/callback`: decode state JWT, pass `linkToUserId` |
-| Backend | `auth.service.ts` | `handleLineLogin`: accept `linkToUserId`, link profile instead of creating account |
-| Frontend | `cart/page.tsx` | Save `pre_line_login_token` when logged in, redirect with `?link=true` |
-| Frontend | `auth/callback/page.tsx` | Use original token for linking flow, LINE token for new user flow |
-| Database | — | No migration needed. Uses existing `profiles.line_user_id` column |
-
-## Risks and Mitigations
-
-| Risk | Mitigation |
+| Check | Failure |
 |---|---|
-| State JWT forged | Signed with `LINE_LOGIN_CHANNEL_SECRET` — unforgeable without the secret |
-| State JWT expired | Falls back to new-user flow (no linking) — user gets a separate account |
-| Pre-login token expired by the time callback runs | `refreshUser()` will fail → fall back to LINE token → order under LINE account |
-| LINE userId already linked to different account | Return clear error message; user must unlink from the other account first |
-| Two users race to link same LINE account | `profiles.line_user_id` has no unique constraint currently — add one in future |
+| LINE user already linked to a different Bread Shop user | `"This LINE account is already linked to another user."` |
+| Bread Shop user already linked to another LINE account | `"This Bread Shop account is already linked to a different LINE account."` |
 
-## Future Considerations
+6. if the target profile has no `line_user_id`, update it
+7. only backfill `name` from LINE when the existing profile name is empty
+8. return the original Bread Shop user identity with `preserveExistingSession: true`
 
-- Add a `UNIQUE` constraint on `profiles.line_user_id` to prevent duplicate linking
-- Add "Unlink LINE account" feature in user profile settings
-- Merge order history if user already has orders under both accounts
-- Support LINE Login from the login page (not just cart CTA)
+Important:
+
+- This branch does **not** create or sign in a `line_xxx@line.local` account
+- This branch does **not** issue a new access token for the original user
+
+### 4. Preserve the existing browser session
+
+File: `backend/src/auth/auth.controller.ts`
+
+Add a helper that only appends `#access_token=...` when a new session was actually created:
+
+```ts
+private withAuthHash(url: string, auth: { access_token?: string; refresh_token?: string }) {
+  if (!auth.access_token) return url;
+  // append hash fragment
+}
+```
+
+Use this helper for:
+
+- `/checkout/pending`
+- `/checkout/success`
+
+Effect:
+
+| Flow | Redirect contains auth hash? |
+|---|---|
+| Guest / new LINE local account | Yes |
+| Logged-in user linking existing account | No |
+| Pending confirmation submit (`confirm-order`) | No |
+
+This avoids overwriting the original email/password session with a `line_xxx@line.local` session.
+
+## Frontend Impact
+
+### `frontend/src/app/cart/page.tsx`
+
+No flow redesign is needed.
+
+The cart already:
+
+- calls `POST /api/auth/line/start`
+- redirects to `/api/auth/line?pending=<id>`
+
+The only frontend change needed here is to show the real backend error message from `line/start` when available, so an expired login does not show a vague generic toast.
+
+## Behavior After Implementation
+
+### Guest user
+
+```text
+cart submit
+-> line/start stores pending order
+-> LINE Login
+-> callback creates/signs in line_xxx@line.local
+-> order belongs to the LINE account
+```
+
+### Logged-in Bread Shop user without LINE linked
+
+```text
+cart submit with Bearer token
+-> line/start stores pending order + _link_user_id
+-> LINE Login
+-> callback links profiles.line_user_id to the original Bread Shop user
+-> order.user_id is set to the original Bread Shop user
+-> browser keeps the original Bread Shop token
+```
+
+### Logged-in user, not yet a friend of the Messaging API bot
+
+```text
+cart submit
+-> callback links LINE to the original user
+-> friendship check fails
+-> pending order stores _user_id + _line_user_id
+-> redirect to /checkout/pending without replacing the original token
+-> after user adds friend, confirm-order creates the order under the original user
+```
+
+## Documentation Gaps That Were Fixed
+
+The previous docs missed or misrepresented these points:
+
+1. The real code path already depends on `pending_line_orders`, not frontend-only localStorage.
+2. OAuth `state` currently carries `pendingId` with HMAC integrity, not an arbitrary JWT payload.
+3. The callback already creates the order server-side for the cart flow.
+4. Re-issuing an original-user session is not the practical solution here; preserving the existing browser token is.
+5. The Bread Shop account may already be linked to a different LINE account, and that must fail explicitly.
+6. Linking should not blindly overwrite an existing profile name with the LINE display name.
+7. Internal pending-order fields exposed back to the frontend must exclude `_link_user_id` as well.
+
+## Follow-Up Hardening
+
+Not required for this implementation, but worth tracking:
+
+- add a DB unique constraint on `profiles.line_user_id`
+- add an explicit unlink / relink management flow in profile settings
+- add e2e coverage around:
+  - guest LINE checkout
+  - logged-in linking flow
+  - "already linked elsewhere" rejection
+  - pending page after friendship failure
