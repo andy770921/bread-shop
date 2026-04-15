@@ -81,11 +81,7 @@ export class CartController {
   @Put('contact-draft')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
   updateContactDraft(@Req() req: Request, @Body() dto: UpsertCartContactDraftDto) {
-    return this.cartContactDraftService.upsertForSession(
-      req.sessionId!,
-      req.user?.id,
-      dto,
-    );
+    return this.cartContactDraftService.upsertForSession(req.sessionId!, req.user?.id, dto);
   }
 
   @Delete('contact-draft')

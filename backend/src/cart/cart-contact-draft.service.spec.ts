@@ -8,8 +8,12 @@ describe('CartContactDraftService', () => {
   function buildSupabase(overrides: Record<string, any> = {}) {
     const singleMock = jest.fn().mockResolvedValue({ data: null, error: null });
     const maybeSingleMock = jest.fn().mockResolvedValue({ data: null, error: null });
-    const selectMock = jest.fn().mockReturnValue({ single: singleMock, maybeSingle: maybeSingleMock });
-    const deleteMock = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
+    const selectMock = jest
+      .fn()
+      .mockReturnValue({ single: singleMock, maybeSingle: maybeSingleMock });
+    const deleteMock = jest
+      .fn()
+      .mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: null }) });
     const upsertMock = jest.fn().mockReturnValue({ select: selectMock });
     const gtMock = jest.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
     const eqMock = jest.fn().mockReturnValue({ gt: gtMock, ...overrides });

@@ -35,8 +35,7 @@ export function useClearCartContactDraft() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () =>
-      authedFetchFn<void>('api/cart/contact-draft', { method: 'DELETE' }),
+    mutationFn: () => authedFetchFn<void>('api/cart/contact-draft', { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.setQueryData(QUERY_KEYS.cartContactDraft, null);
     },
