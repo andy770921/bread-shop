@@ -43,6 +43,7 @@ import {
   extractCheckoutErrorMessage,
   useCheckoutFlow,
 } from '@/features/checkout/use-checkout-flow';
+import { useCartContactDraftSync } from '@/features/checkout/use-cart-contact-draft-sync';
 
 export default function CartPage() {
   return (
@@ -77,6 +78,7 @@ function CartContent() {
     },
   });
 
+  const { isDraftHydrating, flushDraftNow } = useCartContactDraftSync(form);
   const selectedPayment = form.watch('paymentMethod');
 
   // Show error from callback redirect (e.g. order creation failed after LINE Login)
@@ -151,7 +153,7 @@ function CartContent() {
   };
 
   const submitting = form.formState.isSubmitting;
-  const cartUiDisabled = submitting || isCartSyncing;
+  const cartUiDisabled = submitting || isCartSyncing || isDraftHydrating;
 
   // Empty state
   if (!showLoadingState && items.length === 0) {
@@ -501,11 +503,16 @@ function CartContent() {
                 </Form>
 
                 {/* Continue Shopping */}
-                <Link href="/">
-                  <Button variant="ghost" size="sm">
-                    &larr; {t('cart.continueShopping')}
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    await flushDraftNow();
+                    router.push('/');
+                  }}
+                >
+                  &larr; {t('cart.continueShopping')}
+                </Button>
               </div>
 
               {/* Right Column: Order Summary */}

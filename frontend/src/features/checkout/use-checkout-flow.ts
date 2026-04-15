@@ -70,6 +70,7 @@ export function useCheckoutFlow() {
 
       const confirmed = await confirmPendingLineOrder(start.pendingId);
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.cart });
+      queryClient.setQueryData(QUERY_KEYS.cartContactDraft, null);
       if (confirmed.order_number) {
         router.push(`/checkout/success?order=${confirmed.order_number}`);
       } else {

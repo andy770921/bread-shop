@@ -31,6 +31,7 @@ jest.mock('@/queries/use-debounced-cart-mutation', () => ({
 describe('[useCheckoutFlow]', () => {
   const push = jest.fn();
   const invalidateQueries = jest.fn().mockResolvedValue(undefined);
+  const setQueryData = jest.fn();
   const getQueryData = jest.fn();
   const startLineCheckout = jest.fn();
   const confirmPendingLineOrder = jest.fn();
@@ -80,7 +81,7 @@ describe('[useCheckoutFlow]', () => {
       jest.requireMock('@/queries/use-checkout');
 
     useRouter.mockReturnValue({ push });
-    useQueryClient.mockReturnValue({ getQueryData, invalidateQueries });
+    useQueryClient.mockReturnValue({ getQueryData, invalidateQueries, setQueryData });
     useAuth.mockReturnValue({ user: null });
     useStartLineCheckout.mockReturnValue({ mutateAsync: startLineCheckout });
     useConfirmPendingLineOrder.mockReturnValue({ mutateAsync: confirmPendingLineOrder });
@@ -135,6 +136,7 @@ describe('[useCheckoutFlow]', () => {
     });
     expect(confirmPendingLineOrder).toHaveBeenCalledWith('pending-9');
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });
+    expect(setQueryData).toHaveBeenCalledWith(QUERY_KEYS.cartContactDraft, null);
     expect(push).toHaveBeenCalledWith('/checkout/success?order=ORD-9');
   });
 
@@ -158,6 +160,19 @@ describe('[useCheckoutFlow]', () => {
 
     expect(confirmPendingLineOrder).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
+    expect(setQueryData).not.toHaveBeenCalledWith(QUERY_KEYS.cartContactDraft, null);
+  });
+
+  it('does not clear draft cache when redirecting to LINE login', async () => {
+    startLineCheckout.mockResolvedValue({ pendingId: 'pending-1', next: 'line_login' });
+
+    const { result } = renderHook(() => useCheckoutFlow());
+
+    await act(async () => {
+      await result.current.submitCheckout(baseValues);
+    });
+
+    expect(setQueryData).not.toHaveBeenCalledWith(QUERY_KEYS.cartContactDraft, null);
   });
 
   it('rejects credit-card submission before any order is created', async () => {

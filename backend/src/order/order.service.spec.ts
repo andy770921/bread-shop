@@ -24,6 +24,7 @@ describe('OrderService', () => {
           }),
         } as any,
         {} as any,
+        { clearForSession: jest.fn().mockResolvedValue(undefined) } as any,
       );
     });
 
@@ -62,6 +63,26 @@ describe('OrderService', () => {
 
       await expect(service.updateOrderStatus(1, 'paid')).rejects.toThrow(BadRequestException);
       expect(updateMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('confirmOrder', () => {
+    it('clears the contact draft after successful confirmation', async () => {
+      const clearCart = jest.fn().mockResolvedValue({});
+      const clearDraft = jest.fn().mockResolvedValue(undefined);
+
+      const service = new OrderService(
+        { getClient: jest.fn() } as any,
+        { clearCart } as any,
+        { clearForSession: clearDraft } as any,
+      );
+
+      jest.spyOn(service as any, 'getOrderWithItemsForActor').mockResolvedValue({ id: 1 });
+
+      await service.confirmOrder(1, 'session-1', 'user-1');
+
+      expect(clearCart).toHaveBeenCalledWith('session-1', 'user-1');
+      expect(clearDraft).toHaveBeenCalledWith('session-1');
     });
   });
 });

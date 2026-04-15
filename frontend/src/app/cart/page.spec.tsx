@@ -113,6 +113,11 @@ jest.mock('sonner', () => ({
   },
 }));
 
+const flushDraftNow = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/features/checkout/use-cart-contact-draft-sync', () => ({
+  useCartContactDraftSync: jest.fn(),
+}));
+
 describe('[cart checkout e2e regression]', () => {
   const renderCartPage = async () => {
     await act(async () => {
@@ -134,6 +139,9 @@ describe('[cart checkout e2e regression]', () => {
       jest.requireMock('@/queries/use-checkout');
     const { flushPendingCartMutations: mockFlushPendingCartMutations } = jest.requireMock(
       '@/queries/use-debounced-cart-mutation',
+    );
+    const { useCartContactDraftSync } = jest.requireMock(
+      '@/features/checkout/use-cart-contact-draft-sync',
     );
 
     useRouter.mockReturnValue({ push, replace });
@@ -195,6 +203,7 @@ describe('[cart checkout e2e regression]', () => {
     useConfirmPendingLineOrder.mockReturnValue({ mutateAsync: confirmPendingLineOrder });
     mockFlushPendingCartMutations.mockImplementation(flushPendingCartMutations);
     flushPendingCartMutations.mockResolvedValue(undefined);
+    useCartContactDraftSync.mockReturnValue({ isDraftHydrating: false, flushDraftNow });
     startLineCheckout.mockResolvedValue({
       pendingId: 'pending-1',
       next: 'not_friend',

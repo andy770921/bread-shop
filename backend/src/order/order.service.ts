@@ -2,6 +2,7 @@ import { CART_CONSTANTS, CartResponse, Order, OrderStatus } from '@repo/shared';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CartService } from '../cart/cart.service';
+import { CartContactDraftService } from '../cart/cart-contact-draft.service';
 
 type CheckoutCartSnapshotInput = Partial<CartResponse> & {
   items?: Array<{
@@ -24,6 +25,7 @@ export class OrderService {
   constructor(
     private supabaseService: SupabaseService,
     private cartService: CartService,
+    private cartContactDraftService: CartContactDraftService,
   ) {}
 
   async getCartForSession(sessionId: string, userId?: string) {
@@ -156,6 +158,7 @@ export class OrderService {
 
     if (!dto.skip_cart_clear) {
       await this.cartService.clearCart(sessionId, userId || undefined);
+      await this.cartContactDraftService.clearForSession(sessionId);
     }
 
     return this.getOrderById(order.id, userId);
@@ -165,6 +168,7 @@ export class OrderService {
     await this.getOrderWithItemsForActor(orderId, sessionId, userId);
 
     await this.cartService.clearCart(sessionId, userId || undefined);
+    await this.cartContactDraftService.clearForSession(sessionId);
 
     return { success: true };
   }

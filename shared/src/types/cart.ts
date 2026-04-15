@@ -32,3 +32,15 @@ export interface AddToCartRequest {
 export interface UpdateCartItemRequest {
   quantity: number;
 }
+
+export interface CartContactDraft {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  customerAddress: string;
+  notes: string;
+  paymentMethod?: 'credit_card' | 'line_transfer';
+  lineId: string;
+}
+
+export type UpsertCartContactDraftRequest = Partial<CartContactDraft>;
