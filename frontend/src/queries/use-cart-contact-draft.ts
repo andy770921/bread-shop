@@ -3,10 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from './query-keys';
 import { ensureCartSessionReady } from './cart-session';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
+import { ApiResponseError } from '@/utils/fetchers/fetchers.error';
 
-async function fetchContactDraft(): Promise<CartContactDraft | null> {
+export async function fetchContactDraft(): Promise<CartContactDraft | null> {
   await ensureCartSessionReady();
-  return authedFetchFn<CartContactDraft | null>('api/cart/contact-draft');
+  try {
+    return await authedFetchFn<CartContactDraft | null>('api/cart/contact-draft');
+  } catch (error) {
+    // During rolling deploys, the frontend may be newer than the backend.
+    // Treat a missing draft endpoint as "no saved draft" instead of breaking /cart.
+    if (error instanceof ApiResponseError && error.hasStatusCode(404)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export function useCartContactDraft() {

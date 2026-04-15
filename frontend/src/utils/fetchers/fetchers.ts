@@ -9,13 +9,12 @@ export const fetchApi = async <TResponseData, TRequestBody = unknown, TErrorBody
   options: FetchOptions<TRequestBody> = {},
 ): Promise<TResponseData> => {
   const processResponse = async (response: Response) => {
-    // handle error with empty body
-    if (!response.ok && response.headers.get('content-length') === '0') {
-      return '';
-    }
-    const isJSONResponse = options.isJSONResponse ?? true;
     const returnHeaders = options.returnHeaders ?? false;
-    const res = isJSONResponse ? response.json() : response.text();
+    const res = response.ok
+      ? (options.isJSONResponse ?? true)
+        ? response.json()
+        : response.text()
+      : parseErrorBody<TErrorBody>(response);
     if (!returnHeaders) {
       return res;
     }
