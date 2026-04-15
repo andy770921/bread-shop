@@ -8,7 +8,7 @@ import { ApiResponseError } from '@/utils/fetchers/fetchers.error';
 export async function fetchContactDraft(): Promise<CartContactDraft | null> {
   await ensureCartSessionReady();
   try {
-    return await authedFetchFn<CartContactDraft | null>('api/cart/contact-draft');
+    return (await authedFetchFn<CartContactDraft | null>('api/cart/contact-draft')) ?? null;
   } catch (error) {
     // During rolling deploys, the frontend may be newer than the backend.
     // Treat a missing draft endpoint as "no saved draft" instead of breaking /cart.

@@ -6,6 +6,21 @@ describe('[fetchers] fetchApi', () => {
     jest.clearAllMocks();
   });
 
+  it('returns undefined for successful empty responses instead of leaking a SyntaxError', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: {
+        get: jest.fn().mockReturnValue('0'),
+      },
+      json: jest.fn(),
+      text: jest.fn(),
+    } as unknown as Response);
+
+    await expect(fetchApi('/api/cart/contact-draft')).resolves.toBeUndefined();
+  });
+
   it('wraps non-ok empty responses as ApiResponseError instead of leaking a SyntaxError', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,

@@ -32,6 +32,12 @@ describe('[use-cart-contact-draft]', () => {
     expect(authedFetchFn).toHaveBeenCalledWith('api/cart/contact-draft');
   });
 
+  it('treats an empty successful response as no saved draft', async () => {
+    authedFetchFn.mockResolvedValue(undefined);
+
+    await expect(fetchContactDraft()).resolves.toBeNull();
+  });
+
   it('rethrows non-404 errors', async () => {
     const error = new ApiResponseError(
       { status: 500, statusText: 'Internal Server Error' } as Response,

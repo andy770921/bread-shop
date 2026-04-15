@@ -10,6 +10,21 @@ export const fetchApi = async <TResponseData, TRequestBody = unknown, TErrorBody
 ): Promise<TResponseData> => {
   const processResponse = async (response: Response) => {
     const returnHeaders = options.returnHeaders ?? false;
+    const isEmptyBody = response.headers.get('content-length') === '0';
+    if (isEmptyBody) {
+      const data = response.ok ? undefined : '';
+      if (!returnHeaders) {
+        return data;
+      }
+
+      return {
+        data,
+        headers: Object.fromEntries(response.headers),
+        status: response.status,
+        statusText: response.statusText,
+      };
+    }
+
     const res = response.ok
       ? (options.isJSONResponse ?? true)
         ? response.json()
@@ -38,10 +53,6 @@ export const fetchApi = async <TResponseData, TRequestBody = unknown, TErrorBody
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-
-    if (rawResponse.status === 204) {
-      return undefined as TResponseData;
-    }
 
     const response: TResponseData | TErrorBody = await processResponse(rawResponse);
     if (rawResponse.ok) {
