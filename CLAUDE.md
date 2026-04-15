@@ -22,6 +22,8 @@ npm run dev              # Start FE (:3001) + BE (:3000) in parallel
 npm run build            # Build all workspaces
 npm run test             # Run all tests
 npm run lint             # Lint all code
+npm run format           # Auto-format all files with Prettier
+npm run format:check     # Check formatting without writing
 ```
 
 ```bash
@@ -30,6 +32,8 @@ cd backend && npm run test:e2e      # Backend E2E tests
 cd frontend && npx jest src/path/to/file.spec.ts   # Single test file
 cd backend  && npx jest src/path/to/file.spec.ts   # Single test file
 ```
+
+**Turbo dependency chain**: `test` and `lint` depend on `^build` (shared types must compile first). If tests fail with missing types, run `npm run build` first.
 
 ## Architecture
 
@@ -51,6 +55,15 @@ Every visitor gets a `session_id` HttpOnly cookie. Cart items link to sessions, 
 - On logout: session stays, `user_id` cleared — cart remains accessible as guest
 - In-memory session cache (60s TTL, max 10k entries) reduces DB hits
 
+### Dual Supabase Clients (Critical)
+
+`SupabaseService` maintains **two separate Supabase clients** (`backend/src/supabase/supabase.service.ts`):
+
+- `getClient()` — for data operations (`.from().select/insert/update/delete`). Always service_role.
+- `getAuthClient()` — for auth operations (`signInWithPassword`, `admin.*`).
+
+**Why**: `signInWithPassword` contaminates the client's in-memory session, changing the role from `service_role` to `authenticated` — which breaks RLS on subsequent queries. Never call auth methods on the data client.
+
 ### Backend Modules
 
 All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` — inject `SupabaseService` anywhere.
@@ -68,14 +81,34 @@ All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` 
 
 **Guards**: `AuthGuard` (requires Bearer JWT via `supabase.auth.getUser()`), `OptionalAuthGuard` (passes through guests). Guards inject `SupabaseService` from the global module — no module imports needed.
 
+**Custom decorators**: `@SessionId()` and `@CurrentUser()` extract values from the Express request object.
+
 ### Frontend Structure
 
 - `app/providers.tsx` — ThemeProvider → TanStackQuery → AuthProvider → Toaster
 - `lib/auth-context.tsx` — manages JWT in localStorage, invalidates `['cart']` query on login/logout
+- `lib/auth-token-store.ts` — Bearer token in localStorage (not HttpOnly); session_id is a separate HttpOnly cookie managed by backend
 - `queries/` — TanStack Query hooks with `credentials: 'include'` and `getAuthHeaders()`
 - `components/ui/` — shadcn/ui (Tailwind v4), auto-generated via `npx shadcn@latest add`
-- `i18n/` — zh.json + en.json, `useLocale()` hook returns `{ locale, t, toggleLocale }`
+- `i18n/` — zh.json (default) + en.json, `useLocale()` hook returns `{ locale, t, toggleLocale }`
 - Design tokens as CSS custom properties in `globals.css` (light/dark: `--primary-500`, `--bg-body`, etc.)
+
+### TanStack Query Defaults
+
+Configured in `frontend/src/vendors/tanstack-query/provider.tsx`:
+
+- `retry: 0` — no automatic retries on failure
+- `throwOnError: true` — errors propagate to error boundaries
+- `staleTime: 60s` — avoids immediate refetch after SSR hydration
+- **Custom default `queryFn`**: query keys are auto-stringified into URL paths via `stringifyQueryKey` (e.g., `['api', 'cart']` → `/api/cart`, `['api', 'products', { category: 'bread' }]` → `/api/products?category=bread`)
+
+### Frontend Fetch Utilities
+
+`frontend/src/utils/fetchers/fetchers.ts` — shared fetch wrapper:
+
+- 100s default timeout with AbortController
+- Custom `ApiResponseError` class exposes `status`, `statusText`, `body`
+- `streamingFetchApi` variant returns raw `Response` for streaming
 
 ### Shared Types
 
@@ -89,9 +122,10 @@ Key triggers: auto-create profile on auth signup, auto-generate order numbers (`
 
 ### LINE Integration
 
-- **LINE Login** (Channel 2008445583): OAuth2 → backend callback → one-time code exchange → frontend stores JWT
-- **LINE Messaging** (Channel 2008443478): Push Flex Messages for order summaries via `@line/bot-sdk`
+- **LINE Login**: OAuth2 → backend callback → one-time code exchange → frontend stores JWT
+- **LINE Messaging**: Push Flex Messages for order summaries via `@line/bot-sdk`
 - Backend derives callback URL from request headers (`X-Forwarded-Proto` + `Host`) — no `BACKEND_URL` env needed
+- Both HTTP (localhost) and HTTPS (Vercel) callback URLs must be whitelisted in LINE Developers Console
 
 ## Environment Variables
 
@@ -117,6 +151,8 @@ documents/FEAT-1/
 
 ## Deployment (Vercel)
 
-- **Frontend**: root directory `frontend`, auto-detected as Next.js
-- **Backend**: root directory `backend`, serverless function via `backend/api/index.ts`
+- **Frontend**: root directory `frontend`, auto-detected as Next.js. ESLint disabled during build (runs at monorepo root instead).
+- **Backend**: root directory `backend`, serverless function via `backend/api/index.ts` (lazy NestJS init, singleton pattern)
+- **CORS difference**: local dev restricts to `FRONTEND_URL`; serverless entry uses `origin: true` (allows all)
 - Serverless limitations: cold starts, no WebSockets, 10s timeout
+- Vercel `installCommand` must build shared types before backend deployment
