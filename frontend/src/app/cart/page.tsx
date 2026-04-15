@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -80,6 +80,7 @@ function CartContent() {
 
   const { isDraftHydrating, flushDraftNow } = useCartContactDraftSync(form);
   const selectedPayment = form.watch('paymentMethod');
+  const previousSelectedPaymentRef = useRef<CartFormValues['paymentMethod']>();
 
   // Show error from callback redirect (e.g. order creation failed after LINE Login)
   useEffect(() => {
@@ -114,10 +115,16 @@ function CartContent() {
 
   // Reset conditional fields when payment method changes
   useEffect(() => {
-    if (selectedPayment !== 'line_transfer') {
+    const previousSelectedPayment = previousSelectedPaymentRef.current;
+    const switchedAwayFromLineTransfer =
+      previousSelectedPayment === 'line_transfer' && selectedPayment !== 'line_transfer';
+
+    if (switchedAwayFromLineTransfer) {
       form.setValue('lineId', '');
       form.clearErrors('lineId');
     }
+
+    previousSelectedPaymentRef.current = selectedPayment;
   }, [selectedPayment, form]);
 
   const items = cart?.items ?? [];

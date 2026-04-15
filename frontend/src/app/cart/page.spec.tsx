@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import CartPage from './page';
 import { QUERY_KEYS } from '@/queries/query-keys';
@@ -316,5 +316,33 @@ describe('[cart checkout e2e regression]', () => {
 
     expect(screen.getByText('Credit card service application in progress')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Contact via LINE' })).not.toBeInTheDocument();
+  });
+
+  it('preserves hydrated LINE ID when the cart draft restores line transfer state', async () => {
+    const { useCartContactDraftSync } = jest.requireMock(
+      '@/features/checkout/use-cart-contact-draft-sync',
+    );
+
+    useCartContactDraftSync.mockImplementation((form: any) => {
+      useEffect(() => {
+        form.reset({
+          ...form.getValues(),
+          customerName: 'Andy',
+          customerPhone: '0912345678',
+          customerAddress: 'Taipei',
+          paymentMethod: 'line_transfer',
+          lineId: '@andy',
+        });
+      }, [form]);
+
+      return { isDraftHydrating: false, flushDraftNow };
+    });
+
+    await renderCartPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toHaveValue('line_transfer');
+    });
+    expect(screen.getByPlaceholderText('Enter your LINE ID')).toHaveValue('@andy');
   });
 });
