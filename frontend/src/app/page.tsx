@@ -7,7 +7,7 @@ import { Footer } from '@/components/layout/footer';
 import { SeasonalBanner } from '@/components/layout/seasonal-banner';
 import { CategoryPills } from '@/components/product/category-pills';
 import { ViewToggle } from '@/components/product/view-toggle';
-import { ProductGrid } from '@/components/product/product-grid';
+import { ProductGrid, PRODUCT_GRID_TEMPLATE_COLUMNS } from '@/components/product/product-grid';
 import { ProductShowcase } from '@/components/product/product-showcase';
 import { ProcessSection } from '@/components/home/process-section';
 import { StorySection } from '@/components/home/story-section';
@@ -78,7 +78,7 @@ export default function Home() {
           {productsLoading ? (
             <div
               className="grid gap-6"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
+              style={{ gridTemplateColumns: PRODUCT_GRID_TEMPLATE_COLUMNS }}
             >
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex flex-col gap-3">

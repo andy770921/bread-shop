@@ -12,6 +12,8 @@ interface ProductGridProps {
   locale: string;
 }
 
+export const PRODUCT_GRID_TEMPLATE_COLUMNS = 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))';
+
 export function ProductGrid({ products, favoriteIds, locale }: ProductGridProps) {
   const { user } = useAuth();
   const handleAddToCart = useAddToCartHandler(products);
@@ -25,7 +27,7 @@ export function ProductGrid({ products, favoriteIds, locale }: ProductGridProps)
     <div
       className="grid gap-6"
       style={{
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gridTemplateColumns: PRODUCT_GRID_TEMPLATE_COLUMNS,
       }}
     >
       {products.map((product) => (
