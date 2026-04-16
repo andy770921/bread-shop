@@ -33,13 +33,14 @@ describe('[fetchers] fetchApi', () => {
       text: jest.fn().mockResolvedValue(''),
     } as unknown as Response);
 
-    await expect(fetchApi('/api/cart/contact-draft')).rejects.toEqual(
-      expect.objectContaining<ApiResponseError>({
-        name: 'ApiResponseError',
-        status: 404,
-        statusText: 'Not Found',
-        body: '',
-      }),
-    );
+    const request = fetchApi('/api/cart/contact-draft');
+
+    await expect(request).rejects.toBeInstanceOf(ApiResponseError);
+    await expect(request).rejects.toMatchObject({
+      name: 'ApiResponseError',
+      status: 404,
+      statusText: 'Not Found',
+      body: '',
+    });
   });
 });
