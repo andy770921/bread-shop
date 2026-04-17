@@ -42,5 +42,4 @@ export class CreateOrderDto {
   @IsOptional()
   @IsBoolean()
   skip_cart_clear?: boolean;
-
 }
