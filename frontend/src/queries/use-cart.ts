@@ -1,4 +1,4 @@
-import { CART_CONSTANTS, CartResponse } from '@repo/shared';
+import { CART_CONSTANTS, type CartItem, type CartResponse } from '@repo/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { QUERY_KEYS } from './query-keys';
@@ -6,6 +6,12 @@ import { ensureCartSessionReady, fetchCart, primeCartSessionReady } from './cart
 import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 import { applyPendingUpdates, recalcCartTotals, reconcileWithPending } from '@/utils/cart-math';
+
+type CartProductSnapshot = CartItem['product'];
+type AddToCartInput = {
+  productId: number;
+  product: CartProductSnapshot;
+};
 
 export function useCart() {
   return useQuery<CartResponse>({
@@ -15,14 +21,14 @@ export function useCart() {
 }
 
 export function useAddToCart(options?: { onError?: () => void }) {
-  const { run } = useDebouncedCartMutation<number, { productId: number; productPrice: number }>({
+  const { run } = useDebouncedCartMutation<number, AddToCartInput>({
     onError: options?.onError,
     getKey: ({ productId }) => productId,
     getInitialQuantity: () => 1,
     updatePendingEntry: (entry) => {
       entry.quantity += 1;
     },
-    applyOptimistic: (cart, { productId, productPrice }) => {
+    applyOptimistic: (cart, { productId, product }) => {
       const existing = cart.items.find((item) => item.product_id === productId);
       const items = existing
         ? cart.items.map((item) => {
@@ -31,10 +37,12 @@ export function useAddToCart(options?: { onError?: () => void }) {
             }
 
             const nextQuantity = Math.min(item.quantity + 1, CART_CONSTANTS.MAX_ITEM_QUANTITY);
+            const mergedProduct = { ...item.product, ...product };
             return {
               ...item,
+              product: mergedProduct,
               quantity: nextQuantity,
-              line_total: nextQuantity * item.product.price,
+              line_total: nextQuantity * mergedProduct.price,
             };
           })
         : [
@@ -43,16 +51,8 @@ export function useAddToCart(options?: { onError?: () => void }) {
               id: -(Date.now() + Math.random()),
               product_id: productId,
               quantity: 1,
-              product: {
-                id: productId,
-                name_zh: '',
-                name_en: '',
-                price: productPrice,
-                image_url: null,
-                category_name_zh: '',
-                category_name_en: '',
-              },
-              line_total: productPrice,
+              product,
+              line_total: product.price,
             },
           ];
 
@@ -70,9 +70,9 @@ export function useAddToCart(options?: { onError?: () => void }) {
   });
 
   const addToCart = useCallback(
-    (productId: number, productPrice: number) => {
+    (input: AddToCartInput) => {
       primeCartSessionReady();
-      run({ productId, productPrice });
+      run(input);
     },
     [run],
   );

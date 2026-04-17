@@ -83,7 +83,7 @@ export class OrderService {
         name_en,
         price,
         image_url,
-        category:categories(name_zh, name_en)
+        category:categories(slug)
       `,
       )
       .in('id', productIds)
@@ -92,7 +92,7 @@ export class OrderService {
     const inactiveItems = cart.items.filter((i) => !activeMap.has(i.product_id));
     if (inactiveItems.length > 0) {
       throw new BadRequestException(
-        `Some products are no longer available: ${inactiveItems.map((i) => i.product.name_zh).join(', ')}`,
+        `Some products are no longer available: ${inactiveItems.map((i) => i.product_id).join(', ')}`,
       );
     }
 
@@ -107,8 +107,7 @@ export class OrderService {
           name_en: product.name_en,
           price: product.price,
           image_url: product.image_url,
-          category_name_zh: product.category.name_zh,
-          category_name_en: product.category.name_en,
+          category_slug: product.category.slug,
         },
       };
     });
@@ -224,7 +223,7 @@ export class OrderService {
         name_en,
         price,
         image_url,
-        category:categories(name_zh, name_en)
+        category:categories(slug)
       `,
       )
       .in('id', orderedProductIds)
@@ -249,8 +248,7 @@ export class OrderService {
           name_en: product.name_en,
           price: product.price,
           image_url: product.image_url,
-          category_name_zh: product.category.name_zh,
-          category_name_en: product.category.name_en,
+          category_slug: product.category.slug,
         },
         line_total: quantity * product.price,
       };

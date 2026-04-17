@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -34,7 +33,9 @@ import {
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
+import { ProductImage } from '@/components/product/product-image';
 import { useLocale } from '@/hooks/use-locale';
+import { pickLocalizedText } from '@/i18n/utils';
 import { QUERY_KEYS } from '@/queries/query-keys';
 import { flushPendingCartMutations } from '@/queries/use-debounced-cart-mutation';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
@@ -131,7 +132,13 @@ function CartContent() {
   const subtotal = cart?.subtotal ?? 0;
   const shippingFee = cart?.shipping_fee ?? 0;
   const total = cart?.total ?? 0;
-  const showLoadingState = isLoading || (isCartSyncing && items.length === 0);
+  const hasIncompleteCachedItems = items.some((item) => {
+    const hasMissingLocalizedName = !item.product.name_zh.trim() && !item.product.name_en.trim();
+    const isSyntheticPendingItem = typeof item.id === 'number' && item.id < 0;
+    return hasMissingLocalizedName || isSyntheticPendingItem;
+  });
+  const showLoadingState =
+    isLoading || (isCartSyncing && (items.length === 0 || hasIncompleteCachedItems));
 
   const handleQuantityChange = (itemId: number | string, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -220,8 +227,10 @@ function CartContent() {
                 {/* Cart Items */}
                 <div className="space-y-4">
                   {items.map((item) => {
-                    const name = locale === 'zh' ? item.product.name_zh : item.product.name_en;
-                    const imageUrl = item.product.image_url || '/placeholder-product.jpg';
+                    const name = pickLocalizedText(locale, {
+                      zh: item.product.name_zh,
+                      en: item.product.name_en,
+                    });
 
                     return (
                       <div
@@ -233,12 +242,11 @@ function CartContent() {
                         }}
                       >
                         <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
-                          <Image
-                            src={imageUrl}
+                          <ProductImage
+                            src={item.product.image_url}
                             alt={name}
-                            fill
                             sizes="80px"
-                            className="object-cover"
+                            imageClassName="object-cover"
                           />
                         </div>
                         <div className="flex-1">
@@ -541,7 +549,10 @@ function CartContent() {
                   {/* Line items */}
                   <div className="space-y-2">
                     {items.map((item) => {
-                      const name = locale === 'zh' ? item.product.name_zh : item.product.name_en;
+                      const name = pickLocalizedText(locale, {
+                        zh: item.product.name_zh,
+                        en: item.product.name_en,
+                      });
                       return (
                         <div key={item.id} className="flex justify-between text-sm">
                           <span style={{ color: 'var(--text-secondary)' }}>

@@ -1,12 +1,13 @@
 'use client';
 
 import { ProductEditorial } from './product-editorial';
+import type { Locale } from '@/i18n/config';
 import { useAddToCartHandler } from '@/hooks/use-add-to-cart-handler';
 import type { ProductWithCategory } from '@repo/shared';
 
 interface ProductShowcaseProps {
   products: ProductWithCategory[];
-  locale: string;
+  locale: Locale;
 }
 
 export function ProductShowcase({ products, locale }: ProductShowcaseProps) {

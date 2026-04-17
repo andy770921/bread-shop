@@ -9,6 +9,31 @@
     "profile": "Profile",
     "orders": "Orders"
   },
+  "category": {
+    "toast": "Toast",
+    "cake": "Cake",
+    "cookie": "Cookies",
+    "bread": "Bread",
+    "other": "Other"
+  },
+  "badge": {
+    "hot": "HOT",
+    "new": "NEW",
+    "seasonal": "Seasonal"
+  },
+  "spec": {
+    "weight": "Weight",
+    "shelf_life": "Shelf Life",
+    "prep_time": "Prep Time",
+    "size": "Size",
+    "serves": "Serves",
+    "quantity": "Quantity",
+    "packaging": "Packaging",
+    "production": "Production",
+    "best_before": "Best Before",
+    "texture": "Texture",
+    "flavor": "Flavor"
+  },
   "home": {
     "title": "Papa Bakery",
     "subtitle": "Baked with heart, shared with love",

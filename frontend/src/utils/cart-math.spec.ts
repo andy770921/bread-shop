@@ -28,8 +28,7 @@ describe('[cart-math]', () => {
           name_en: 'Cake',
           price: 200,
           image_url: null,
-          category_name_zh: '甜點',
-          category_name_en: 'Dessert',
+          category_slug: 'other',
         },
       },
     ]);
@@ -51,8 +50,7 @@ describe('[cart-math]', () => {
           name_en: 'Cake',
           price: 100,
           image_url: null,
-          category_name_zh: '甜點',
-          category_name_en: 'Dessert',
+          category_slug: 'other',
         },
       },
     ]);
@@ -74,8 +72,7 @@ describe('[cart-math]', () => {
           name_en: 'Cake',
           price: 100,
           image_url: null,
-          category_name_zh: '甜點',
-          category_name_en: 'Dessert',
+          category_slug: 'other',
         },
       },
     ]);
@@ -92,8 +89,7 @@ describe('[cart-math]', () => {
           name_en: 'Cookie',
           price: 80,
           image_url: null,
-          category_name_zh: '甜點',
-          category_name_en: 'Dessert',
+          category_slug: 'other',
         },
       },
     ]);
@@ -121,8 +117,7 @@ describe('[cart-math]', () => {
           name_en: 'Cake',
           price: 100,
           image_url: null,
-          category_name_zh: '甜點',
-          category_name_en: 'Dessert',
+          category_slug: 'other',
         },
       },
     ]);

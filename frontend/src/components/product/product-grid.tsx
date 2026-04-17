@@ -1,6 +1,7 @@
 'use client';
 
 import { ProductCard } from './product-card';
+import type { Locale } from '@/i18n/config';
 import { useAuth } from '@/lib/auth-context';
 import { useToggleFavorite } from '@/queries/use-favorites';
 import { useAddToCartHandler } from '@/hooks/use-add-to-cart-handler';
@@ -9,7 +10,7 @@ import type { ProductWithCategory } from '@repo/shared';
 interface ProductGridProps {
   products: ProductWithCategory[];
   favoriteIds: number[];
-  locale: string;
+  locale: Locale;
 }
 
 export const PRODUCT_GRID_TEMPLATE_COLUMNS = 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))';

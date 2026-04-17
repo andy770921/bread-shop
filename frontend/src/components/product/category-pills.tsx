@@ -8,10 +8,9 @@ interface CategoryPillsProps {
   categories: Category[];
   selected: string | null;
   onSelect: (slug: string | null) => void;
-  locale: string;
 }
 
-export function CategoryPills({ categories, selected, onSelect, locale }: CategoryPillsProps) {
+export function CategoryPills({ categories, selected, onSelect }: CategoryPillsProps) {
   const { t } = useLocale();
   const allLabel = t('home.allCategories');
 
@@ -51,7 +50,7 @@ export function CategoryPills({ categories, selected, onSelect, locale }: Catego
               : {}
           }
         >
-          {locale === 'zh' ? cat.name_zh : cat.name_en}
+          {t(`category.${cat.slug}`)}
         </Button>
       ))}
     </div>

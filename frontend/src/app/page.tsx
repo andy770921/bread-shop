@@ -70,7 +70,6 @@ export default function Home() {
               categories={categories}
               selected={selectedCategory}
               onSelect={setSelectedCategory}
-              locale={locale}
             />
             <ViewToggle active={editorialView} onToggle={() => setEditorialView(!editorialView)} />
           </div>

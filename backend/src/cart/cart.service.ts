@@ -298,7 +298,7 @@ export class CartService {
           name_en,
           price,
           image_url,
-          category:categories(name_zh, name_en)
+          category:categories(slug)
         )
       `,
       )
@@ -317,8 +317,7 @@ export class CartService {
         name_en: item.product.name_en,
         price: item.product.price,
         image_url: item.product.image_url,
-        category_name_zh: item.product.category.name_zh,
-        category_name_en: item.product.category.name_en,
+        category_slug: item.product.category.slug,
       },
       line_total: item.quantity * item.product.price,
     }));

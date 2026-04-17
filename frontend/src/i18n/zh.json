@@ -9,6 +9,31 @@
     "profile": "個人資料",
     "orders": "訂單記錄"
   },
+  "category": {
+    "toast": "吐司",
+    "cake": "蛋糕",
+    "cookie": "餅乾",
+    "bread": "麵包",
+    "other": "其他"
+  },
+  "badge": {
+    "hot": "HOT",
+    "new": "NEW",
+    "seasonal": "季節限定"
+  },
+  "spec": {
+    "weight": "重量",
+    "shelf_life": "保鮮期",
+    "prep_time": "製作時間",
+    "size": "尺寸",
+    "serves": "適用",
+    "quantity": "數量",
+    "packaging": "包裝",
+    "production": "製作",
+    "best_before": "最佳享用",
+    "texture": "口感",
+    "flavor": "風味"
+  },
   "home": {
     "title": "周爸烘焙坊",
     "subtitle": "用心烘焙，傳遞幸福",

@@ -1,25 +1,29 @@
 'use client';
 
-import Image from 'next/image';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import type { Locale } from '@/i18n/config';
+import { pickLocalizedText } from '@/i18n/utils';
+import { ProductImage } from './product-image';
 import type { ProductWithCategory } from '@repo/shared';
 import { useLocale } from '@/hooks/use-locale';
 
 interface ProductEditorialProps {
   product: ProductWithCategory;
-  locale: string;
+  locale: Locale;
   index: number;
   onAddToCart: (productId: number) => void;
 }
 
 export function ProductEditorial({ product, locale, index, onAddToCart }: ProductEditorialProps) {
   const { t } = useLocale();
-  const name = locale === 'zh' ? product.name_zh : product.name_en;
-  const description = locale === 'zh' ? product.description_zh : product.description_en;
-  const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
-  const imageUrl = product.image_url || '/placeholder-product.jpg';
+  const name = pickLocalizedText(locale, { zh: product.name_zh, en: product.name_en });
+  const description = pickLocalizedText(locale, {
+    zh: product.description_zh,
+    en: product.description_en,
+  });
+  const categoryName = t(`category.${product.category.slug}`);
   const isEven = index % 2 === 0;
 
   return (
@@ -30,12 +34,11 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
     >
       {/* Image */}
       <div className="relative h-[360px] w-full overflow-hidden rounded-2xl lg:h-[500px] lg:w-1/2">
-        <Image
-          src={imageUrl}
+        <ProductImage
+          src={product.image_url}
           alt={name}
-          fill
           sizes="(max-width: 1024px) 100vw, 50vw"
-          className="object-cover"
+          imageClassName="object-cover"
         />
         {product.badge_type && (
           <Badge
@@ -48,7 +51,7 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
                   : { backgroundColor: '#10B981', color: '#fff' }
             }
           >
-            {locale === 'zh' ? product.badge_text_zh : product.badge_text_en}
+            {product.badge_type ? t(`badge.${product.badge_type}`) : ''}
           </Badge>
         )}
       </div>
@@ -83,13 +86,13 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
                   className="block text-xs font-medium"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  {locale === 'zh' ? spec.label_zh : spec.label_en}
+                  {t(`spec.${spec.label_key}`)}
                 </span>
                 <span
                   className="mt-1 block text-sm font-semibold"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  {locale === 'zh' ? spec.value_zh : spec.value_en}
+                  {pickLocalizedText(locale, { zh: spec.value_zh, en: spec.value_en })}
                 </span>
               </div>
             ))}

@@ -8,8 +8,7 @@ export interface CartItem {
     name_en: string;
     price: number;
     image_url: string | null;
-    category_name_zh: string;
-    category_name_en: string;
+    category_slug: string;
   };
   line_total: number;
 }

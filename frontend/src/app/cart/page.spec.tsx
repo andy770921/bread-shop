@@ -186,8 +186,7 @@ describe('[cart checkout e2e regression]', () => {
             name_en: 'Bread',
             price: 220,
             image_url: '/bread.jpg',
-            category_name_zh: 'Bread',
-            category_name_en: 'Bread',
+            category_slug: 'bread',
           },
         },
       ],
@@ -304,6 +303,51 @@ describe('[cart checkout e2e regression]', () => {
     });
     await waitFor(() => {
       expect(submitButton).toBeEnabled();
+    });
+  });
+
+  it('keeps incomplete optimistic cart rows behind the loading state while cart sync is still running', async () => {
+    let resolveFlush: (() => void) | null = null;
+    const { useCart } = jest.requireMock('@/queries/use-cart');
+
+    flushPendingCartMutations.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveFlush = resolve;
+        }),
+    );
+    useCart.mockReturnValue({
+      data: {
+        items: [
+          {
+            id: -1,
+            product_id: 101,
+            quantity: 1,
+            line_total: 220,
+            product: {
+              name_zh: '',
+              name_en: '',
+              price: 220,
+              image_url: null,
+            },
+          },
+        ],
+        subtotal: 220,
+        shipping_fee: 60,
+        total: 280,
+      },
+      isLoading: false,
+    });
+
+    await renderCartPage();
+
+    expect(document.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(3);
+    expect(screen.queryByText('Bread')).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="/placeholder-product.jpg"]')).toBeNull();
+
+    await act(async () => {
+      resolveFlush?.();
+      await Promise.resolve();
     });
   });
 

@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
+import { pickLocalizedText } from '@/i18n/utils';
 import { useAuth } from '@/lib/auth-context';
 import { authTokenStore } from '@/lib/auth-token-store';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
@@ -177,7 +178,10 @@ function PendingContent() {
             {/* Items */}
             <div className="space-y-3">
               {cart.items.map((item, i) => {
-                const name = locale === 'zh' ? item.product.name_zh : item.product.name_en;
+                const name = pickLocalizedText(locale, {
+                  zh: item.product.name_zh,
+                  en: item.product.name_en,
+                });
                 return (
                   <div key={i} className="flex justify-between text-sm">
                     <span style={{ color: 'var(--text-secondary)' }}>

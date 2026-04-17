@@ -6,6 +6,7 @@ import { ShoppingCart, Sun, Moon, User, LogOut, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLocale } from '@/hooks/use-locale';
+import { pickByLocale } from '@/i18n/utils';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/queries/use-cart';
 import { useState, useEffect } from 'react';
@@ -73,7 +74,7 @@ export function Header() {
             onClick={toggleLocale}
             className="text-xs font-semibold"
           >
-            {locale === 'zh' ? 'EN' : '中'}
+            {pickByLocale(locale, { zh: 'EN', en: '中' })}
           </Button>
 
           {/* Theme Toggle */}

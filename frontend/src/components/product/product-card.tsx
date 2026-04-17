@@ -1,16 +1,18 @@
 'use client';
 
-import Image from 'next/image';
 import { Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import type { Locale } from '@/i18n/config';
+import { pickLocalizedText } from '@/i18n/utils';
+import { ProductImage } from './product-image';
 import type { ProductWithCategory, BadgeType } from '@repo/shared';
 import { useLocale } from '@/hooks/use-locale';
 
 interface ProductCardProps {
   product: ProductWithCategory;
-  locale: string;
+  locale: Locale;
   isFavorited: boolean;
   onAddToCart: (productId: number) => void;
   onToggleFavorite: (productId: number, isFavorited: boolean) => void;
@@ -39,14 +41,9 @@ export function ProductCard({
   isLoggedIn,
 }: ProductCardProps) {
   const { t } = useLocale();
-  const name = locale === 'zh' ? product.name_zh : product.name_en;
-  const categoryName = locale === 'zh' ? product.category.name_zh : product.category.name_en;
-  const badgeText = product.badge_type
-    ? locale === 'zh'
-      ? product.badge_text_zh
-      : product.badge_text_en
-    : null;
-  const imageUrl = product.image_url || '/placeholder-product.jpg';
+  const name = pickLocalizedText(locale, { zh: product.name_zh, en: product.name_en });
+  const categoryName = t(`category.${product.category.slug}`);
+  const badgeText = product.badge_type ? t(`badge.${product.badge_type}`) : null;
 
   return (
     <Card
@@ -57,12 +54,11 @@ export function ProductCard({
     >
       {/* Image */}
       <div className="relative h-[240px] w-full overflow-hidden">
-        <Image
-          src={imageUrl}
+        <ProductImage
+          src={product.image_url}
           alt={name}
-          fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          imageClassName="object-cover transition-transform duration-300 group-hover:scale-105"
         />
         {/* Badge */}
         {product.badge_type && badgeText && (

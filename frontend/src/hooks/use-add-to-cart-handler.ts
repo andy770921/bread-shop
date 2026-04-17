@@ -14,7 +14,17 @@ export function useAddToCartHandler(products: ProductWithCategory[]) {
   const handleAddToCart = (productId: number) => {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
-    addToCart(productId, product.price);
+    addToCart({
+      productId,
+      product: {
+        id: product.id,
+        name_zh: product.name_zh,
+        name_en: product.name_en,
+        price: product.price,
+        image_url: product.image_url,
+        category_slug: product.category.slug,
+      },
+    });
     toast.success(t('home.addedToCart'));
   };
 

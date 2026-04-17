@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { useLocale } from '@/hooks/use-locale';
+import { toIntlLocale } from '@/i18n/utils';
 import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { useOrders } from '@/queries/use-orders';
 import { getStatusColor } from '@/utils/order';
@@ -77,9 +78,7 @@ export default function OrdersPage() {
                       {t('orders.orderNumber')}: {order.order_number}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                      {new Date(order.created_at).toLocaleDateString(
-                        locale === 'zh' ? 'zh-TW' : 'en-US',
-                      )}
+                      {new Date(order.created_at).toLocaleDateString(toIntlLocale(locale))}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

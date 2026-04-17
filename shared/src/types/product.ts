@@ -1,6 +1,5 @@
 export interface ProductSpec {
-  label_zh: string;
-  label_en: string;
+  label_key: string;
   value_zh: string;
   value_en: string;
 }
@@ -17,8 +16,6 @@ export interface Product {
   price: number;
   image_url: string | null;
   badge_type: BadgeType | null;
-  badge_text_zh: string | null;
-  badge_text_en: string | null;
   specs: ProductSpec[];
   is_active: boolean;
   sort_order: number;
@@ -33,8 +30,6 @@ export interface ProductWithCategory extends Product {
 export interface Category {
   id: number;
   slug: string;
-  name_zh: string;
-  name_en: string;
   sort_order: number;
   created_at: string;
 }

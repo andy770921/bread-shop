@@ -11,6 +11,7 @@ import {
 import zhMessages from '../i18n/zh.json';
 import enMessages from '../i18n/en.json';
 import { Locale } from '../i18n/config';
+import { getOppositeLocale } from '../i18n/utils';
 
 const messages: Record<Locale, typeof zhMessages> = { zh: zhMessages, en: enMessages };
 
@@ -43,7 +44,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 
   const toggleLocale = useCallback(() => {
-    const next = locale === 'zh' ? 'en' : 'zh';
+    const next = getOppositeLocale(locale);
     setLocale(next);
     localStorage.setItem('locale', next);
   }, [locale]);
