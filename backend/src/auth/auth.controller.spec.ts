@@ -180,7 +180,6 @@ describe('AuthController', () => {
             lineId: 'guest-line-id',
             _link_user_id: 'should-be-stripped',
           },
-          cart_snapshot: cartSnapshot,
         }),
       ).resolves.toEqual({
         pendingId: 'pending-1',
@@ -210,7 +209,6 @@ describe('AuthController', () => {
       await expect(
         controller.lineStart(req, {
           form_data: { customerName: 'Linked User' },
-          cart_snapshot: cartSnapshot,
         }),
       ).resolves.toEqual({
         pendingId: 'pending-2',
@@ -221,7 +219,6 @@ describe('AuthController', () => {
       expect(orderService.getCheckoutCartSnapshot).toHaveBeenCalledWith(
         'session-1',
         'bread-user-1',
-        cartSnapshot,
       );
       expect(authService.storePendingOrder).toHaveBeenCalledWith('session-1', {
         customerName: 'Linked User',
@@ -250,7 +247,6 @@ describe('AuthController', () => {
       await expect(
         controller.lineStart(req, {
           form_data: { customerName: 'Reachable User' },
-          cart_snapshot: cartSnapshot,
         }),
       ).resolves.toEqual({
         pendingId: 'pending-3',
@@ -286,7 +282,6 @@ describe('AuthController', () => {
       await expect(
         controller.lineStart(req, {
           form_data: { customerName: 'Blocked User' },
-          cart_snapshot: cartSnapshot,
         }),
       ).resolves.toEqual({
         pendingId: 'pending-4',

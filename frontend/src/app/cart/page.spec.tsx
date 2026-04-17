@@ -257,7 +257,6 @@ describe('[cart checkout e2e regression]', () => {
         paymentMethod: 'line_transfer',
         lineId: '@andy',
       },
-      cart_snapshot: expect.objectContaining({ item_count: 1 }),
     });
     expect(confirmPendingLineOrder).not.toHaveBeenCalled();
   });

@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import type { CartResponse } from '@repo/shared';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
 
 export interface LineCheckoutStartResponse {
@@ -10,7 +9,6 @@ export interface LineCheckoutStartResponse {
 
 export interface StartLineCheckoutBody {
   form_data: Record<string, unknown>;
-  cart_snapshot?: CartResponse;
 }
 
 export interface ConfirmPendingLineOrderResponse {

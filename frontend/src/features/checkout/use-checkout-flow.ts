@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback } from 'react';
-import type { CartResponse } from '@repo/shared';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
@@ -49,11 +48,8 @@ export function useCheckoutFlow() {
         throw new Error('Credit card service is currently unavailable.');
       }
 
-      const checkoutCartSnapshot = queryClient.getQueryData<CartResponse>(QUERY_KEYS.cart);
-
       const start = await startLineCheckout({
         form_data: values,
-        cart_snapshot: checkoutCartSnapshot,
       });
 
       if (start.next === 'line_login') {

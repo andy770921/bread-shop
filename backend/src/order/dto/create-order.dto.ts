@@ -1,6 +1,5 @@
-import type { CartResponse } from '@repo/shared';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class CreateOrderDto {
   @ApiProperty({ example: '周小明' })
@@ -44,13 +43,4 @@ export class CreateOrderDto {
   @IsBoolean()
   skip_cart_clear?: boolean;
 
-  @ApiPropertyOptional({
-    description:
-      'Checkout cart snapshot captured on the client at submit time. The backend canonicalizes product data and totals before creating the order.',
-    type: 'object',
-    additionalProperties: true,
-  })
-  @IsOptional()
-  @IsObject()
-  cart_snapshot?: Partial<CartResponse>;
 }

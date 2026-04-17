@@ -110,7 +110,7 @@ export class AuthController {
   @Post('line/start')
   async lineStart(
     @Req() req: Request,
-    @Body() body: { form_data: Record<string, unknown>; cart_snapshot?: Record<string, unknown> },
+    @Body() body: { form_data: Record<string, unknown> },
   ): Promise<LineStartResponse> {
     const sessionId = req.sessionId;
     if (!sessionId) {
@@ -152,7 +152,6 @@ export class AuthController {
     const cart = await this.orderService.getCheckoutCartSnapshot(
       sessionId,
       currentUserId || undefined,
-      body.cart_snapshot as any,
     );
     const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
