@@ -260,8 +260,8 @@ function CartContent() {
                             NT${item.product.price}
                           </p>
                         </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <div className="flex items-center gap-2">
+                        <div className="ml-auto grid shrink-0 grid-cols-[auto_auto] grid-rows-[auto_auto] items-start gap-x-3 gap-y-1">
+                          <div className="row-start-1 col-start-1 flex items-center gap-2">
                             <Button
                               variant="outline"
                               size="icon-xs"
@@ -285,22 +285,23 @@ function CartContent() {
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="row-start-1 col-start-2 self-center"
+                            onClick={() => handleRemove(item.id)}
+                            aria-label={t('cart.remove')}
+                            disabled={isCartSyncing}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                           <span
-                            className="text-sm font-semibold"
+                            className="row-start-2 col-start-1 text-center text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
                           >
                             NT${item.line_total}
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => handleRemove(item.id)}
-                          aria-label={t('cart.remove')}
-                          disabled={isCartSyncing}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
                       </div>
                     );
                   })}
