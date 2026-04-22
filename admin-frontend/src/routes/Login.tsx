@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { LocaleToggle } from '@/components/LocaleToggle';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -47,7 +48,8 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-body px-4">
-      <Card className="w-full max-w-md shadow-md">
+      <Card className="relative w-full max-w-md shadow-md">
+        <LocaleToggle className="absolute right-2 top-2" />
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="font-serif text-2xl text-primary-700">{t('app.title')}</CardTitle>
           <CardDescription>{t('login.subtitle')}</CardDescription>

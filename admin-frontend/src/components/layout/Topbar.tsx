@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAdminAuth } from '@/lib/admin-auth-context';
 import { useLocale } from '@/hooks/use-locale';
+import { LocaleToggle } from '@/components/LocaleToggle';
 
 export function Topbar() {
   const { user, logout } = useAdminAuth();
@@ -19,6 +20,7 @@ export function Topbar() {
     <header className="flex items-center justify-between border-b border-border-light bg-bg-surface px-8 py-4">
       <div className="text-sm text-text-secondary">{user?.email}</div>
       <div className="flex items-center gap-3">
+        <LocaleToggle />
         <Button
           variant="ghost"
           size="icon"
