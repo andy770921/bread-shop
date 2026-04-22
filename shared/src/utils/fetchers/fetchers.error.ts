@@ -1,17 +1,6 @@
 export class ApiResponseError<TErrorBody = unknown> extends Error {
-  /*
-   * status is an error code for api error
-   */
   public status: number;
-
-  /*
-   * status text is an error text for api error
-   */
   public statusText: string;
-
-  /*
-   * body is an error response body
-   */
   public body: TErrorBody;
 
   public constructor(rawResponse: Response, body: TErrorBody, message?: string) {

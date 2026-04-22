@@ -1,5 +1,5 @@
 import { fetchContactDraft } from './use-cart-contact-draft';
-import { ApiResponseError } from '@/utils/fetchers/fetchers.error';
+import { ApiResponseError } from '@repo/shared';
 
 jest.mock('./cart-session', () => ({
   ensureCartSessionReady: jest.fn(),

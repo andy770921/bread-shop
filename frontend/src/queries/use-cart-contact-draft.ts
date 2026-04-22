@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from './query-keys';
 import { ensureCartSessionReady } from './cart-session';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-import { ApiResponseError } from '@/utils/fetchers/fetchers.error';
+import { ApiResponseError } from '@repo/shared';
 
 export async function fetchContactDraft(): Promise<CartContactDraft | null> {
   await ensureCartSessionReady();

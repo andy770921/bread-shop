@@ -11,9 +11,14 @@ async function bootstrap() {
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
-  // Enable CORS for frontend
+  // Enable CORS for customer + admin frontends
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:3001',
+    process.env.ADMIN_FRONTEND_URL || 'http://localhost:3002',
+  ];
   app.enableCors({
-    origin: [process.env.FRONTEND_URL || 'http://localhost:3001'],
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) =>
+      !origin || allowedOrigins.includes(origin) ? cb(null, true) : cb(new Error('CORS blocked')),
     credentials: true,
   });
 

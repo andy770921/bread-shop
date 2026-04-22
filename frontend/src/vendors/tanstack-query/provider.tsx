@@ -2,8 +2,8 @@
 
 import { useState, FC, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { stringifyQueryKey } from '@repo/shared';
 import { defaultFetchFn } from '@/utils/fetchers/fetchers.client';
-import { stringifyQueryKey } from './provider.utils';
 
 const TanStackQueryProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [queryClient] = useState(

@@ -1,8 +1,8 @@
 'use client';
 
 import { authTokenStore } from '@/lib/auth-token-store';
-import { fetchApi, streamingFetchApi } from './fetchers';
-import { FetchOptions } from './fetchers.utils';
+import { fetchApi, streamingFetchApi } from '@repo/shared';
+import type { FetchOptions } from '@repo/shared';
 
 export const defaultFetchFn = async <TResponseData, TRequestBody = unknown>(
   path: string,

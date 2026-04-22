@@ -9,14 +9,14 @@ import { LocaleProvider } from '@/hooks/use-locale';
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-      <LocaleProvider>
-        <TanStackQueryProvider>
+      <TanStackQueryProvider>
+        <LocaleProvider>
           <AuthProvider>
             {children}
             <Toaster />
           </AuthProvider>
-        </TanStackQueryProvider>
-      </LocaleProvider>
+        </LocaleProvider>
+      </TanStackQueryProvider>
     </ThemeProvider>
   );
 }

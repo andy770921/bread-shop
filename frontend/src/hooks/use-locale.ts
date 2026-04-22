@@ -6,14 +6,20 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   type ReactNode,
 } from 'react';
 import zhMessages from '../i18n/zh.json';
 import enMessages from '../i18n/en.json';
 import { Locale } from '../i18n/config';
 import { getOppositeLocale } from '../i18n/utils';
+import { mergeOverrides, type NestedRecord } from '../i18n/merge-overrides';
+import { useSiteContent } from '../queries/use-site-content';
 
-const messages: Record<Locale, typeof zhMessages> = { zh: zhMessages, en: enMessages };
+const baseMessages: Record<Locale, NestedRecord> = {
+  zh: zhMessages as NestedRecord,
+  en: enMessages as NestedRecord,
+};
 
 interface LocaleContextType {
   locale: Locale;
@@ -31,16 +37,29 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     return 'zh';
   });
 
+  const { data: siteContent } = useSiteContent();
+
+  const messages = useMemo(() => {
+    const defaults = baseMessages[locale];
+    if (!siteContent?.overrides?.length) return defaults;
+    return mergeOverrides(defaults, siteContent.overrides, locale);
+  }, [locale, siteContent]);
+
   const t = useCallback(
     (key: string): string => {
       const keys = key.split('.');
-      let result: any = messages[locale];
+      let result: unknown = messages;
       for (const k of keys) {
-        result = result?.[k];
+        if (result && typeof result === 'object') {
+          result = (result as Record<string, unknown>)[k];
+        } else {
+          result = undefined;
+          break;
+        }
       }
-      return result || key;
+      return typeof result === 'string' ? result : key;
     },
-    [locale],
+    [messages],
   );
 
   const toggleLocale = useCallback(() => {

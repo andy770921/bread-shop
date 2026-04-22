@@ -1,0 +1,36 @@
+import { Module } from '@nestjs/common';
+import { OrderModule } from '../order/order.module';
+import { LineModule } from '../line/line.module';
+import { AdminAuthGuard } from './guards/admin-auth.guard';
+import { AdminMeController } from './me.controller';
+import { DashboardAdminController } from './dashboard-admin.controller';
+import { DashboardAdminService } from './dashboard-admin.service';
+import { ProductAdminController } from './product-admin.controller';
+import { ProductAdminService } from './product-admin.service';
+import { ContentAdminController } from './content-admin.controller';
+import { ContentAdminService } from './content-admin.service';
+import { OrderAdminController } from './order-admin.controller';
+import { OrderAdminService } from './order-admin.service';
+import { UploadAdminController } from './upload-admin.controller';
+import { UploadAdminService } from './upload-admin.service';
+
+@Module({
+  imports: [OrderModule, LineModule],
+  controllers: [
+    AdminMeController,
+    DashboardAdminController,
+    ProductAdminController,
+    ContentAdminController,
+    OrderAdminController,
+    UploadAdminController,
+  ],
+  providers: [
+    AdminAuthGuard,
+    DashboardAdminService,
+    ProductAdminService,
+    ContentAdminService,
+    OrderAdminService,
+    UploadAdminService,
+  ],
+})
+export class AdminModule {}

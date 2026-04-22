@@ -1,0 +1,260 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* FEAT-1 palette */
+  --primary-50: #fffbf5;
+  --primary-100: #fef5e8;
+  --primary-200: #fde8d4;
+  --primary-300: #f9d4b0;
+  --primary-400: #f5bb87;
+  --primary-500: #d4885a;
+  --primary-600: #c07545;
+  --primary-700: #9d5f31;
+  --primary-800: #7a4620;
+  --primary-900: #5c3d1e;
+
+  --neutral-50: #fdfbf9;
+  --neutral-100: #faf8f5;
+  --neutral-200: #f5f1ec;
+  --neutral-300: #e8e2d9;
+  --neutral-400: #d6ccc0;
+  --neutral-500: #b8ada0;
+  --neutral-600: #9a8e83;
+  --neutral-700: #6f645a;
+  --neutral-800: #3d281a;
+  --neutral-900: #1a110b;
+
+  --success-500: #52b788;
+  --warning-500: #f5a623;
+  --error-500: #dc2626;
+
+  --bg-body: var(--neutral-50);
+  --bg-surface: #ffffff;
+  --bg-elevated: var(--neutral-100);
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-tertiary: #a89e92;
+  --text-inverse: var(--neutral-50);
+  --border-light: var(--neutral-300);
+  --border-default: var(--neutral-400);
+  --border-strong: var(--neutral-600);
+
+  --shadow-sm: 0 1px 3px rgba(26, 17, 11, 0.1);
+  --shadow-md: 0 4px 12px rgba(26, 17, 11, 0.08);
+  --shadow-lg: 0 10px 24px rgba(26, 17, 11, 0.12);
+  --shadow-xl: 0 20px 40px rgba(26, 17, 11, 0.15);
+
+  --radius: 0.5rem;
+
+  /* shadcn tokens rewired to FEAT-1 */
+  --background: var(--bg-body);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--primary-500);
+  --primary-foreground: #ffffff;
+  --secondary: var(--neutral-100);
+  --secondary-foreground: var(--neutral-900);
+  --muted: var(--neutral-100);
+  --muted-foreground: var(--neutral-700);
+  --accent: var(--primary-100);
+  --accent-foreground: var(--primary-800);
+  --destructive: var(--error-500);
+  --destructive-foreground: #ffffff;
+  --border: var(--border-light);
+  --input: var(--border-default);
+  --ring: var(--primary-500);
+
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-secondary);
+  --sidebar-primary: var(--primary-500);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--primary-600);
+  --sidebar-border: var(--border-light);
+  --sidebar-ring: var(--primary-500);
+}
+
+.dark {
+  --primary-50: #2a1e14;
+  --primary-100: #3a2a1c;
+  --primary-200: #4d3825;
+  --primary-300: #6b4e34;
+  --primary-400: #d49a6a;
+  --primary-500: #e0965f;
+  --primary-600: #c8824e;
+  --primary-700: #f0b080;
+  --primary-800: #f5c8a0;
+  --primary-900: #fae0c8;
+
+  --neutral-50: #161110;
+  --neutral-100: #1e1712;
+  --neutral-200: #2a2018;
+  --neutral-300: #3d3028;
+  --neutral-400: #5a4d42;
+  --neutral-500: #7a6e62;
+  --neutral-600: #9a8e83;
+  --neutral-700: #c4b8ab;
+  --neutral-800: #e8ddd2;
+  --neutral-900: #faf5f0;
+
+  --success-500: #6bcca0;
+  --warning-500: #f5b840;
+  --error-500: #ef4444;
+
+  --bg-body: var(--neutral-50);
+  --bg-surface: var(--neutral-100);
+  --bg-elevated: var(--neutral-200);
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-tertiary: #8a7e72;
+  --text-inverse: var(--neutral-50);
+  --border-light: var(--neutral-300);
+  --border-default: var(--neutral-400);
+  --border-strong: var(--neutral-600);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.45);
+
+  --background: var(--bg-body);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--primary-500);
+  --primary-foreground: #ffffff;
+  --secondary: var(--neutral-200);
+  --secondary-foreground: var(--neutral-900);
+  --muted: var(--neutral-200);
+  --muted-foreground: var(--neutral-700);
+  --accent: var(--primary-50);
+  --accent-foreground: var(--primary-400);
+  --destructive: var(--error-500);
+  --destructive-foreground: #ffffff;
+  --border: var(--border-light);
+  --input: var(--border-default);
+  --ring: var(--primary-500);
+
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-secondary);
+  --sidebar-primary: var(--primary-500);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--bg-elevated);
+  --sidebar-accent-foreground: var(--primary-400);
+  --sidebar-border: var(--border-light);
+  --sidebar-ring: var(--primary-500);
+}
+
+@theme inline {
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+  --color-primary-700: var(--primary-700);
+  --color-primary-800: var(--primary-800);
+  --color-primary-900: var(--primary-900);
+
+  --color-neutral-50: var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+
+  --color-success: var(--success-500);
+  --color-warning: var(--warning-500);
+  --color-error: var(--error-500);
+
+  --color-bg-body: var(--bg-body);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-inverse: var(--text-inverse);
+  --color-border-light: var(--border-light);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-serif: 'Noto Serif TC', serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Serif TC',
+    sans-serif;
+  --font-heading: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  transition:
+    background-color 400ms,
+    color 400ms;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+}

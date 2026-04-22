@@ -11,6 +11,8 @@ import { FavoriteModule } from './favorite/favorite.module';
 import { OrderModule } from './order/order.module';
 import { LineModule } from './line/line.module';
 import { UserModule } from './user/user.module';
+import { AdminModule } from './admin/admin.module';
+import { SiteContentModule } from './site-content/site-content.module';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 
 @Module({
@@ -28,6 +30,8 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
     OrderModule,
     LineModule,
     UserModule,
+    AdminModule,
+    SiteContentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

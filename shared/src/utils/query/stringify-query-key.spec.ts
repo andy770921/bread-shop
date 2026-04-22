@@ -1,6 +1,6 @@
-import { stringifyQueryKey } from './provider.utils';
+import { stringifyQueryKey } from './stringify-query-key';
 
-describe('[tanStack query provider utils] stringifyQueryKey', () => {
+describe('[stringifyQueryKey]', () => {
   it('can parse array', () => {
     expect(stringifyQueryKey(['tests'])).toBe('tests');
     expect(stringifyQueryKey(['test', 100])).toBe('test/100');

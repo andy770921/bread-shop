@@ -1,6 +1,6 @@
 import { FetchOptions, getFetchQueryOptions, parseErrorBody } from './fetchers.utils';
 import { ApiResponseError } from './fetchers.error';
-import { HTTP_STATUS_CODE } from '@/constants/common';
+import { HTTP_STATUS_CODE } from '../../constants/common';
 
 const REQUEST_TIMEOUT = 100000;
 
@@ -74,7 +74,6 @@ export const fetchApi = async <TResponseData, TRequestBody = unknown, TErrorBody
   }
 };
 
-// Streaming version of fetchApi that returns raw Response for streaming use cases
 export const streamingFetchApi = async <TRequestBody = unknown, TErrorBody = unknown>(
   url: string,
   options: FetchOptions<TRequestBody> = {},

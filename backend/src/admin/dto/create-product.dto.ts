@@ -1,0 +1,35 @@
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+class ProductSpecDto {
+  @IsString() label_key!: string;
+  @IsString() value_zh!: string;
+  @IsString() value_en!: string;
+}
+
+export class CreateProductDto {
+  @IsString() name_zh!: string;
+  @IsString() name_en!: string;
+  @IsOptional() @IsString() description_zh?: string;
+  @IsOptional() @IsString() description_en?: string;
+  @IsInt() @Min(0) price!: number;
+  @IsInt() category_id!: number;
+  @IsOptional() @IsString() image_url?: string;
+  @IsOptional() @IsIn(['hot', 'new', 'seasonal']) badge_type?: 'hot' | 'new' | 'seasonal';
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductSpecDto)
+  specs?: ProductSpecDto[];
+  @IsOptional() @IsBoolean() is_active?: boolean;
+  @IsOptional() @IsInt() sort_order?: number;
+}
