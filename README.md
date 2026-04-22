@@ -60,9 +60,15 @@ Copy `backend/.env.example` to `backend/.env` and fill in credentials. Key varia
 
 Copy `frontend/.env.example` to `frontend/.env.local`. The only required variable is `NEXT_PUBLIC_API_URL=http://localhost:3000`.
 
-### Admin Frontend (`admin-frontend`)
+### Admin Frontend (`admin-frontend/.env.local`)
 
-No environment file required for local development — the Vite dev server proxies `/api/*` to `http://localhost:3000` via `admin-frontend/vite.config.ts`. In production the admin frontend talks to the same backend; see **Admin Backoffice** below for how admin users are provisioned.
+Copy `admin-frontend/.env.local.example` to `admin-frontend/.env.local`. Required variable:
+
+```
+VITE_API_URL=http://localhost:3000
+```
+
+Admin-frontend fetches go directly to this URL (no proxy). In Vercel production, set `VITE_API_URL=https://papa-bread-api.vercel.app` (or your backend domain) in the admin-frontend project's environment settings so the built bundle points at the real backend.
 
 ### LINE Configuration
 

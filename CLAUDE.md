@@ -40,14 +40,13 @@ cd shared         && npx jest src/path/to/file.spec.ts         # Single shared t
 
 ## Architecture
 
-### API Proxy (Critical Pattern)
+### API URLs (Critical Pattern)
 
-Both frontends keep `/api/*` same-origin via proxying to the backend:
+The two frontends reach the backend differently — don't confuse them:
 
-- **Customer frontend**: Next.js rewrites (`frontend/next.config.ts`) → keeps `session_id` cookie same-origin.
-- **Admin frontend**: Vite dev proxy (`admin-frontend/vite.config.ts`) → admin doesn't use the session cookie, but the proxy keeps fetch URLs identical to production.
-- Frontend fetch calls **must use relative URLs** (`/api/cart`, never `http://localhost:3000/api/cart`).
-- Backend CORS locally allows `FRONTEND_URL` **and** `ADMIN_FRONTEND_URL`; production serverless entry uses `origin: true`.
+- **Customer frontend**: Next.js rewrites (`frontend/next.config.ts`) proxy `/api/*` to the backend. Fetch calls **must use relative URLs** (`/api/cart`) so the `session_id` HttpOnly cookie stays same-origin. The real backend URL comes from `NEXT_PUBLIC_API_URL`.
+- **Admin frontend**: **no proxy**. `admin-frontend/src/lib/admin-fetchers.ts` prepends `import.meta.env.VITE_API_URL` to every path (`https://papa-bread-api.vercel.app/api/auth/login`). The admin doesn't use the session cookie, only Bearer JWT, so cross-origin is fine. `VITE_API_URL` must be set in both `admin-frontend/.env.local` (dev) and Vercel env settings (prod), or the fetcher throws at load time.
+- Backend CORS locally allows `FRONTEND_URL` + `ADMIN_FRONTEND_URL`; production serverless entry uses `origin: true`.
 
 ### Session-Based Cart
 
