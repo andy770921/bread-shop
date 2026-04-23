@@ -100,14 +100,9 @@ export default function DashboardIndex() {
                           </Link>
                         </TableCell>
                         <TableCell>{o.customer_name}</TableCell>
-                        <TableCell className="text-right">
-                          NT${o.total.toLocaleString()}
-                        </TableCell>
+                        <TableCell className="text-right">NT${o.total.toLocaleString()}</TableCell>
                         <TableCell>
-                          <Badge
-                            variant="secondary"
-                            className={cn(STATUS_COLORS[o.status] ?? '')}
-                          >
+                          <Badge variant="secondary" className={cn(STATUS_COLORS[o.status] ?? '')}>
                             {t(`order.status${capitalize(o.status)}`)}
                           </Badge>
                         </TableCell>
