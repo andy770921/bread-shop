@@ -852,14 +852,13 @@ VITE_API_URL=http://localhost:3000
 
 ```json
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://<backend-url>/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
 
-The first rewrite proxies API calls in production (replacing Vite's dev server proxy). The second rewrite enables client-side routing — without it, direct navigation to `/dashboard/products` would 404.
+**Why this file is required.** Vercel treats the deployed `dist/` as a pile of static files. When a user hits the root (`/`) Vercel serves `index.html` and the SPA boots, after which all `<NavLink>` clicks are handled in-browser by `react-router-dom` — the server is never asked about `/dashboard` etc. But when the user **directly** navigates to a deep URL (typing `https://<app>.vercel.app/dashboard` in the address bar, refreshing on a sub-route, or following an external link), the browser issues a real GET request to the server. There is no `dist/dashboard` or `dist/dashboard.html`, so Vercel returns `404: NOT_FOUND`. The catch-all rewrite tells Vercel to return `index.html` for every path so the SPA can boot and let the client-side router resolve the URL.
+
+**No `/api` rewrite.** Unlike the customer frontend (which proxies `/api/*` through Next.js rewrites to keep the `session_id` cookie same-origin), admin-frontend calls the backend cross-origin using `VITE_API_URL` directly — Bearer tokens don't need same-origin. Do **not** add an `/api/(.*)` rewrite here; it would shadow the real API URL and is unnecessary.
 
 ---
 
