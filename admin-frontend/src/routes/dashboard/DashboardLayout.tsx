@@ -6,11 +6,11 @@ import { Topbar } from '@/components/layout/Topbar';
 export default function DashboardLayout() {
   return (
     <AdminAuthGuard>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex min-h-screen flex-col md:h-screen md:flex-row md:overflow-hidden">
         <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col md:overflow-hidden">
           <Topbar />
-          <main className="flex-1 overflow-y-auto bg-bg-body px-8 py-6">
+          <main className="flex-1 bg-bg-body px-4 py-4 md:overflow-y-auto md:px-8 md:py-6">
             <Outlet />
           </main>
         </div>

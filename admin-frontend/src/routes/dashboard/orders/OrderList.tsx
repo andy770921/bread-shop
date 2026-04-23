@@ -38,11 +38,13 @@ export default function OrderList() {
   const { data, isLoading } = useAdminOrders(status === 'all' ? undefined : status);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-2xl font-bold text-text-primary">{t('order.title')}</h1>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-xl font-bold text-text-primary md:text-2xl">
+          {t('order.title')}
+        </h1>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-text-secondary">{t('order.filterStatus')}</span>
+          <span className="shrink-0 text-sm text-text-secondary">{t('order.filterStatus')}</span>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -59,51 +61,94 @@ export default function OrderList() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
+      {isLoading ? (
+        <Card>
+          <CardContent>
             <p className="p-6 text-text-secondary">{t('common.loading')}</p>
-          ) : !data?.orders.length ? (
+          </CardContent>
+        </Card>
+      ) : !data?.orders.length ? (
+        <Card>
+          <CardContent>
             <p className="p-6 text-text-secondary">{t('order.empty')}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('order.orderNumber')}</TableHead>
-                  <TableHead>{t('order.customer')}</TableHead>
-                  <TableHead className="text-right">{t('order.total')}</TableHead>
-                  <TableHead>{t('order.status')}</TableHead>
-                  <TableHead>{t('order.createdAt')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.orders.map((o) => (
-                  <TableRow key={o.id}>
-                    <TableCell>
-                      <Link
-                        to={`/dashboard/orders/${o.id}`}
-                        className="text-primary-600 hover:underline"
-                      >
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('order.orderNumber')}</TableHead>
+                    <TableHead>{t('order.customer')}</TableHead>
+                    <TableHead className="text-right">{t('order.total')}</TableHead>
+                    <TableHead>{t('order.status')}</TableHead>
+                    <TableHead>{t('order.createdAt')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.orders.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell>
+                        <Link
+                          to={`/dashboard/orders/${o.id}`}
+                          className="text-primary-600 hover:underline"
+                        >
+                          {o.order_number}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{o.customer_name}</TableCell>
+                      <TableCell className="text-right">NT${o.total.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={cn(STATUS_COLORS[o.status] ?? '')}>
+                          {t(`order.status${capitalize(o.status)}`)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-text-secondary">
+                        {new Date(o.created_at).toLocaleString('zh-TW')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Mobile card list */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {data.orders.map((o) => (
+              <Card key={o.id}>
+                <CardContent className="p-3">
+                  <Link to={`/dashboard/orders/${o.id}`} className="block space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="truncate font-medium text-primary-600">
                         {o.order_number}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{o.customer_name}</TableCell>
-                    <TableCell className="text-right">NT${o.total.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={cn(STATUS_COLORS[o.status] ?? '')}>
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className={cn('shrink-0', STATUS_COLORS[o.status] ?? '')}
+                      >
                         {t(`order.status${capitalize(o.status)}`)}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-text-secondary">
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate text-text-primary">{o.customer_name}</span>
+                      <span className="shrink-0 font-medium text-text-primary">
+                        NT${o.total.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-text-tertiary">
                       {new Date(o.created_at).toLocaleString('zh-TW')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                    </div>
+                  </Link>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

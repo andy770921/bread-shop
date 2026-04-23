@@ -3,7 +3,7 @@ import { LayoutDashboard, Package, FileText, ShoppingBag } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
 
-export function Sidebar() {
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useLocale();
 
   const items = [
@@ -14,7 +14,7 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="flex h-screen w-[260px] flex-col border-r border-border-light bg-bg-surface px-5 py-6">
+    <>
       <div className="mb-8 font-serif text-xl font-bold tracking-wide text-primary-700">
         {t('app.title')}
       </div>
@@ -24,6 +24,7 @@ export function Sidebar() {
             key={it.to}
             to={it.to}
             end={it.end}
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-md px-4 py-3 text-sm transition-colors',
@@ -38,6 +39,14 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+    </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="hidden h-screen w-[260px] flex-col border-r border-border-light bg-bg-surface px-5 py-6 md:flex">
+      <SidebarNav />
     </aside>
   );
 }

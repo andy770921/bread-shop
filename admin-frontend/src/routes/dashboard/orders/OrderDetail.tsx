@@ -74,22 +74,35 @@ export default function OrderDetail() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/orders')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('order.backToList')}
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/dashboard/orders')}
+            aria-label={t('order.backToList')}
+          >
+            <ArrowLeft className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">{t('order.backToList')}</span>
           </Button>
-          <h1 className="font-serif text-2xl font-bold text-text-primary">{order.order_number}</h1>
+          <h1 className="min-w-0 flex-1 truncate font-serif text-lg font-bold text-text-primary md:text-2xl">
+            {order.order_number}
+          </h1>
         </div>
-        <Button variant="outline" onClick={handleResend} disabled={resend.isPending}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleResend}
+          disabled={resend.isPending}
+          className="self-start sm:self-auto"
+        >
           <Send className="mr-2 h-4 w-4" />
           {resend.isPending ? t('order.resending') : t('order.resendLine')}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="text-base">{t('order.customer')}</CardTitle>
@@ -103,10 +116,10 @@ export default function OrderDetail() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="text-base">{t('order.detail')}</CardTitle>
             <Select value={order.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -119,7 +132,8 @@ export default function OrderDetail() {
             </Select>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Table>
+            {/* Desktop table */}
+            <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('order.items')}</TableHead>
@@ -139,6 +153,25 @@ export default function OrderDetail() {
                 ))}
               </TableBody>
             </Table>
+
+            {/* Mobile list */}
+            <div className="flex flex-col divide-y divide-border-light md:hidden">
+              {order.items.map((it) => (
+                <div key={it.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium text-text-primary">
+                      {it.product_name_zh}
+                    </span>
+                    <span className="shrink-0 text-sm font-medium text-text-primary">
+                      NT${it.subtotal}
+                    </span>
+                  </div>
+                  <div className="text-xs text-text-secondary">
+                    {it.quantity} × NT${it.product_price}
+                  </div>
+                </div>
+              ))}
+            </div>
 
             <div className="space-y-1 border-t border-border-light pt-3 text-sm">
               <div className="flex justify-between">
@@ -164,8 +197,8 @@ export default function OrderDetail() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-text-secondary">{label}</span>
-      <span className="text-right text-text-primary">{value}</span>
+      <span className="shrink-0 text-text-secondary">{label}</span>
+      <span className="truncate text-right text-text-primary">{value}</span>
     </div>
   );
 }

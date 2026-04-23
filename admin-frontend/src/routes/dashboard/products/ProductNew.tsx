@@ -27,13 +27,21 @@ export default function ProductNew() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/products')}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          {t('product.backToList')}
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex min-w-0 items-center gap-2 md:gap-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/dashboard/products')}
+          aria-label={t('product.backToList')}
+          className="shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">{t('product.backToList')}</span>
         </Button>
-        <h1 className="font-serif text-2xl font-bold text-text-primary">{t('product.new')}</h1>
+        <h1 className="min-w-0 flex-1 truncate font-serif text-lg font-bold text-text-primary md:text-2xl">
+          {t('product.new')}
+        </h1>
       </div>
       <ProductForm onSubmit={handleSubmit} submitting={create.isPending} />
     </div>

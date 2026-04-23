@@ -40,13 +40,15 @@ export default function ContentEditor() {
         <div className="text-sm text-text-tertiary">Loading…</div>
       ) : (
         <Tabs value={activeSection} onValueChange={setActiveSection}>
-          <TabsList className="flex-wrap">
-            {sections.map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {s}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+            <TabsList className="w-max md:w-fit md:flex-wrap">
+              {sections.map((s) => (
+                <TabsTrigger key={s} value={s}>
+                  {s}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
           {sections.map((s) => (
             <TabsContent key={s} value={s} className="space-y-3">
               {groups[s].map((row) => (
@@ -118,9 +120,9 @@ function ContentKeyRow({ row, onSave, onReset }: RowProps) {
   return (
     <Card>
       <CardContent className="space-y-3 pt-6">
-        <div className="flex items-center justify-between gap-3">
-          <code className="text-xs text-text-tertiary">{row.key}</code>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <code className="truncate text-xs text-text-tertiary">{row.key}</code>
+          <div className="flex gap-2 self-end sm:self-auto">
             <Button type="button" variant="ghost" size="sm" onClick={doReset} disabled={resetting}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" />
               {t('content.reset')}
