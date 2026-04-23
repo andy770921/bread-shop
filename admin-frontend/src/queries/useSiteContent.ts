@@ -22,11 +22,13 @@ export function useUpsertSiteContent() {
   });
 }
 
-export function useDeleteSiteContent() {
+export function useResetSiteContent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (key: string) =>
-      defaultFetchFn(`/api/admin/site-content/${encodeURIComponent(key)}`, { method: 'DELETE' }),
+      defaultFetchFn(`/api/admin/site-content/${encodeURIComponent(key)}/reset`, {
+        method: 'POST',
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['api', 'admin', 'site-content'] });
     },

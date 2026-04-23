@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { ContentAdminService } from './content-admin.service';
@@ -26,8 +26,8 @@ export class ContentAdminController {
     return this.service.upsert(key, dto, user.id);
   }
 
-  @Delete(':key')
-  remove(@Param('key') key: string) {
-    return this.service.remove(key);
+  @Post(':key/reset')
+  resetToDefault(@Param('key') key: string, @CurrentUser() user: { id: string }) {
+    return this.service.resetToDefault(key, user.id);
   }
 }

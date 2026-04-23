@@ -13,3 +13,4 @@ export * from './types/admin';
 export * from './types/site-content';
 export * from './utils/fetchers';
 export * from './utils/query';
+export * from './i18n/defaults';

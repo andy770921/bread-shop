@@ -9,7 +9,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@frontend-i18n': path.resolve(__dirname, '../frontend/src/i18n'),
     },
   },
   server: {

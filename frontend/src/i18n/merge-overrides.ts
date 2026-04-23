@@ -40,7 +40,7 @@ export function mergeOverrides(
   const flat = flattenKeys(defaults);
   for (const o of overrides) {
     const val = locale === 'zh' ? o.value_zh : o.value_en;
-    if (val != null && val !== '') {
+    if (val != null) {
       flat[o.key] = val;
     }
   }

@@ -8,7 +8,9 @@
     "declarationMap": true,
     "lib": ["ES2020", "DOM"],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "resolveJsonModule": true,
+    "esModuleInterop": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]

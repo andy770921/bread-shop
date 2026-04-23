@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { RotateCcw, Save } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -7,30 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { getContentGroups } from '@/lib/content-keys';
+import { groupRowsBySection, type ContentRow } from '@/lib/content-keys';
 import {
   useAdminSiteContent,
-  useDeleteSiteContent,
   useUpsertSiteContent,
+  useResetSiteContent,
 } from '@/queries/useSiteContent';
 import { useLocale } from '@/hooks/use-locale';
 
 export default function ContentEditor() {
   const { t } = useLocale();
-  const groups = useMemo(() => getContentGroups(), []);
-  const sections = Object.keys(groups);
-  const [activeSection, setActiveSection] = useState<string>(sections[0] ?? '');
-  const { data } = useAdminSiteContent();
+  const { data, isLoading } = useAdminSiteContent();
   const upsert = useUpsertSiteContent();
-  const del = useDeleteSiteContent();
+  const reset = useResetSiteContent();
 
-  const overrideMap = useMemo(() => {
-    const map = new Map<string, { zh: string | null; en: string | null }>();
-    for (const o of data?.overrides ?? []) {
-      map.set(o.key, { zh: o.value_zh, en: o.value_en });
-    }
-    return map;
-  }, [data]);
+  const groups = useMemo(() => groupRowsBySection(data?.overrides ?? []), [data]);
+  const sections = Object.keys(groups);
+  const [activeSection, setActiveSection] = useState<string>('');
+
+  useEffect(() => {
+    if (!activeSection && sections.length > 0) setActiveSection(sections[0]);
+  }, [sections, activeSection]);
 
   return (
     <div className="space-y-4">
@@ -39,64 +36,82 @@ export default function ContentEditor() {
         <p className="mt-1 text-sm text-text-secondary">{t('content.subtitle')}</p>
       </div>
 
-      <Tabs value={activeSection} onValueChange={setActiveSection}>
-        <TabsList className="flex-wrap">
-          {sections.map((s) => (
-            <TabsTrigger key={s} value={s}>
-              {s}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {sections.map((s) => (
-          <TabsContent key={s} value={s} className="space-y-3">
-            {groups[s].map((entry) => (
-              <ContentKeyRow
-                key={entry.key}
-                entry={entry}
-                override={overrideMap.get(entry.key)}
-                onSave={async (zh, en) => {
-                  await upsert.mutateAsync({
-                    key: entry.key,
-                    body: { value_zh: zh, value_en: en },
-                  });
-                  toast.success(t('content.saved'));
-                }}
-                onReset={async () => {
-                  await del.mutateAsync(entry.key);
-                  toast.success(t('content.reset'));
-                }}
-              />
+      {isLoading ? (
+        <div className="text-sm text-text-tertiary">Loading…</div>
+      ) : (
+        <Tabs value={activeSection} onValueChange={setActiveSection}>
+          <TabsList className="flex-wrap">
+            {sections.map((s) => (
+              <TabsTrigger key={s} value={s}>
+                {s}
+              </TabsTrigger>
             ))}
-          </TabsContent>
-        ))}
-      </Tabs>
+          </TabsList>
+          {sections.map((s) => (
+            <TabsContent key={s} value={s} className="space-y-3">
+              {groups[s].map((row) => (
+                <ContentKeyRow
+                  key={row.key}
+                  row={row}
+                  onSave={async (zh, en) => {
+                    await upsert.mutateAsync({
+                      key: row.key,
+                      body: { value_zh: zh, value_en: en },
+                    });
+                    toast.success(t('content.saved'));
+                  }}
+                  onReset={async () => {
+                    await reset.mutateAsync(row.key);
+                    toast.success(t('content.reset'));
+                  }}
+                />
+              ))}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
     </div>
   );
 }
 
 interface RowProps {
-  entry: { key: string; defaultZh: string; defaultEn: string };
-  override?: { zh: string | null; en: string | null };
-  onSave: (zh: string | null, en: string | null) => Promise<void>;
+  row: ContentRow;
+  onSave: (zh: string, en: string) => Promise<void>;
   onReset: () => Promise<void>;
 }
 
-function ContentKeyRow({ entry, override, onSave, onReset }: RowProps) {
+function ContentKeyRow({ row, onSave, onReset }: RowProps) {
   const { t } = useLocale();
-  const [zh, setZh] = useState(override?.zh ?? '');
-  const [en, setEn] = useState(override?.en ?? '');
+  const [zh, setZh] = useState(row.value_zh);
+  const [en, setEn] = useState(row.value_en);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
-  const longText = entry.defaultZh.length > 80 || entry.defaultEn.length > 80;
+  useEffect(() => {
+    setZh(row.value_zh);
+    setEn(row.value_en);
+  }, [row.value_zh, row.value_en]);
+
+  const dirty = zh !== row.value_zh || en !== row.value_en;
+  const longText = row.default_zh.length > 80 || row.default_en.length > 80;
   const ZhInput = longText ? Textarea : Input;
   const EnInput = longText ? Textarea : Input;
 
   async function save() {
     setSaving(true);
     try {
-      await onSave(zh || null, en || null);
+      await onSave(zh, en);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function doReset() {
+    setResetting(true);
+    try {
+      await onReset();
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -104,13 +119,13 @@ function ContentKeyRow({ entry, override, onSave, onReset }: RowProps) {
     <Card>
       <CardContent className="space-y-3 pt-6">
         <div className="flex items-center justify-between gap-3">
-          <code className="text-xs text-text-tertiary">{entry.key}</code>
+          <code className="text-xs text-text-tertiary">{row.key}</code>
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onReset} disabled={!override}>
+            <Button type="button" variant="ghost" size="sm" onClick={doReset} disabled={resetting}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" />
               {t('content.reset')}
             </Button>
-            <Button type="button" size="sm" onClick={save} disabled={saving}>
+            <Button type="button" size="sm" onClick={save} disabled={saving || !dirty}>
               <Save className="mr-2 h-3.5 w-3.5" />
               {saving ? t('content.saving') : t('content.save')}
             </Button>
@@ -119,24 +134,16 @@ function ContentKeyRow({ entry, override, onSave, onReset }: RowProps) {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">{t('content.zh')}</Label>
-            <ZhInput
-              value={zh}
-              onChange={(e) => setZh(e.target.value)}
-              placeholder={entry.defaultZh}
-            />
+            <ZhInput value={zh} onChange={(e) => setZh(e.target.value)} />
             <p className="text-xs text-text-tertiary">
-              {t('content.defaultZh')} {entry.defaultZh}
+              {t('content.defaultZh')} {row.default_zh || '—'}
             </p>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">{t('content.en')}</Label>
-            <EnInput
-              value={en}
-              onChange={(e) => setEn(e.target.value)}
-              placeholder={entry.defaultEn}
-            />
+            <EnInput value={en} onChange={(e) => setEn(e.target.value)} />
             <p className="text-xs text-text-tertiary">
-              {t('content.defaultEn')} {entry.defaultEn}
+              {t('content.defaultEn')} {row.default_en || '—'}
             </p>
           </div>
         </div>

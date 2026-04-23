@@ -2,8 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@frontend-i18n/*": ["../frontend/src/i18n/*"]
+      "@/*": ["src/*"]
     }
   },
   "files": [],

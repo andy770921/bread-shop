@@ -9,17 +9,13 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import zhMessages from '../i18n/zh.json';
-import enMessages from '../i18n/en.json';
+import { defaultContent } from '@repo/shared';
 import { Locale } from '../i18n/config';
 import { getOppositeLocale } from '../i18n/utils';
-import { mergeOverrides, type NestedRecord } from '../i18n/merge-overrides';
+import { mergeOverrides } from '../i18n/merge-overrides';
 import { useSiteContent } from '../queries/use-site-content';
 
-const baseMessages: Record<Locale, NestedRecord> = {
-  zh: zhMessages as NestedRecord,
-  en: enMessages as NestedRecord,
-};
+const baseMessages = defaultContent;
 
 interface LocaleContextType {
   locale: Locale;

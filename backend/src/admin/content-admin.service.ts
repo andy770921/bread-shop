@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UpsertSiteContentDto } from './dto/upsert-site-content.dto';
+import { getDefaultForKey } from '../site-content/flatten';
 
 @Injectable()
 export class ContentAdminService {
@@ -31,9 +32,27 @@ export class ContentAdminService {
     return data;
   }
 
-  async remove(key: string) {
-    const { error } = await this.supabase.getClient().from('site_content').delete().eq('key', key);
+  async resetToDefault(key: string, userId: string) {
+    const fallback = getDefaultForKey(key);
+    if (!fallback) {
+      throw new NotFoundException(`No default value registered for key '${key}'.`);
+    }
+
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('site_content')
+      .upsert(
+        {
+          key,
+          value_zh: fallback.value_zh,
+          value_en: fallback.value_en,
+          updated_by: userId,
+        },
+        { onConflict: 'key' },
+      )
+      .select()
+      .single();
     if (error) throw new BadRequestException(error.message);
-    return { success: true };
+    return data;
   }
 }

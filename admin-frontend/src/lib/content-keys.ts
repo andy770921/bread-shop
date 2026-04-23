@@ -1,41 +1,47 @@
-import zhDefaults from '@frontend-i18n/zh.json';
-import enDefaults from '@frontend-i18n/en.json';
+import { defaultContent, type NestedRecord } from '@repo/shared';
+import type { SiteContentEntry } from '@repo/shared';
 
-type NestedRecord = { [key: string]: string | NestedRecord };
-
-function flattenKeys(obj: NestedRecord, prefix = ''): Record<string, string> {
+function flatten(obj: NestedRecord, prefix = ''): Record<string, string> {
   const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const fullKey = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') {
-      result[fullKey] = value;
-    } else {
-      Object.assign(result, flattenKeys(value, fullKey));
-    }
+  for (const [k, v] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${k}` : k;
+    if (typeof v === 'string') result[fullKey] = v;
+    else Object.assign(result, flatten(v, fullKey));
   }
   return result;
 }
 
-export interface ContentKey {
-  key: string;
-  defaultZh: string;
-  defaultEn: string;
+const flatZh = flatten(defaultContent.zh);
+const flatEn = flatten(defaultContent.en);
+
+export function getDefault(key: string): { zh: string; en: string } {
+  return { zh: flatZh[key] ?? '', en: flatEn[key] ?? '' };
 }
 
-export function getContentGroups(): Record<string, ContentKey[]> {
-  const flatZh = flattenKeys(zhDefaults as NestedRecord);
-  const flatEn = flattenKeys(enDefaults as NestedRecord);
-  const groups: Record<string, ContentKey[]> = {};
+export interface ContentRow {
+  key: string;
+  value_zh: string;
+  value_en: string;
+  default_zh: string;
+  default_en: string;
+}
 
-  for (const key of Object.keys(flatZh)) {
-    const section = key.split('.')[0] ?? 'misc';
+export function groupRowsBySection(entries: SiteContentEntry[]): Record<string, ContentRow[]> {
+  const groups: Record<string, ContentRow[]> = {};
+  for (const entry of entries) {
+    const section = entry.key.split('.')[0] ?? 'misc';
+    const d = getDefault(entry.key);
     if (!groups[section]) groups[section] = [];
     groups[section].push({
-      key,
-      defaultZh: flatZh[key] ?? '',
-      defaultEn: flatEn[key] ?? '',
+      key: entry.key,
+      value_zh: entry.value_zh ?? '',
+      value_en: entry.value_en ?? '',
+      default_zh: d.zh,
+      default_en: d.en,
     });
   }
-
+  for (const list of Object.values(groups)) {
+    list.sort((a, b) => a.key.localeCompare(b.key));
+  }
   return groups;
 }
