@@ -21,6 +21,7 @@ Add a new `/dashboard/content-blocks` admin page that lists all content blocks (
 - `admin-frontend/src/App.tsx` — register `/dashboard/content-blocks` under the admin guard.
 - `admin-frontend/src/components/layout/Sidebar.tsx` — add a nav item "內容區塊" to the `items` array (same pattern as existing entries).
 - `admin-frontend/src/i18n/zh.json` — add `nav.contentBlocks`, `contentBlocks.*` keys used by the page/form.
+- `admin-frontend/src/components/ui/dialog.tsx` — the shared `DialogContent` primitive must have a viewport-bound max-height and internal scroll (see Step 7), because the content-block form is taller than a phone viewport.
 
 ## Step-by-Step Implementation
 
@@ -117,13 +118,20 @@ Layout:
 
 - Page header: title "內容區塊" + "新增區塊" button (opens the form in create mode).
 - List of cards, one per block:
-  - Drag handle on the left.
-  - Thumbnail (100x60) — placeholder icon if no image.
-  - Title (zh) + first 80 chars of description.
+  - Move-up / move-down arrow buttons on the left (see reorder note below).
+  - Thumbnail (96x64) — placeholder `<ImageOff />` icon if no image.
+  - Title (zh) + `line-clamp-2` description.
   - "未發布" badge when `!is_published`; whole card dimmed to `opacity-60`.
   - Buttons: "編輯" (opens the form in edit mode) and "刪除" (confirmation dialog then DELETE).
   - Quick toggle switch for `is_published` that fires `useUpdateContentBlock` with just `{ is_published }`.
-- Drag-reorder uses `@dnd-kit/core` + `@dnd-kit/sortable`. On `onDragEnd`, compute the new id order and call `useReorderContentBlocks`. Optimistically reorder the list locally; the mutation success will refresh with canonical data.
+- Reorder is implemented via up/down arrow buttons (not drag-and-drop). On click, swap adjacent ids locally and call `useReorderContentBlocks`. This avoids a drag library dependency and works well on touch devices where drag handles compete with scroll gestures.
+
+**Responsive row layout (important):**
+
+On a 375 px phone the inline toolbar (reorder + thumbnail + title + switch + two labeled buttons) does not fit — the title column collapses to a few pixels wide. The `CardContent` must stack:
+
+- Mobile (`< md`): `flex-col` — top row is `reorder + thumbnail + title/desc`, bottom row is `switch + edit + delete` right-aligned. Edit/Delete buttons collapse to icon-only below `sm` (use `<span class="hidden sm:inline">` for the label).
+- Desktop (`md+`): `flex-row items-center` — everything back on a single line, with the thumbnail/info group taking `flex-1`.
 
 **Empty state:** "目前沒有任何內容區塊，點選右上角「新增區塊」開始建立。"
 
@@ -131,8 +139,8 @@ Layout:
 
 **Rationale:**
 
-- `@dnd-kit` is the de-facto React drag library and already compatible with the existing shadcn stack. If not installed: `npm i @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities` in `admin-frontend/`.
-- Optimistic reorder keeps the UX snappy; the backend response rewrites all positions canonically so any drift is corrected on success.
+- Arrow-button reorder avoids pulling in `@dnd-kit` (~15 kB) for a feature that will typically list <10 blocks. If the list ever grows past ~20, reconsider.
+- The reorder mutation returns the full canonical list, so optimistic local reordering is not needed — the post-mutation invalidation refreshes with the authoritative order.
 
 ### Step 4: Form component
 
@@ -153,6 +161,8 @@ Layout:
 
 - CLAUDE.md explicitly warns that `Input` and `Textarea` must remain `React.forwardRef` in this repo so `react-hook-form`'s `register` attaches refs — verify the existing shadcn components are unchanged; if not, keep them that way.
 - Mirroring the content editor's zh/en two-column grid gives staff a consistent mental model across admin pages.
+
+**Hosting modal:** the form renders inside a `<Dialog>`. The form is tall (4 locale inputs + 192 px image drop area + toggle + buttons) and will exceed phone viewport height. The `DialogContent` primitive therefore **must** be updated (Step 7) to scroll internally — otherwise the header and action buttons get clipped off-screen on mobile with no way to reach them.
 
 ### Step 5: Image uploader wrapper
 
@@ -182,17 +192,38 @@ In the dashboard sidebar / top nav component, add a link under the "內容管理
 <NavLink to="/dashboard/content-blocks">內容區塊</NavLink>
 ```
 
+### Step 7: Dialog primitive — viewport-bound scroll
+
+**File:** `admin-frontend/src/components/ui/dialog.tsx`
+
+The stock shadcn `DialogContent` we started from centers the dialog via `fixed top-1/2 left-1/2 -translate-*` but sets no `max-height` or `overflow`. On mobile the content-block form is taller than the viewport, which causes both the header ("新增 / 編輯") and the submit/cancel buttons to spill off-screen with no way to reach them (confirmed in an iOS Instagram in-app browser screenshot).
+
+Add to the `DialogContent` class list:
+
+```
+max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain
+```
+
+- `100dvh` (dynamic viewport height) — not `100vh` — so the bound correctly shrinks/grows with iOS Safari and in-app-browser chrome. Using `100vh` leaves the bottom hidden behind the browser toolbar.
+- `overscroll-contain` — prevents the scroll from chaining to the body / backdrop when the dialog reaches its own edge.
+- `-2rem` — leaves visible padding around the dialog on both ends so the "centered" feel is preserved when content is short.
+
+This change lives on the shared primitive, so every Dialog in the admin inherits it (currently: content-block edit + delete-confirm). Do not duplicate the classes at call sites.
+
+**Known limitation:** the primitive's absolute-positioned close `X` button (`top-2 right-2`) scrolls with the content rather than staying pinned to the scroll viewport. It was not worth restructuring the primitive into a flex column with a separate scrollable body for that alone — ESC / backdrop-click / the form's own Cancel button all still dismiss the dialog. Revisit if another modal needs the pinned close.
+
 ## Testing Steps
 
 1. `cd admin-frontend && npm run dev` — open http://localhost:3002, log in as admin.
 2. Navigate to "內容區塊" — empty state renders.
 3. Click "新增區塊", fill zh title/description, upload image, save → row appears.
-4. Add a second and third block; drag the third to the top → order updates on the page.
+4. Add a second and third block; click the third's up-arrow twice to move it to the top → order updates on the page; up-arrow disabled on the top row, down-arrow disabled on the bottom row.
 5. Refresh → order persists.
 6. Toggle publish on one → badge appears; hit the customer homepage and verify that block is hidden.
 7. Edit a block: change zh description, replace image → save and verify.
 8. Delete a block → confirmation prompt → row disappears; refresh → still gone.
-9. Vitest: add specs for `ContentBlocksPage` (reorder fires with correct ids) and `ContentBlockForm` (zod validation rejects missing `title_zh`).
+9. **Mobile viewport check (375 × 667, iOS Safari / Instagram in-app browser):** open the edit modal — the dialog scrolls internally; both the title and the "儲存 / 取消" buttons are reachable. List row wraps into two stacks (info on top, controls below) without horizontal overflow.
+10. Vitest: add specs for `ContentBlocksPage` (reorder fires with correct ids) and `ContentBlockForm` (zod validation rejects missing `title_zh`).
 
 ## Dependencies
 

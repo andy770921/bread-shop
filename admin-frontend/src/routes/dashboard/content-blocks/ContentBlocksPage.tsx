@@ -135,81 +135,83 @@ export default function ContentBlocksPage() {
               data-testid={`content-block-row-${block.id}`}
               className={cn(!block.is_published && 'opacity-60')}
             >
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex flex-col gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={idx === 0 || reorderMut.isPending}
-                    onClick={() => handleMove(block.id, -1)}
-                    aria-label={t('contentBlocks.moveUp')}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={idx === items.length - 1 || reorderMut.isPending}
-                    onClick={() => handleMove(block.id, 1)}
-                    aria-label={t('contentBlocks.moveDown')}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                </div>
+              <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-4">
+                <div className="flex min-w-0 items-center gap-3 md:flex-1 md:gap-4">
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={idx === 0 || reorderMut.isPending}
+                      onClick={() => handleMove(block.id, -1)}
+                      aria-label={t('contentBlocks.moveUp')}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={idx === items.length - 1 || reorderMut.isPending}
+                      onClick={() => handleMove(block.id, 1)}
+                      aria-label={t('contentBlocks.moveDown')}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-                <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md bg-bg-elevated">
-                  {block.image_url ? (
-                    <img
-                      src={block.image_url}
-                      alt={block.title_zh}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <ImageOff className="h-5 w-5 text-text-secondary" />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate font-medium text-text-primary">{block.title_zh}</h3>
-                    {!block.is_published && (
-                      <Badge variant="outline" className="shrink-0">
-                        {t('contentBlocks.draft')}
-                      </Badge>
+                  <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md bg-bg-elevated">
+                    {block.image_url ? (
+                      <img
+                        src={block.image_url}
+                        alt={block.title_zh}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageOff className="h-5 w-5 text-text-secondary" />
                     )}
                   </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
-                    {block.description_zh}
-                  </p>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate font-medium text-text-primary">{block.title_zh}</h3>
+                      {!block.is_published && (
+                        <Badge variant="outline" className="shrink-0">
+                          {t('contentBlocks.draft')}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
+                      {block.description_zh}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 pr-2">
-                    <Switch
-                      checked={block.is_published}
-                      onCheckedChange={() => handleTogglePublish(block)}
-                      aria-label={t('contentBlocks.isPublished')}
-                    />
-                  </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Switch
+                    checked={block.is_published}
+                    onCheckedChange={() => handleTogglePublish(block)}
+                    aria-label={t('contentBlocks.isPublished')}
+                  />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setEditor({ mode: 'edit', block })}
+                    aria-label={t('contentBlocks.edit')}
                   >
-                    <Pencil className="mr-1 h-3 w-3" />
-                    {t('contentBlocks.edit')}
+                    <Pencil className="h-3 w-3 sm:mr-1" />
+                    <span className="hidden sm:inline">{t('contentBlocks.edit')}</span>
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setDeleteTarget(block)}
+                    aria-label={t('contentBlocks.delete')}
                   >
-                    <Trash2 className="mr-1 h-3 w-3" />
-                    {t('contentBlocks.delete')}
+                    <Trash2 className="h-3 w-3 sm:mr-1" />
+                    <span className="hidden sm:inline">{t('contentBlocks.delete')}</span>
                   </Button>
                 </div>
               </CardContent>
