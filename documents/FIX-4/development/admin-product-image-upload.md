@@ -1,9 +1,16 @@
-# FIX-4: Admin Product Image Upload — Code Changes
+# FIX-4: Admin Product Save — Code Changes
 
-All changes are confined to `admin-frontend/`. No backend or Supabase
-bucket changes were required.
+The ticket shipped in two rounds. Round 1 fixed iPhone HEIC uploads and
+made error messages specific. Round 2, enabled by round 1's clearer
+errors, fixed a `category_id = 0` submit path that was previously
+masked by the generic "發生錯誤" toast.
+
+All round-1 changes are confined to `admin-frontend/`. Round 2 also
+tightens the two admin DTOs in `backend/`.
 
 ## Summary of Touched Files
+
+Round 1 (HEIC + error surfacing):
 
 - `admin-frontend/package.json` — add `heic-to` dependency
 - `admin-frontend/src/queries/useProductImageUpload.ts` — HEIC transcode,
@@ -19,6 +26,16 @@ bucket changes were required.
   the real error in the save toast
 - `admin-frontend/src/i18n/zh.json`, `en.json` — new keys
   `product.uploadFailed` and `product.saveFailed`
+
+Round 2 (category_id FK violation, client-side only):
+
+- `admin-frontend/src/components/products/ProductForm.tsx` — require
+  `category_id >= 1` in Zod and show a localized error on the Field
+- `admin-frontend/src/i18n/zh.json`, `en.json` — new key
+  `product.categoryRequired`
+
+No backend DTO changes. The backend stays untouched; the form is the
+only entry point for this data, so the validation belongs there.
 
 ## 1. Add `heic-to`
 
@@ -464,13 +481,144 @@ File: `admin-frontend/src/i18n/en.json`
 "saveFailed": "Save failed",
 ```
 
+## Round 2 — Block `category_id = 0` before it hits Postgres
+
+After round 1 shipped, a real save still failed with:
+
+```
+儲存失敗: insert or update on table "products" violates foreign key
+constraint "products_category_id_fkey" (HTTP 400)
+```
+
+The form default is `category_id: 0`; the Zod schema and DTO both
+accepted `0`; the Select widget renders a placeholder for `0` (because
+the JSX does `value={field.value ? String(field.value) : undefined}`).
+Result: a user who never opened the category dropdown could submit a
+request that only Postgres's foreign key rejected.
+
+### R2.1 `ProductForm` Zod schema and Field message
+
+File: `admin-frontend/src/components/products/ProductForm.tsx`
+
+#### Before (schema)
+
+```ts
+const schema = z.object({
+  name_zh: z.string().min(1),
+  name_en: z.string().min(1),
+  description_zh: z.string().optional(),
+  description_en: z.string().optional(),
+  price: z.coerce.number().int().min(0),
+  category_id: z.coerce.number().int(),
+  image_url: z.string().url().optional().or(z.literal('')),
+  badge_type: z.enum(['hot', 'new', 'seasonal', '']).optional(),
+  sort_order: z.coerce.number().int(),
+  is_active: z.boolean(),
+});
+```
+
+#### After (schema)
+
+```ts
+const schema = z.object({
+  name_zh: z.string().min(1),
+  name_en: z.string().min(1),
+  description_zh: z.string().optional(),
+  description_en: z.string().optional(),
+  price: z.coerce.number().int().min(0),
+  // category_id must reference an existing row in categories; 0 (the form
+  // default before the Select is touched) would hit products_category_id_fkey
+  // at the database, so reject it here instead.
+  category_id: z.coerce.number().int().min(1),
+  image_url: z.string().url().optional().or(z.literal('')),
+  badge_type: z.enum(['hot', 'new', 'seasonal', '']).optional(),
+  sort_order: z.coerce.number().int(),
+  is_active: z.boolean(),
+});
+```
+
+#### Before (Field)
+
+```tsx
+<Field label={t('product.category')} error={errors.category_id?.message}>
+  <Controller
+    name="category_id"
+    control={control}
+```
+
+#### After (Field)
+
+```tsx
+<Field
+  label={t('product.category')}
+  error={errors.category_id ? t('product.categoryRequired') : undefined}
+>
+  <Controller
+    name="category_id"
+    control={control}
+```
+
+The default Zod message ("Number must be greater than or equal to 1")
+would be shown raw to the user otherwise. The Field override keeps the
+message locale-appropriate without bolting a Zod `errorMap` onto the
+whole form.
+
+### R2.2 i18n key
+
+File: `admin-frontend/src/i18n/zh.json`
+
+#### Before
+
+```json
+"uploadFailed": "圖片上傳失敗",
+"saveFailed": "儲存失敗",
+```
+
+#### After
+
+```json
+"uploadFailed": "圖片上傳失敗",
+"saveFailed": "儲存失敗",
+"categoryRequired": "請選擇分類",
+```
+
+File: `admin-frontend/src/i18n/en.json`
+
+#### Before
+
+```json
+"uploadFailed": "Image upload failed",
+"saveFailed": "Save failed",
+```
+
+#### After
+
+```json
+"uploadFailed": "Image upload failed",
+"saveFailed": "Save failed",
+"categoryRequired": "Please select a category",
+```
+
+### Why this is the right layering
+
+- Client-side (`min(1)` + localized error) gives the user a fast, in-form
+  explanation and prevents a pointless network round-trip on every
+  accidental save. `react-hook-form`'s `handleSubmit` refuses to call
+  the mutation until the schema passes, so the product POST/PATCH
+  literally never fires with `category_id = 0`.
+- The backend is deliberately left unchanged. The form is the only
+  entry point and the Postgres foreign key is the ultimate guard — if
+  a genuine race fires ("category deleted between load and save"), the
+  raw FK message surfaces through `extractErrorMessage` at the level of
+  detail an admin can act on.
+
 ## Build / Lint
 
 Verified on this change set:
 
 ```
 npm run build -w admin-frontend   # tsc -b && vite build — clean
-npm run lint  -w admin-frontend   # eslint — clean
+npm run lint                      # eslint all workspaces — clean
 ```
 
 Bundle size grew from ~900 KB to ~3.56 MB (gzip 904 KB) because `heic-to`
@@ -486,7 +634,14 @@ HEIC path so the WASM only downloads when an actual HEIC file is picked.
   the failing upload now fires a specific error toast instead of the
   generic `common.error`, so the user can no longer mistake the old
   thumbnail for a successful new upload.
-- "Cannot save" — Either the upload truly failed (HEIC rejected, now
-  prevented by the transcode step) or the save PATCH was failing and
-  the cause was masked by `common.error`. Both paths now surface the
-  true HTTP status plus backend/Storage message.
+- "Cannot save (round 1)" — The upload itself was rejected by Supabase
+  Storage for HEIC bytes that the bucket did not allow. The transcode
+  step eliminates that class of failure and the error-message plumbing
+  would have exposed it instantly if round 1 had missed something.
+- "Cannot save (round 2)" — The upload actually succeeded, but the
+  product write sent `category_id: 0` because the user never opened
+  the Select and every gate between the form and Postgres accepted
+  `0`. Round 2 closes the gate where it belongs — in the form itself
+  via Zod `min(1)` and a localized field error — so `handleSubmit`
+  refuses to fire the network call. The Postgres FK stays as the
+  last-resort guard for true races.

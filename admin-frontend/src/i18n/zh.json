@@ -61,6 +61,7 @@
     "dropImage": "拖曳或點擊上傳圖片",
     "uploadFailed": "圖片上傳失敗",
     "saveFailed": "儲存失敗",
+    "categoryRequired": "請選擇分類",
     "backToList": "回到列表",
     "empty": "尚無商品",
     "specs": "商品規格"

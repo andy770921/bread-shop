@@ -1,4 +1,8 @@
-# FIX-4: Admin Product Image Upload — Root Cause Analysis
+# FIX-4: Admin Product Save — Root Cause Analysis
+
+> This ticket started as an image-upload bug. Fixing the first root cause
+> surfaced a **second, previously-masked root cause** in the same save
+> flow. Both are documented below, in the order they were discovered.
 
 ## Problem Statement
 
@@ -12,6 +16,18 @@ The symptoms looked like "preview works but save fails". In reality the
 preview was **stale** — the image never reached Supabase Storage — and the
 save itself was either never attempted with a new URL or was failing for a
 reason the UI refused to show.
+
+After the first fix landed, the save still failed for some users, but the
+new, specific error toast revealed what had been hidden all along:
+
+> 儲存失敗: insert or update on table "products" violates foreign key
+> constraint "products_category_id_fkey" (HTTP 400)
+
+That is a second, independent bug with the same "looks generic" symptom —
+previously indistinguishable from the HEIC failure — now caught by the
+improved error surfacing.
+
+## First Root Cause — HEIC uploads rejected by the Storage bucket
 
 ## Evidence Gathered
 
@@ -78,7 +94,7 @@ value is pre-populated from `initial.image_url` in `useEffect`, so the
 `<img src={value}>` element keeps rendering the **old** image. The user
 correctly saw "an image" and wrongly concluded the upload succeeded.
 
-## Root Cause
+## Root Cause (image upload)
 
 The admin product-image upload pipeline assumes that whatever a browser
 hands it under `accept="image/*"` is already in one of the three MIME
@@ -87,7 +103,7 @@ LINE in-app browser, because the input delivers HEIC unchanged. The
 generic error toast then hides the failure, so the bug appeared as
 "preview works but save doesn't".
 
-## Fix Strategy
+## Fix Strategy (image upload)
 
 Three layers, all client-side in `admin-frontend`:
 
@@ -113,6 +129,119 @@ Three layers, all client-side in `admin-frontend`:
    message plus HTTP status so future failures can be diagnosed from a
    screenshot alone.
 
+## Second Root Cause — `category_id = 0` leaks to Postgres
+
+### What the real error said
+
+With the first fix in place the save toast changed from
+"發生錯誤" to:
+
+```
+儲存失敗: insert or update on table "products" violates foreign key
+constraint "products_category_id_fkey" (HTTP 400)
+```
+
+That is Postgres rejecting a `products` write because the submitted
+`category_id` does not match any row in `categories`.
+
+### Database state (from direct SQL inspection)
+
+```
+categories: [1=toast, 2=cake, 3=cookie, 4=bread, 5=other]
+products:   every existing row has category_id ∈ {2,3,4,5}
+```
+
+So the foreign key is intact. The only way to trigger the violation is
+to submit a `category_id` that is not one of `1..5`. The form default
+is `0`, and `0` is what gets submitted if the user never touches the
+Select.
+
+### Why `category_id = 0` slipped all the way through
+
+Four guards that *look* like they validate the category are actually no-ops:
+
+1. **Form default** (`admin-frontend/src/components/products/ProductForm.tsx`):
+
+   ```ts
+   defaultValues: {
+     ...
+     category_id: 0,
+     ...
+   }
+   ```
+
+   `0` is what the form carries until the user opens the dropdown and picks
+   something.
+
+2. **Zod schema**:
+
+   ```ts
+   category_id: z.coerce.number().int(),
+   ```
+
+   No `.min(1)` and no `.positive()`. `0` is a valid integer, so the
+   schema happily hands it back to react-hook-form.
+
+3. **Select widget UI state**:
+
+   ```tsx
+   <Select
+     value={field.value ? String(field.value) : undefined}
+     onValueChange={(v) => field.onChange(Number(v))}
+   >
+   ```
+
+   `field.value === 0` is falsy, so the widget renders the placeholder
+   (`-`). The user sees "no category selected", but the form state is
+   still `0`. There is no visual signal that the value is invalid — the
+   UI is showing the same "unselected" glyph that a brand-new form
+   shows.
+
+4. **Backend DTO** (`backend/src/admin/dto/create-product.dto.ts`,
+   `update-product.dto.ts`):
+
+   ```ts
+   @IsInt() category_id!: number;            // create
+   @IsOptional() @IsInt() category_id?: number;  // update
+   ```
+
+   `@IsInt()` accepts `0`. There is no `@Min(1)` and no "category must
+   exist" check.
+
+So the payload reaches Supabase with `category_id: 0`, and only the
+Postgres foreign key stops it. Before the error-surfacing fix, this
+looked identical to the HEIC upload failure: one generic toast, zero
+signal.
+
+### Why this was plausibly *always* broken, not newly introduced
+
+Every `category_id` actually persisted in the database today is in
+`{2,3,4,5}` — users who succeeded in saving products must have picked
+a category. The code path for "forgot to pick" has always produced a
+400; it was simply invisible behind `t('common.error')`.
+
+## Fix Strategy (category validation)
+
+Client-side only, per explicit product decision:
+
+- Tighten the Zod schema to
+  `category_id: z.coerce.number().int().min(1)` and wire a localized
+  error message on the category Field, so the user sees "請選擇分類" /
+  "Please select a category" before the form attempts a network call.
+  `react-hook-form`'s `handleSubmit` already blocks invalid state, so
+  the PATCH/POST will not fire at all.
+
+Rejected alternative — add `@Min(1)` to the backend DTOs as a second
+layer. The initial draft of this fix did that, but it was pulled back:
+the form is the only legitimate entry point for this data, and the
+stricter-is-safer instinct on the server was unjustified scope. The
+Postgres foreign key stays as the ultimate guard for the genuine race
+case, and thanks to the round-1 error-surfacing work, the raw FK
+message is now actually readable when that race fires.
+
+No change to the backend, no change to the database, and no change to
+the Select widget beyond the error message plumbing.
+
 ## Non-Goals
 
 - Relaxing the bucket's MIME whitelist server-side. The bucket rule is a
@@ -125,8 +254,18 @@ Three layers, all client-side in `admin-frontend`:
   as a side effect of actually surfacing the upload failure — the user
   will now see "圖片上傳失敗: …" on the failing attempt instead of
   silently believing the old thumbnail.
+- Checking *existence* of the category inside the backend service (e.g.
+  `SELECT 1 FROM categories WHERE id = $1`). The FK constraint already
+  enforces existence; once the `@Min(1)` guard is in place, the only
+  remaining way to trigger a FK error is a genuine race with a category
+  being deleted, at which point the raw message is appropriate.
+- Disabling the save button until the form is valid. `handleSubmit`
+  already guards this, and disabling the button tends to hide *which*
+  field is at fault.
 
 ## Verification Plan
+
+### Image-upload path
 
 - Pick an iPhone HEIC photo inside the LINE in-app browser on the
   production admin URL. Expect a visible conversion pause, then a fresh
@@ -137,6 +276,20 @@ Three layers, all client-side in `admin-frontend`:
   never a network round-trip.
 - Pick a random non-image file renamed to `.jpg`. Expect the MIME
   whitelist check to reject it with a specific message.
-- Force a backend 400 (e.g. by sending a bad `category_id`). Expect the
-  save toast to include the NestJS validation message and HTTP 400, not
-  "發生錯誤".
+
+### Category-id path
+
+- Open "New Product", fill every field except category, press save.
+  Expect a red under-field message "請選擇分類" and **no** network call
+  (the product POST should not appear in devtools → Network).
+- Repeat with a selected category; expect a normal success flow.
+- Edit an existing product, do not touch the category, press save.
+  Expect success (the pre-filled `category_id` is a valid integer
+  ≥ 1, so the new `min(1)` does not regress the happy path).
+
+### Generic error-surface regression check
+
+- Force any backend 400 by sending malformed data. Expect the save
+  toast to include the NestJS / Supabase message and HTTP status
+  instead of "發生錯誤". This is the guard rail that surfaced the
+  second root cause and must continue to hold.

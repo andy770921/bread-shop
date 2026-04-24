@@ -61,6 +61,7 @@
     "dropImage": "Drag an image here or click to upload",
     "uploadFailed": "Image upload failed",
     "saveFailed": "Save failed",
+    "categoryRequired": "Please select a category",
     "backToList": "Back to List",
     "empty": "No products yet",
     "specs": "Specs"

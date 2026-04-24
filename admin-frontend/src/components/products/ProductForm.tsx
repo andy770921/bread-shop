@@ -27,7 +27,10 @@ const schema = z.object({
   description_zh: z.string().optional(),
   description_en: z.string().optional(),
   price: z.coerce.number().int().min(0),
-  category_id: z.coerce.number().int(),
+  // category_id must reference an existing row in categories; 0 (the form
+  // default before the Select is touched) would hit the foreign key
+  // constraint at the database, so reject it here instead.
+  category_id: z.coerce.number().int().min(1),
   image_url: z.string().url().optional().or(z.literal('')),
   badge_type: z.enum(['hot', 'new', 'seasonal', '']).optional(),
   sort_order: z.coerce.number().int(),
@@ -134,7 +137,10 @@ export function ProductForm({ initial, onSubmit, submitting, productId }: Props)
               <Field label={t('product.price')} error={errors.price?.message}>
                 <Input type="number" {...register('price')} />
               </Field>
-              <Field label={t('product.category')} error={errors.category_id?.message}>
+              <Field
+                label={t('product.category')}
+                error={errors.category_id ? t('product.categoryRequired') : undefined}
+              >
                 <Controller
                   name="category_id"
                   control={control}
