@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,12 +35,15 @@ export function ClosureRangePicker({ startDate, endDate, onChange }: Props) {
         <Calendar
           mode="range"
           selected={{ from, to }}
-          onSelect={(range) =>
+          onSelect={(range) => {
             onChange({
               start: range?.from ? format(range.from, 'yyyy-MM-dd') : null,
               end: range?.to ? format(range.to, 'yyyy-MM-dd') : null,
-            })
-          }
+            });
+            if (range?.from && range?.to && !isSameDay(range.from, range.to)) {
+              setOpen(false);
+            }
+          }}
           defaultMonth={from ?? new Date()}
         />
       </PopoverContent>
