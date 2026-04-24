@@ -9,6 +9,7 @@ import ProductEdit from '@/routes/dashboard/products/ProductEdit';
 import ContentEditor from '@/routes/dashboard/content/ContentEditor';
 import OrderList from '@/routes/dashboard/orders/OrderList';
 import OrderDetail from '@/routes/dashboard/orders/OrderDetail';
+import FeatureFlags from '@/routes/dashboard/feature-flags/FeatureFlags';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="content" element={<ContentEditor />} />
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
+          <Route path="feature-flags" element={<FeatureFlags />} />
         </Route>
       </Routes>
       <Toaster position="top-right" />

@@ -7,6 +7,7 @@
     "products": "商品管理",
     "content": "文案管理",
     "orders": "訂單管理",
+    "featureFlags": "功能開關",
     "logout": "登出"
   },
   "login": {
@@ -110,6 +111,16 @@
     "resendFailedNoLine": "此訂單沒有 LINE 使用者",
     "backToList": "回到列表",
     "empty": "尚無訂單"
+  },
+  "featureFlags": {
+    "title": "功能開關",
+    "homeCategoriesTitle": "首頁顯示類別",
+    "homeCategoriesHelp": "勾選要出現在首頁類別列的項目；未勾選的類別仍可用於商品歸類，只是不會在首頁顯示。",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "saved": "已儲存",
+    "saveFailed": "儲存失敗",
+    "selectAtLeastOne": "請至少選擇一個類別"
   },
   "common": {
     "loading": "載入中…",

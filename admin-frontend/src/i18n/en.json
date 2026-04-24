@@ -7,6 +7,7 @@
     "products": "Products",
     "content": "Content",
     "orders": "Orders",
+    "featureFlags": "Feature Flags",
     "logout": "Logout"
   },
   "login": {
@@ -110,6 +111,16 @@
     "resendFailedNoLine": "This order has no LINE user",
     "backToList": "Back to List",
     "empty": "No orders yet"
+  },
+  "featureFlags": {
+    "title": "Feature Flags",
+    "homeCategoriesTitle": "Home-visible Categories",
+    "homeCategoriesHelp": "Tick the categories that should appear in the pill rack on the customer home page. Unticked categories still accept product assignments; they just aren't advertised on the home page.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "selectAtLeastOne": "Select at least one category"
   },
   "common": {
     "loading": "Loading…",

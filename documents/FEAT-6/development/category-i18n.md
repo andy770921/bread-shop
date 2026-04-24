@@ -12,7 +12,7 @@ the rename on the customer site but continue to see `other` in their
 own product form.
 
 The ask: make the admin's category display match what the customer
-sees, *including* any `site_content` overrides the admin has applied.
+sees, _including_ any `site_content` overrides the admin has applied.
 
 ## Research
 
@@ -30,7 +30,7 @@ So for `category.other` with locale `zh`:
 
 - Default is `其他` from `shared/src/i18n/zh.json`.
 - If the admin has saved an override `{ key: 'category.other',
-  value_zh: '公告', value_en: 'Notice' }` via the content editor, the
+value_zh: '公告', value_en: 'Notice' }` via the content editor, the
   customer sees `公告`.
 
 ### What the admin already has in place
@@ -46,7 +46,7 @@ All four ingredients for mirroring this in admin already exist:
 - `admin-frontend/src/hooks/use-locale.ts` exposes the admin's chosen
   `locale` (stored under `localStorage` key `admin_locale`).
 - The admin's own `t()` already coexists with customer content — it
-  resolves *admin UI* strings (商品管理 / 儲存中…) from
+  resolves _admin UI_ strings (商品管理 / 儲存中…) from
   `admin-frontend/src/i18n/{zh,en}.json`. Category labels are not in
   that set, so there's no collision with a new customer-content `t`.
 
@@ -73,8 +73,8 @@ endpoint, no schema change, no new i18n files.
 ### Trade-offs accepted
 
 - On first load of any page using the new hook, the site_content query
-  is `undefined` for a tick, so the dropdown shows the *default*
-  label (e.g. 其他) before settling into the *override* (e.g. 公告).
+  is `undefined` for a tick, so the dropdown shows the _default_
+  label (e.g. 其他) before settling into the _override_ (e.g. 公告).
   TanStack Query caches for 5 min, so this only happens on a cold
   load.
 - Admins who mentally index categories by English slug (`toast`,

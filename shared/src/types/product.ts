@@ -31,6 +31,7 @@ export interface Category {
   id: number;
   slug: string;
   sort_order: number;
+  visible_on_home: boolean;
   created_at: string;
 }
 

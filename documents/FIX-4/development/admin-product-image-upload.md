@@ -115,7 +115,7 @@ Problems:
   default toast string.
 - The PUT failure branch throws `"Upload failed: 400 Bad Request"` with
   no body — Supabase Storage returns a JSON `{ message, error }` that
-  explains *why* (e.g. `mime type image/heic is not supported`), and
+  explains _why_ (e.g. `mime type image/heic is not supported`), and
   that message is discarded.
 
 ### After (full file)
@@ -227,7 +227,7 @@ Behavior notes:
   branch joins them into one human-readable line.
 - The Storage error path reads the body as text first and only
   `JSON.parse` if it looks like JSON, so a malformed HTML error page
-  (e.g. a Cloudflare interstitial) still surfaces *something* instead
+  (e.g. a Cloudflare interstitial) still surfaces _something_ instead
   of a swallowed exception.
 
 ## 3. New error-extraction helper

@@ -33,26 +33,28 @@ export function CategoryPills({ categories, selected, onSelect }: CategoryPillsP
       >
         {allLabel}
       </Button>
-      {categories.map((cat) => (
-        <Button
-          key={cat.id}
-          variant="outline"
-          size="sm"
-          onClick={() => onSelect(cat.slug)}
-          className="rounded-full px-4 transition-all"
-          style={
-            selected === cat.slug
-              ? {
-                  backgroundColor: 'var(--primary-500)',
-                  color: '#fff',
-                  borderColor: 'var(--primary-500)',
-                }
-              : {}
-          }
-        >
-          {t(`category.${cat.slug}`)}
-        </Button>
-      ))}
+      {categories
+        .filter((cat) => cat.visible_on_home !== false)
+        .map((cat) => (
+          <Button
+            key={cat.id}
+            variant="outline"
+            size="sm"
+            onClick={() => onSelect(cat.slug)}
+            className="rounded-full px-4 transition-all"
+            style={
+              selected === cat.slug
+                ? {
+                    backgroundColor: 'var(--primary-500)',
+                    color: '#fff',
+                    borderColor: 'var(--primary-500)',
+                  }
+                : {}
+            }
+          >
+            {t(`category.${cat.slug}`)}
+          </Button>
+        ))}
     </div>
   );
 }

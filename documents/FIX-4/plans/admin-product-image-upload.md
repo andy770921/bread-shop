@@ -158,7 +158,7 @@ Select.
 
 ### Why `category_id = 0` slipped all the way through
 
-Four guards that *look* like they validate the category are actually no-ops:
+Four guards that _look_ like they validate the category are actually no-ops:
 
 1. **Form default** (`admin-frontend/src/components/products/ProductForm.tsx`):
 
@@ -213,7 +213,7 @@ Postgres foreign key stops it. Before the error-surfacing fix, this
 looked identical to the HEIC upload failure: one generic toast, zero
 signal.
 
-### Why this was plausibly *always* broken, not newly introduced
+### Why this was plausibly _always_ broken, not newly introduced
 
 Every `category_id` actually persisted in the database today is in
 `{2,3,4,5}` — users who succeeded in saving products must have picked
@@ -254,13 +254,13 @@ the Select widget beyond the error message plumbing.
   as a side effect of actually surfacing the upload failure — the user
   will now see "圖片上傳失敗: …" on the failing attempt instead of
   silently believing the old thumbnail.
-- Checking *existence* of the category inside the backend service (e.g.
+- Checking _existence_ of the category inside the backend service (e.g.
   `SELECT 1 FROM categories WHERE id = $1`). The FK constraint already
   enforces existence; once the `@Min(1)` guard is in place, the only
   remaining way to trigger a FK error is a genuine race with a category
   being deleted, at which point the raw message is appropriate.
 - Disabling the save button until the form is valid. `handleSubmit`
-  already guards this, and disabling the button tends to hide *which*
+  already guards this, and disabling the button tends to hide _which_
   field is at fault.
 
 ## Verification Plan

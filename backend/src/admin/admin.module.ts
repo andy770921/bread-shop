@@ -13,6 +13,8 @@ import { OrderAdminController } from './order-admin.controller';
 import { OrderAdminService } from './order-admin.service';
 import { UploadAdminController } from './upload-admin.controller';
 import { UploadAdminService } from './upload-admin.service';
+import { FeatureFlagsAdminController } from './feature-flags-admin.controller';
+import { FeatureFlagsAdminService } from './feature-flags-admin.service';
 
 @Module({
   imports: [OrderModule, LineModule],
@@ -23,6 +25,7 @@ import { UploadAdminService } from './upload-admin.service';
     ContentAdminController,
     OrderAdminController,
     UploadAdminController,
+    FeatureFlagsAdminController,
   ],
   providers: [
     AdminAuthGuard,
@@ -31,6 +34,7 @@ import { UploadAdminService } from './upload-admin.service';
     ContentAdminService,
     OrderAdminService,
     UploadAdminService,
+    FeatureFlagsAdminService,
   ],
 })
 export class AdminModule {}

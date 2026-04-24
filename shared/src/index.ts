@@ -11,6 +11,7 @@ export * from './types/favorite';
 export * from './types/order';
 export * from './types/admin';
 export * from './types/site-content';
+export * from './types/feature-flags';
 export * from './utils/fetchers';
 export * from './utils/query';
 export * from './i18n/defaults';
