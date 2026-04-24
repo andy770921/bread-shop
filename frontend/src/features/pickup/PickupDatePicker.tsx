@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { addDays, format, parseISO } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
@@ -16,6 +17,7 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
   const form = useFormContext<CartFormValues>();
   const { t } = useLocale();
   const date = form.watch('pickup.date');
+  const [open, setOpen] = useState(false);
 
   // Align the picker bounds with the backend validator, which computes the
   // window in Asia/Taipei regardless of host timezone.
@@ -32,7 +34,7 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
   ];
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <Button
@@ -49,12 +51,13 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
         <Calendar
           mode="single"
           selected={date}
-          onSelect={(d) =>
+          onSelect={(d) => {
             form.setValue('pickup.date', d ?? undefined, {
               shouldValidate: true,
               shouldDirty: true,
-            })
-          }
+            });
+            if (d) setOpen(false);
+          }}
           disabled={disabled}
           startMonth={today}
           endMonth={end}

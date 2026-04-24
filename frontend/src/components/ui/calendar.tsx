@@ -22,16 +22,20 @@ export function Calendar({
       classNames={{
         months: 'flex flex-col sm:flex-row gap-4 relative',
         month: 'flex flex-col gap-3',
-        month_caption: 'flex h-9 items-center justify-center relative',
+        month_caption: 'flex h-9 items-center justify-center',
         caption_label: 'text-sm font-medium',
-        nav: 'absolute inset-x-0 top-0 flex h-9 items-center justify-between px-1',
+        nav: 'absolute inset-x-0 top-0 z-10 flex h-9 items-center justify-between px-1',
         button_previous: cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-md border',
-          'hover:bg-[var(--primary-100)] disabled:opacity-40 disabled:pointer-events-none',
+          'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border',
+          'hover:bg-[var(--primary-100)] focus:outline-none focus-visible:ring-2',
+          'aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:pointer-events-none',
+          'disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none',
         ),
         button_next: cn(
-          'inline-flex h-7 w-7 items-center justify-center rounded-md border',
-          'hover:bg-[var(--primary-100)] disabled:opacity-40 disabled:pointer-events-none',
+          'inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border',
+          'hover:bg-[var(--primary-100)] focus:outline-none focus-visible:ring-2',
+          'aria-disabled:cursor-not-allowed aria-disabled:opacity-40 aria-disabled:pointer-events-none',
+          'disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none',
         ),
         chevron: 'h-4 w-4',
         month_grid: 'w-full border-collapse',
@@ -41,15 +45,16 @@ export function Calendar({
         week: 'flex w-full',
         day: 'flex-1 aspect-square text-center text-sm p-0 relative',
         day_button: cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-md text-sm mx-auto',
+          'inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md text-sm mx-auto',
           'hover:bg-[var(--primary-100)] focus:outline-none focus-visible:ring-2',
-          'disabled:opacity-30 disabled:pointer-events-none',
+          'disabled:cursor-not-allowed disabled:opacity-30 disabled:pointer-events-none',
         ),
         selected:
           '[&>button]:bg-[var(--primary-500)] [&>button]:text-white [&>button]:hover:bg-[var(--primary-600)]',
         today: '[&>button]:text-[var(--primary-500)] [&>button]:font-semibold',
         outside: '[&>button]:text-[var(--text-tertiary)] [&>button]:opacity-50',
-        disabled: '[&>button]:opacity-30 [&>button]:pointer-events-none',
+        disabled:
+          '[&>button]:cursor-not-allowed [&>button]:opacity-30 [&>button]:pointer-events-none',
         hidden: 'invisible',
         ...classNames,
       }}
