@@ -11,6 +11,7 @@ import { ProductGrid, PRODUCT_GRID_TEMPLATE_COLUMNS } from '@/components/product
 import { ProductShowcase } from '@/components/product/product-showcase';
 import { ProcessSection } from '@/components/home/process-section';
 import { StorySection } from '@/components/home/story-section';
+import { HomeContentBlocks } from '@/components/home/home-content-blocks';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
 import { useLocale } from '@/hooks/use-locale';
@@ -97,6 +98,7 @@ export default function Home() {
 
         <ProcessSection />
         <StorySection />
+        <HomeContentBlocks />
         <Footer />
       </div>
     </ErrorBoundary>

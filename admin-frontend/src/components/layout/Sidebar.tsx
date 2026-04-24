@@ -1,5 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, FileText, ShoppingBag, ToggleRight } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Package,
+  FileText,
+  ShoppingBag,
+  ToggleRight,
+  Layers,
+} from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +17,12 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     { to: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), end: true },
     { to: '/dashboard/products', icon: Package, label: t('nav.products'), end: false },
     { to: '/dashboard/content', icon: FileText, label: t('nav.content'), end: false },
+    {
+      to: '/dashboard/content-blocks',
+      icon: Layers,
+      label: t('nav.contentBlocks'),
+      end: false,
+    },
     { to: '/dashboard/orders', icon: ShoppingBag, label: t('nav.orders'), end: false },
     {
       to: '/dashboard/feature-flags',

@@ -30,4 +30,22 @@ export class UploadAdminService {
       publicUrl: pub.publicUrl,
     };
   }
+
+  async createContentImageUploadUrl(input: CreateUploadUrlDto) {
+    const supabase = this.supabase.getClient();
+    const bucket = this.config.get<string>('SUPABASE_STORAGE_BUCKET', 'product-images');
+    const ext = (input.filename.split('.').pop() || 'jpg').toLowerCase();
+    const path = `content-blocks/${Date.now()}.${ext}`;
+
+    const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Failed to sign URL');
+
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+    return {
+      uploadUrl: data.signedUrl,
+      path,
+      token: data.token,
+      publicUrl: pub.publicUrl,
+    };
+  }
 }

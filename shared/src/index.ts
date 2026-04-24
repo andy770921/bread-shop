@@ -12,6 +12,7 @@ export * from './types/order';
 export * from './types/admin';
 export * from './types/site-content';
 export * from './types/feature-flags';
+export * from './types/content-block';
 export * from './utils/fetchers';
 export * from './utils/query';
 export * from './i18n/defaults';

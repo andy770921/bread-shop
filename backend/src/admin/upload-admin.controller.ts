@@ -15,4 +15,9 @@ export class UploadAdminController {
   createUploadUrl(@Body() dto: CreateUploadUrlDto) {
     return this.service.createSignedUploadUrl(dto);
   }
+
+  @Post('content-image')
+  createContentImageUploadUrl(@Body() dto: CreateUploadUrlDto) {
+    return this.service.createContentImageUploadUrl(dto);
+  }
 }
