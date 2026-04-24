@@ -10,7 +10,6 @@ import { ViewToggle } from '@/components/product/view-toggle';
 import { ProductGrid, PRODUCT_GRID_TEMPLATE_COLUMNS } from '@/components/product/product-grid';
 import { ProductShowcase } from '@/components/product/product-showcase';
 import { ProcessSection } from '@/components/home/process-section';
-import { StorySection } from '@/components/home/story-section';
 import { HomeContentBlocks } from '@/components/home/home-content-blocks';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBoundary } from '@/components/shared/error-boundary';
@@ -97,7 +96,6 @@ export default function Home() {
         </main>
 
         <ProcessSection />
-        <StorySection />
         <HomeContentBlocks />
         <Footer />
       </div>

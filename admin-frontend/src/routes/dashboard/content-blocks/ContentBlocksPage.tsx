@@ -181,7 +181,7 @@ export default function ContentBlocksPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-text-secondary">
+                    <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-text-secondary">
                       {block.description_zh}
                     </p>
                   </div>

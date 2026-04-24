@@ -14,6 +14,15 @@ Add the `ContentBlock` domain types to `@repo/shared` so the backend, customer f
 - `shared/src/index.ts`
   - Re-export the new types.
 
+### Shared i18n (story migration)
+
+As part of the story → content-block migration (see `plans/prd.md` → "Story Migration Note"), the `story` section was removed from both locale files:
+
+- `shared/src/i18n/zh.json` — remove the `"story": { "title", "p1", "p2" }` block.
+- `shared/src/i18n/en.json` — remove the matching English block.
+
+This change is intentional and coordinated with the sync service (`backend/src/site-content/site-content-sync.service.ts`): `getFlatDefaults()` reads these JSON files, so dropping `story.*` prevents `SiteContentSyncService.onModuleInit` from re-inserting the deleted rows into `site_content` on the next backend boot. The key count for `site_content` should drop from 125 → 122 after the change.
+
 ## Step-by-Step Implementation
 
 ### Step 1: Create `shared/src/types/content-block.ts`

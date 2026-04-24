@@ -4,6 +4,8 @@
 
 Add a public `ContentBlocksModule` for listing published content blocks, and an admin-side controller/service under the existing `AdminModule` for full CRUD + reorder. Extend the existing upload controller with a generic content-image endpoint that mirrors the product-image signed-upload flow.
 
+The backend did not need changes for the story migration itself: removing `story.*` from `shared/src/i18n/{zh,en}.json` is enough, because `SiteContentSyncService.syncMissingKeys` only inserts **missing** keys — it never deletes. The DB cleanup (delete 3 `story.*` rows) was done as a one-off migration step; see `database-schema.md` Step 5.
+
 ## Files to Modify
 
 ### Backend Changes

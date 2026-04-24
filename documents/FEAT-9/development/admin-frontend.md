@@ -120,7 +120,7 @@ Layout:
 - List of cards, one per block:
   - Move-up / move-down arrow buttons on the left (see reorder note below).
   - Thumbnail (96x64) — placeholder `<ImageOff />` icon if no image.
-  - Title (zh) + `line-clamp-2` description.
+  - Title (zh) + `line-clamp-2 whitespace-pre-line` description. Using `whitespace-pre-line` here (in combination with `line-clamp-2`) makes user-entered line breaks visible in the admin list preview, matching how they render on the customer frontend. Without it, a block whose description is `line-1\nline-2` would look like `line-1 line-2` (joined by a space) — misleading for an admin who just pressed Enter expecting a paragraph break.
   - "未發布" badge when `!is_published`; whole card dimmed to `opacity-60`.
   - Buttons: "編輯" (opens the form in edit mode) and "刪除" (confirmation dialog then DELETE).
   - Quick toggle switch for `is_published` that fires `useUpdateContentBlock` with just `{ is_published }`.

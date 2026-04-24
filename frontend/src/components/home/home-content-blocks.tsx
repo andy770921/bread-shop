@@ -19,6 +19,7 @@ export function HomeContentBlocks() {
           block={block}
           locale={locale}
           imageSide={index % 2 === 0 ? 'right' : 'left'}
+          tinted={index % 2 === 0}
         />
       ))}
     </>
@@ -29,10 +30,12 @@ function ContentBlockRow({
   block,
   locale,
   imageSide,
+  tinted,
 }: {
   block: ContentBlock;
   locale: 'zh' | 'en';
   imageSide: 'left' | 'right';
+  tinted: boolean;
 }) {
   const title = locale === 'en' && block.title_en ? block.title_en : block.title_zh;
   const description =
@@ -42,7 +45,7 @@ function ContentBlockRow({
   return (
     <section
       className="py-16 lg:py-24"
-      style={{ backgroundColor: 'var(--primary-50)' }}
+      style={{ background: tinted ? 'var(--primary-50)' : 'var(--process-bg)' }}
       aria-labelledby={`content-block-${block.id}`}
       data-testid={`content-block-${block.id}`}
     >
@@ -57,7 +60,7 @@ function ContentBlockRow({
           <div
             className={
               hasImage
-                ? `flex flex-col gap-6 ${imageSide === 'right' ? 'order-1' : 'order-2'}`
+                ? `flex flex-col gap-6 ${imageSide === 'right' ? 'lg:order-1' : 'lg:order-2'}`
                 : 'flex flex-col gap-6'
             }
           >
@@ -78,7 +81,7 @@ function ContentBlockRow({
           {hasImage && (
             <div
               className={`relative h-[360px] w-full overflow-hidden rounded-2xl lg:h-[460px] ${
-                imageSide === 'right' ? 'order-2' : 'order-1'
+                imageSide === 'right' ? 'lg:order-2' : 'lg:order-1'
               }`}
             >
               <Image
