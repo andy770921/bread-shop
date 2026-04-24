@@ -214,10 +214,7 @@ export default defineConfig({
 ```json
 {
   "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }
 ```
 
@@ -433,7 +430,10 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = adminTokenStore.get();
-    if (!token) { setLoading(false); return; }
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     defaultFetchFn<AdminMe>('api/admin/me')
       .then(setUser)
       .catch(() => adminTokenStore.clear())
@@ -518,7 +518,14 @@ export type Locale = typeof DEFAULT_LOCALE;
 **File:** `admin-frontend/src/hooks/use-locale.ts`
 
 ```tsx
-import { createContext, createElement, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from 'react';
 import zhMessages from '@/i18n/zh.json';
 import { DEFAULT_LOCALE, type Locale } from '@/i18n/config';
 
@@ -534,16 +541,19 @@ const LocaleContext = createContext<LocaleContextType | null>(null);
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const locale: Locale = DEFAULT_LOCALE;
-  const t = useCallback((key: string): string => {
-    const parts = key.split('.');
-    let current: unknown = messages[locale];
-    for (const p of parts) {
-      if (current && typeof current === 'object') {
-        current = (current as NestedRecord)[p];
-      } else return key;
-    }
-    return typeof current === 'string' ? current : key;
-  }, [locale]);
+  const t = useCallback(
+    (key: string): string => {
+      const parts = key.split('.');
+      let current: unknown = messages[locale];
+      for (const p of parts) {
+        if (current && typeof current === 'object') {
+          current = (current as NestedRecord)[p];
+        } else return key;
+      }
+      return typeof current === 'string' ? current : key;
+    },
+    [locale],
+  );
   const value = useMemo(() => ({ locale, t }), [locale, t]);
   return createElement(LocaleContext.Provider, { value }, children);
 }
@@ -612,6 +622,7 @@ export function useAdminDashboard() {
 ```
 
 **Design notes:**
+
 - Use the design.html color palette (warm neutrals with `--primary-500: #D4885A` accent)
 - KPI cards with subtle shadows and hover lift effect
 - Status badges use the same color coding as the design (pending=warning, completed=success, shipping=primary)
@@ -698,6 +709,7 @@ export function getContentGroups() {
 ```
 
 **Why this approach:**
+
 - `zh.json` remains the single source of truth for which keys exist.
 - When a developer adds a new key to `zh.json`, it automatically appears in the admin content editor on the next build — zero manual sync.
 - The Vite alias resolves at build time; no runtime cross-workspace dependency.
@@ -931,15 +943,15 @@ This registers custom matchers (`toBeInTheDocument`, `toHaveTextContent`, etc.) 
 
 ### Key Differences from Jest (for Developers)
 
-| Jest | Vitest | Notes |
-|---|---|---|
-| `jest.fn()` | `vi.fn()` | Import `vi` from `vitest` (or use `globals: true`) |
-| `jest.mock()` | `vi.mock()` | Same hoisting behavior |
-| `jest.spyOn()` | `vi.spyOn()` | Identical API |
-| `jest.useFakeTimers()` | `vi.useFakeTimers()` | Identical API |
-| `@types/jest` | Not needed | Vitest provides its own types (via `globals: true` + tsconfig `types: ["vitest/globals"]`) |
-| `jest-environment-jsdom` | `jsdom` (peer dep) | Install `jsdom` as devDependency |
-| `moduleNameMapper` in jest config | Reads `resolve.alias` from vite.config | No separate path mapping needed |
+| Jest                              | Vitest                                 | Notes                                                                                      |
+| --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `jest.fn()`                       | `vi.fn()`                              | Import `vi` from `vitest` (or use `globals: true`)                                         |
+| `jest.mock()`                     | `vi.mock()`                            | Same hoisting behavior                                                                     |
+| `jest.spyOn()`                    | `vi.spyOn()`                           | Identical API                                                                              |
+| `jest.useFakeTimers()`            | `vi.useFakeTimers()`                   | Identical API                                                                              |
+| `@types/jest`                     | Not needed                             | Vitest provides its own types (via `globals: true` + tsconfig `types: ["vitest/globals"]`) |
+| `jest-environment-jsdom`          | `jsdom` (peer dep)                     | Install `jsdom` as devDependency                                                           |
+| `moduleNameMapper` in jest config | Reads `resolve.alias` from vite.config | No separate path mapping needed                                                            |
 
 ### TypeScript Support
 

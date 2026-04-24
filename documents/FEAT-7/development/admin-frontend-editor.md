@@ -130,10 +130,7 @@ export default function ContentEditor() {
   const upsert = useUpsertSiteContent();
   const reset = useResetSiteContent();
 
-  const groups = useMemo(
-    () => groupRowsBySection(data?.overrides ?? []),
-    [data],
-  );
+  const groups = useMemo(() => groupRowsBySection(data?.overrides ?? []), [data]);
   const sections = Object.keys(groups);
   const [activeSection, setActiveSection] = useState<string>('');
 
@@ -233,13 +230,7 @@ function ContentKeyRow({ row, onSave, onReset }: RowProps) {
         <div className="flex items-center justify-between gap-3">
           <code className="text-xs text-text-tertiary">{row.key}</code>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={doReset}
-              disabled={resetting}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={doReset} disabled={resetting}>
               <RotateCcw className="mr-2 h-3.5 w-3.5" />
               {resetting ? t('content.resetting') || t('content.reset') : t('content.reset')}
             </Button>

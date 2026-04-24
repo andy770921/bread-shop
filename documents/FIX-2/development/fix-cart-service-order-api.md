@@ -37,6 +37,7 @@ private async getSessionIds(sessionId: string, userId?: string): Promise<string[
 ```
 
 When `userId` is provided:
+
 1. Queries `sessions` table for rows where `user_id = <userId>` → returns `[]` (empty array, because no session was linked)
 2. The fallback `|| [sessionId]` does **not** trigger because `[]` is truthy in JavaScript
 3. Returns `[]` — an empty session list
@@ -78,14 +79,15 @@ private async getSessionIds(sessionId: string, userId?: string): Promise<string[
 ```
 
 Using a `Set` ensures:
+
 - The current session is always included (even if not linked to the user)
 - No duplicate session IDs if the current session IS already in the user's sessions list
 - All user-owned sessions from other devices are still included
 
 ## Files Modified
 
-| File | Change |
-|---|---|
+| File                               | Change                                                          |
+| ---------------------------------- | --------------------------------------------------------------- |
 | `backend/src/cart/cart.service.ts` | `getSessionIds()` always includes current `sessionId` via `Set` |
 
 ## Why This Wasn't Caught Earlier
@@ -96,4 +98,5 @@ Using a `Set` ensures:
 ## Related Issues
 
 This fix is part of the LINE OAuth integration flow. See also:
+
 - `documents/FEAT-2/development/send-line-to-user-fix.md` — LINE callback 500 error, hash fragment redirect, and Express `encodeUrl` issues

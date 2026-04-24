@@ -15,6 +15,7 @@ Add `authedFetchFn` that wraps `defaultFetchFn`, injecting the Bearer token from
 ## Step 3 — Create `queries/use-orders.ts`
 
 Extract inline useQuery calls from:
+
 - `app/orders/page.tsx` → `useOrders()`
 - `app/orders/[id]/page.tsx` → `useOrder(orderId)`
 
@@ -23,6 +24,7 @@ Both use `authedFetchFn` internally.
 ## Step 4 — Create `queries/use-checkout.ts`
 
 Extract checkout mutations from `app/cart/page.tsx`:
+
 - `useCreateOrder()` — POST /api/orders
 - `useLineSend(orderId)` — POST /api/orders/:id/line-send
 - `useConfirmOrder(orderId)` — POST /api/orders/:id/confirm
@@ -32,6 +34,7 @@ All use `authedFetchFn` with `method: 'POST'`.
 ## Step 5 — Create `queries/use-profile.ts`
 
 Extract profile mutation from `app/profile/page.tsx`:
+
 - `useUpdateProfile()` — PATCH /api/user/profile
 
 Uses `authedFetchFn` with `method: 'PATCH'`.
@@ -63,20 +66,20 @@ Replace raw `fetch` in `fetchUser`, `login`, `register`, `logout` with `defaultF
 
 ## File change summary
 
-| File | Action |
-|------|--------|
-| `utils/fetchers/fetchers.utils.ts` | Add `credentials: 'include'` |
-| `utils/fetchers/fetchers.client.ts` | Add `authedFetchFn` |
-| `queries/use-orders.ts` | **New** — useOrders, useOrder |
-| `queries/use-checkout.ts` | **New** — useCreateOrder, useLineSend, useConfirmOrder |
-| `queries/use-profile.ts` | **New** — useUpdateProfile |
-| `queries/use-cart.ts` | Migrate fetch → authedFetchFn |
-| `queries/use-products.ts` | Migrate fetch → defaultFetchFn |
-| `queries/use-favorites.ts` | Migrate fetch → authedFetchFn |
-| `queries/use-categories.ts` | Migrate fetch → defaultFetchFn |
-| `lib/auth-context.tsx` | Migrate fetch → defaultFetchFn/authedFetchFn |
-| `app/cart/page.tsx` | Use hooks from use-checkout.ts |
-| `app/profile/page.tsx` | Use hook from use-profile.ts |
-| `app/orders/page.tsx` | Use hook from use-orders.ts |
-| `app/orders/[id]/page.tsx` | Use hook from use-orders.ts |
-| `lib/api.ts` | Remove if unused |
+| File                                | Action                                                 |
+| ----------------------------------- | ------------------------------------------------------ |
+| `utils/fetchers/fetchers.utils.ts`  | Add `credentials: 'include'`                           |
+| `utils/fetchers/fetchers.client.ts` | Add `authedFetchFn`                                    |
+| `queries/use-orders.ts`             | **New** — useOrders, useOrder                          |
+| `queries/use-checkout.ts`           | **New** — useCreateOrder, useLineSend, useConfirmOrder |
+| `queries/use-profile.ts`            | **New** — useUpdateProfile                             |
+| `queries/use-cart.ts`               | Migrate fetch → authedFetchFn                          |
+| `queries/use-products.ts`           | Migrate fetch → defaultFetchFn                         |
+| `queries/use-favorites.ts`          | Migrate fetch → authedFetchFn                          |
+| `queries/use-categories.ts`         | Migrate fetch → defaultFetchFn                         |
+| `lib/auth-context.tsx`              | Migrate fetch → defaultFetchFn/authedFetchFn           |
+| `app/cart/page.tsx`                 | Use hooks from use-checkout.ts                         |
+| `app/profile/page.tsx`              | Use hook from use-profile.ts                           |
+| `app/orders/page.tsx`               | Use hook from use-orders.ts                            |
+| `app/orders/[id]/page.tsx`          | Use hook from use-orders.ts                            |
+| `lib/api.ts`                        | Remove if unused                                       |

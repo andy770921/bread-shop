@@ -110,14 +110,14 @@ monorepo/
 
 ### Deep Modules
 
-| Module                      | Purpose                                                                      | Interface                                                      |
-| --------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `AdminAuthGuard` (BE)       | Verify JWT and check `profiles.role ∈ {'admin','owner'}`. Single purpose.    | `canActivate(ctx)`                                             |
-| `ProductAdminService` (BE)  | Product CRUD + soft-delete + guarded hard-delete (FK check against `order_items`). | `list / create / update / softDelete / hardDelete / updateStock` |
-| `ContentAdminService` (BE)  | `site_content` CRUD + returns the schema of editable keys.                   | `listKeys / upsert / remove / getAll`                          |
-| `OrderAdminService` (BE)    | Order list / detail / status update / resend LINE push.                      | `list / detail / updateStatus / resendLine`                    |
-| `UploadAdminService` (BE)   | Mint a Supabase Storage signed upload URL (browser uploads direct to bucket). | `createSignedUploadUrl(filename, contentType)`                 |
-| `SiteContentProvider` (FE)  | Customer frontend fetches `/api/site-content` once and merges into the i18n context. | `useLocalizedText(key)`                                        |
+| Module                     | Purpose                                                                              | Interface                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `AdminAuthGuard` (BE)      | Verify JWT and check `profiles.role ∈ {'admin','owner'}`. Single purpose.            | `canActivate(ctx)`                                               |
+| `ProductAdminService` (BE) | Product CRUD + soft-delete + guarded hard-delete (FK check against `order_items`).   | `list / create / update / softDelete / hardDelete / updateStock` |
+| `ContentAdminService` (BE) | `site_content` CRUD + returns the schema of editable keys.                           | `listKeys / upsert / remove / getAll`                            |
+| `OrderAdminService` (BE)   | Order list / detail / status update / resend LINE push.                              | `list / detail / updateStatus / resendLine`                      |
+| `UploadAdminService` (BE)  | Mint a Supabase Storage signed upload URL (browser uploads direct to bucket).        | `createSignedUploadUrl(filename, contentType)`                   |
+| `SiteContentProvider` (FE) | Customer frontend fetches `/api/site-content` once and merges into the i18n context. | `useLocalizedText(key)`                                          |
 
 ### Auth Flow
 
@@ -140,24 +140,24 @@ Admin FE login page
 
 All admin endpoints live under `/api/admin/*`, behind `AdminAuthGuard`.
 
-| Method | Path                                       | Purpose                                             |
-| ------ | ------------------------------------------ | --------------------------------------------------- |
-| GET    | `/api/admin/me`                            | Liveness check; returns `{id, email, role}`        |
-| GET    | `/api/admin/dashboard`                     | Aggregated stats (KPIs, recent orders, top products) |
-| GET    | `/api/admin/products`                      | All products (including inactive)                   |
-| POST   | `/api/admin/products`                      | Create                                              |
-| PATCH  | `/api/admin/products/:id`                  | Update                                              |
-| PATCH  | `/api/admin/products/:id/stock`            | Quick stock update (integer delta or absolute)      |
-| DELETE | `/api/admin/products/:id`                  | Hard delete; 409 if `order_items` reference it      |
-| POST   | `/api/admin/uploads/product-image`         | Returns signed upload URL + final public URL        |
-| GET    | `/api/admin/site-content`                  | All override rows (for the admin editor)            |
-| PUT    | `/api/admin/site-content/:key`             | Upsert a single key                                 |
-| DELETE | `/api/admin/site-content/:key`             | Remove override (revert to default)                 |
-| GET    | `/api/admin/orders`                        | Order list; supports `?status=`, `?page=`           |
-| GET    | `/api/admin/orders/:id`                    | Order detail                                        |
-| PATCH  | `/api/admin/orders/:id/status`             | Update status                                       |
-| POST   | `/api/admin/orders/:id/resend-line`        | Re-push LINE Flex message                           |
-| GET    | `/api/site-content`                        | **Public** — customer frontend reads overrides, no auth |
+| Method | Path                                | Purpose                                                 |
+| ------ | ----------------------------------- | ------------------------------------------------------- |
+| GET    | `/api/admin/me`                     | Liveness check; returns `{id, email, role}`             |
+| GET    | `/api/admin/dashboard`              | Aggregated stats (KPIs, recent orders, top products)    |
+| GET    | `/api/admin/products`               | All products (including inactive)                       |
+| POST   | `/api/admin/products`               | Create                                                  |
+| PATCH  | `/api/admin/products/:id`           | Update                                                  |
+| PATCH  | `/api/admin/products/:id/stock`     | Quick stock update (integer delta or absolute)          |
+| DELETE | `/api/admin/products/:id`           | Hard delete; 409 if `order_items` reference it          |
+| POST   | `/api/admin/uploads/product-image`  | Returns signed upload URL + final public URL            |
+| GET    | `/api/admin/site-content`           | All override rows (for the admin editor)                |
+| PUT    | `/api/admin/site-content/:key`      | Upsert a single key                                     |
+| DELETE | `/api/admin/site-content/:key`      | Remove override (revert to default)                     |
+| GET    | `/api/admin/orders`                 | Order list; supports `?status=`, `?page=`               |
+| GET    | `/api/admin/orders/:id`             | Order detail                                            |
+| PATCH  | `/api/admin/orders/:id/status`      | Update status                                           |
+| POST   | `/api/admin/orders/:id/resend-line` | Re-push LINE Flex message                               |
+| GET    | `/api/site-content`                 | **Public** — customer frontend reads overrides, no auth |
 
 ### Database Changes
 
@@ -229,19 +229,19 @@ admin-frontend/
 
 ### Key Design Decisions
 
-| #   | Decision                                                                                                   | Rationale                                                                                     |
-| --- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| D1  | Reuse Supabase Auth; distinguish admins via `profiles.role`.                                               | Avoids a second auth stack; the owner probably already has a customer account.                |
-| D2  | `admin-frontend` is a separate Vercel project on its own domain.                                           | Customer bundle stays small; CORS / CSP are isolated; deploys don't block each other.         |
-| D3  | Image upload via Supabase signed upload URL (direct browser → bucket).                                     | Avoids Vercel's 10s function timeout and body-size limits.                                    |
-| D4  | Copy stored in DB (`site_content`); customer frontend merges overrides onto JSON defaults.                 | Copy edits don't require redeploy; JSON defaults are a safety net if the override is missing. |
-| D5  | Admin UI only edits existing i18n keys; it does not create or delete keys.                                 | Prevents the owner from accidentally removing a required key and crashing the frontend.       |
-| D6  | Relaxed order state-machine for admin (block only obviously invalid transitions like `cancelled → delivered`). | Gives the owner flexibility while preventing accidental nonsense transitions.                  |
-| D7  | Default delete is soft (`is_active = false`); hard delete is allowed only when no `order_items` reference. | Preserves historical product data on past orders.                                             |
-| D8  | `admin-frontend` does not import `frontend/` components or providers.                                      | Keeps the two apps decoupled; they only share `@repo/shared` types.                           |
-| D9  | Old product images are deleted from Supabase Storage when the admin uploads a replacement.                 | Prevents orphaned files from accumulating in the storage bucket.                              |
-| D10 | Content editor key list is derived at build time by importing `frontend/src/i18n/zh.json` via Vite alias.  | Zero-maintenance sync — new keys in zh.json automatically appear in the admin content editor. |
-| D11 | Dashboard overview uses a single backend endpoint that aggregates existing DB data (orders, products).      | No new tables or data pipelines; keeps the feature lightweight.                               |
+| #   | Decision                                                                                                       | Rationale                                                                                     |
+| --- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| D1  | Reuse Supabase Auth; distinguish admins via `profiles.role`.                                                   | Avoids a second auth stack; the owner probably already has a customer account.                |
+| D2  | `admin-frontend` is a separate Vercel project on its own domain.                                               | Customer bundle stays small; CORS / CSP are isolated; deploys don't block each other.         |
+| D3  | Image upload via Supabase signed upload URL (direct browser → bucket).                                         | Avoids Vercel's 10s function timeout and body-size limits.                                    |
+| D4  | Copy stored in DB (`site_content`); customer frontend merges overrides onto JSON defaults.                     | Copy edits don't require redeploy; JSON defaults are a safety net if the override is missing. |
+| D5  | Admin UI only edits existing i18n keys; it does not create or delete keys.                                     | Prevents the owner from accidentally removing a required key and crashing the frontend.       |
+| D6  | Relaxed order state-machine for admin (block only obviously invalid transitions like `cancelled → delivered`). | Gives the owner flexibility while preventing accidental nonsense transitions.                 |
+| D7  | Default delete is soft (`is_active = false`); hard delete is allowed only when no `order_items` reference.     | Preserves historical product data on past orders.                                             |
+| D8  | `admin-frontend` does not import `frontend/` components or providers.                                          | Keeps the two apps decoupled; they only share `@repo/shared` types.                           |
+| D9  | Old product images are deleted from Supabase Storage when the admin uploads a replacement.                     | Prevents orphaned files from accumulating in the storage bucket.                              |
+| D10 | Content editor key list is derived at build time by importing `frontend/src/i18n/zh.json` via Vite alias.      | Zero-maintenance sync — new keys in zh.json automatically appear in the admin content editor. |
+| D11 | Dashboard overview uses a single backend endpoint that aggregates existing DB data (orders, products).         | No new tables or data pipelines; keeps the feature lightweight.                               |
 
 ## Testing Strategy
 

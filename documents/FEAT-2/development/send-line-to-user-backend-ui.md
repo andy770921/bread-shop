@@ -77,6 +77,7 @@ The browser receives and renders the HTML from step 2 while the backend is still
 ### `sendLoadingPage(res)` — New helper method
 
 Sends a complete HTML document with:
+
 - Bakery-themed styling (`#f5f0eb` background, `#c07545` accent — matches the frontend design tokens)
 - CSS-only spinner animation (no JavaScript needed for the spinner itself)
 - "Processing your order..." text
@@ -89,7 +90,7 @@ The HTML is minimal (~600 bytes) to ensure fast delivery even on slow connection
 
 ```typescript
 if (pending) {
-  this.sendLoadingPage(res);  // Immediate: browser shows spinner
+  this.sendLoadingPage(res); // Immediate: browser shows spinner
   try {
     const url = await this.handlePendingOrder(pending, result, frontendUrl);
     res.write(`<script>window.location.href=${JSON.stringify(url)}</script>`);
@@ -111,16 +112,16 @@ Changed from directly sending a response (`res.redirect()`) to returning a URL s
 
 ## Files Modified
 
-| File | Change |
-|---|---|
+| File                                  | Change                                                                                                                                                      |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `backend/src/auth/auth.controller.ts` | New `sendLoadingPage` helper; `lineCallback` streams HTML for pending order flow; `handlePendingOrder` returns URL string instead of calling `res.redirect` |
 
 ## User Experience
 
-| State | Before (blank page) | After (loading spinner) |
-|---|---|---|
-| Backend processing (~3s) | Black/white blank screen | Branded spinner: "Processing your order..." |
-| Success | Redirect to `/checkout/success` | Same — redirect via `<script>` |
-| Error | Redirect to `/cart?error=...` | Same — redirect via `<script>` |
+| State                    | Before (blank page)             | After (loading spinner)                     |
+| ------------------------ | ------------------------------- | ------------------------------------------- |
+| Backend processing (~3s) | Black/white blank screen        | Branded spinner: "Processing your order..." |
+| Success                  | Redirect to `/checkout/success` | Same — redirect via `<script>`              |
+| Error                    | Redirect to `/cart?error=...`   | Same — redirect via `<script>`              |
 
 The spinner uses the bakery's warm color palette and appears instantly, giving the user confidence that the system is working.

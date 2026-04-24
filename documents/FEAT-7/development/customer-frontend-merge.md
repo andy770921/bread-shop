@@ -38,7 +38,7 @@ for (const o of overrides) {
 }
 ```
 
-**Rationale:** the whole point of the FEAT-7 empty-input story is "an operator who clears a label really means to blank it". The old guard was there because, before FEAT-7, the admin editor stored `null` on save-empty *and* the DB only held rows for edited keys — so both `null` and `''` meant "unset". Now:
+**Rationale:** the whole point of the FEAT-7 empty-input story is "an operator who clears a label really means to blank it". The old guard was there because, before FEAT-7, the admin editor stored `null` on save-empty _and_ the DB only held rows for edited keys — so both `null` and `''` meant "unset". Now:
 
 - `null` in the DB still means "unset / not yet touched by migration" — extremely rare now that sync populates every row, but the fallback is still useful when `GET /api/site-content` races ahead of the sync on a first cold start.
 - `''` means "explicitly empty". Must not fall back.

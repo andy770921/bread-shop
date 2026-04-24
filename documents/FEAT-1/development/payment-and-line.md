@@ -3,6 +3,7 @@
 ## Overview
 
 Two checkout methods:
+
 1. **Lemon Squeezy** — Credit card payment via hosted checkout page
 2. **LINE** — Send order summary to the shop's LINE Official Account via Messaging API
 
@@ -11,6 +12,7 @@ Two checkout methods:
 ### Concept
 
 Lemon Squeezy provides a hosted checkout page. The flow:
+
 1. User clicks "信用卡付款" on the cart page
 2. Frontend calls `POST /api/payments/checkout` with order data
 3. Backend creates the order (status: `pending`), then creates a Lemon Squeezy checkout
@@ -50,10 +52,7 @@ cd backend && npm install @lemonsqueezy/lemonsqueezy.js
 ```typescript
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  lemonSqueezySetup,
-  createCheckout,
-} from '@lemonsqueezy/lemonsqueezy.js';
+import { lemonSqueezySetup, createCheckout } from '@lemonsqueezy/lemonsqueezy.js';
 import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable()
@@ -72,10 +71,7 @@ export class PaymentService {
     const supabase = this.supabaseService.getClient();
 
     // Get order details with ownership check (Review C-1)
-    let query = supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId);
+    let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
 
     // Verify the requesting user/session owns this order
     if (userId) {
@@ -109,9 +105,7 @@ export class PaymentService {
       },
       productOptions: {
         name: `Papa Bakery Order #${order.order_number}`,
-        description: order.items
-          .map((i: any) => `${i.product_name_zh} × ${i.quantity}`)
-          .join(', '),
+        description: order.items.map((i: any) => `${i.product_name_zh} × ${i.quantity}`).join(', '),
         redirectUrl: `${frontendUrl}/checkout/success?order_id=${orderId}`,
       },
     });
@@ -136,7 +130,10 @@ export class PaymentService {
     // Review L-3: use timing-safe comparison to prevent timing attacks
     const signatureBuffer = Buffer.from(signature, 'hex');
     const digestBuffer = Buffer.from(digest, 'hex');
-    if (signatureBuffer.length !== digestBuffer.length || !crypto.timingSafeEqual(digestBuffer, signatureBuffer)) {
+    if (
+      signatureBuffer.length !== digestBuffer.length ||
+      !crypto.timingSafeEqual(digestBuffer, signatureBuffer)
+    ) {
       throw new BadRequestException('Invalid webhook signature');
     }
 
@@ -163,7 +160,9 @@ export class PaymentService {
 
         // Review H-9: log warning if order not found
         if (!data) {
-          console.warn(`[Webhook] Lemon Squeezy order_created for unknown order_id=${orderId}, ls_order=${lsOrderId}`);
+          console.warn(
+            `[Webhook] Lemon Squeezy order_created for unknown order_id=${orderId}, ls_order=${lsOrderId}`,
+          );
         }
       }
     }
@@ -172,10 +171,7 @@ export class PaymentService {
     if (eventName === 'order_refunded') {
       if (orderId) {
         const supabase = this.supabaseService.getClient();
-        await supabase
-          .from('orders')
-          .update({ status: 'cancelled' })
-          .eq('id', parseInt(orderId));
+        await supabase.from('orders').update({ status: 'cancelled' }).eq('id', parseInt(orderId));
       }
     }
   }
@@ -271,6 +267,7 @@ Lemon Squeezy redirects user → /checkout/success?order_id=X
 ### Concept
 
 Two LINE features:
+
 1. **LINE Login** — OAuth2 login (covered in auth-and-cart-session.md)
 2. **LINE Order Messaging** — Send order summary to the shop's Official Account chat
 
@@ -434,7 +431,14 @@ export class LineService {
               margin: 'md',
               contents: [
                 { type: 'text', text: '總計', weight: 'bold', size: 'md' },
-                { type: 'text', text: `NT$${order.total}`, weight: 'bold', size: 'md', align: 'end', color: '#C07545' },
+                {
+                  type: 'text',
+                  text: `NT$${order.total}`,
+                  weight: 'bold',
+                  size: 'md',
+                  align: 'end',
+                  color: '#C07545',
+                },
               ],
             },
             {
@@ -446,10 +450,36 @@ export class LineService {
               layout: 'vertical',
               margin: 'lg',
               contents: [
-                { type: 'text', text: `姓名：${order.customer_name}`, size: 'xs', color: '#6F645A' },
-                { type: 'text', text: `電話：${order.customer_phone}`, size: 'xs', color: '#6F645A' },
-                { type: 'text', text: `地址：${order.customer_address}`, size: 'xs', color: '#6F645A', wrap: true },
-                ...(order.notes ? [{ type: 'text', text: `備註：${order.notes}`, size: 'xs', color: '#6F645A', wrap: true }] : []),
+                {
+                  type: 'text',
+                  text: `姓名：${order.customer_name}`,
+                  size: 'xs',
+                  color: '#6F645A',
+                },
+                {
+                  type: 'text',
+                  text: `電話：${order.customer_phone}`,
+                  size: 'xs',
+                  color: '#6F645A',
+                },
+                {
+                  type: 'text',
+                  text: `地址：${order.customer_address}`,
+                  size: 'xs',
+                  color: '#6F645A',
+                  wrap: true,
+                },
+                ...(order.notes
+                  ? [
+                      {
+                        type: 'text',
+                        text: `備註：${order.notes}`,
+                        size: 'xs',
+                        color: '#6F645A',
+                        wrap: true,
+                      },
+                    ]
+                  : []),
               ],
             },
           ],
@@ -531,7 +561,10 @@ export class LineController {
       return { success: true, message: 'Order sent via LINE.' };
     } catch (error: any) {
       if (error?.statusCode === 400) {
-        return { success: false, message: 'Please add our LINE Official Account as a friend first.' };
+        return {
+          success: false,
+          message: 'Please add our LINE Official Account as a friend first.',
+        };
       }
       throw error;
     }
@@ -577,12 +610,14 @@ Shop manually processes the order via LINE conversation
 ## Testing Steps
 
 ### Lemon Squeezy
+
 1. Create a test store on Lemon Squeezy (sandbox mode)
 2. Create a test product with a variant
 3. Use test credit card numbers provided by Lemon Squeezy
 4. Verify webhook is received and order status updates
 
 ### LINE
+
 1. Create a LINE Login channel (enable "OpenID Connect" and "email" scopes)
 2. Create a Messaging API channel in the same provider
 3. Add your LINE account as a friend of the Official Account

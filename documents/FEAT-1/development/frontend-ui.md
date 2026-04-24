@@ -130,134 +130,144 @@ Map the design tokens from `design-token.md` to CSS custom properties used by sh
 @layer base {
   :root {
     /* Papa Bakery — Light Mode (from design-token.md) */
-    --background: 30 33% 98%;          /* #FDFBF9 → bg-body */
-    --foreground: 20 42% 8%;           /* #1A110B → text-primary */
+    --background: 30 33% 98%; /* #FDFBF9 → bg-body */
+    --foreground: 20 42% 8%; /* #1A110B → text-primary */
 
-    --card: 0 0% 100%;                 /* #FFFFFF → bg-surface */
+    --card: 0 0% 100%; /* #FFFFFF → bg-surface */
     --card-foreground: 20 42% 8%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 20 42% 8%;
 
-    --primary: 24 50% 59%;             /* #D4885A → primary-500 */
-    --primary-foreground: 30 33% 98%;  /* #FDFBF9 → text-inverse */
+    --primary: 24 50% 59%; /* #D4885A → primary-500 */
+    --primary-foreground: 30 33% 98%; /* #FDFBF9 → text-inverse */
 
-    --secondary: 30 50% 95%;           /* #FEF5E8 → primary-100 */
+    --secondary: 30 50% 95%; /* #FEF5E8 → primary-100 */
     --secondary-foreground: 24 53% 40%; /* #9D5F31 → primary-700 */
 
-    --muted: 30 20% 95%;               /* #FAF8F5 → bg-elevated */
-    --muted-foreground: 24 10% 39%;    /* #6F645A → text-secondary */
+    --muted: 30 20% 95%; /* #FAF8F5 → bg-elevated */
+    --muted-foreground: 24 10% 39%; /* #6F645A → text-secondary */
 
     --accent: 30 50% 95%;
     --accent-foreground: 24 53% 40%;
 
-    --destructive: 0 73% 51%;          /* #DC2626 → error-500 */
+    --destructive: 0 73% 51%; /* #DC2626 → error-500 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 30 14% 88%;              /* #E8E2D9 → border-light */
-    --input: 30 12% 80%;               /* #D6CCC0 → border-default */
-    --ring: 24 50% 59%;                /* primary-500 */
+    --border: 30 14% 88%; /* #E8E2D9 → border-light */
+    --input: 30 12% 80%; /* #D6CCC0 → border-default */
+    --ring: 24 50% 59%; /* primary-500 */
 
     --radius: 0.5rem;
 
     /* Extended Papa Bakery tokens */
-    --primary-50: #FFFBF5;
-    --primary-100: #FEF5E8;
-    --primary-200: #FDE8D4;
-    --primary-300: #F9D4B0;
-    --primary-400: #F5BB87;
-    --primary-500: #D4885A;
-    --primary-600: #C07545;
-    --primary-700: #9D5F31;
-    --primary-800: #7A4620;
-    --primary-900: #5C3D1E;
+    --primary-50: #fffbf5;
+    --primary-100: #fef5e8;
+    --primary-200: #fde8d4;
+    --primary-300: #f9d4b0;
+    --primary-400: #f5bb87;
+    --primary-500: #d4885a;
+    --primary-600: #c07545;
+    --primary-700: #9d5f31;
+    --primary-800: #7a4620;
+    --primary-900: #5c3d1e;
 
-    --neutral-50: #FDFBF9;
-    --neutral-100: #FAF8F5;
-    --neutral-800: #3D281A;
+    --neutral-50: #fdfbf9;
+    --neutral-100: #faf8f5;
+    --neutral-800: #3d281a;
 
-    --success-500: #52B788;
-    --warning-500: #F5A623;
-    --error-500: #DC2626;
+    --success-500: #52b788;
+    --warning-500: #f5a623;
+    --error-500: #dc2626;
 
-    --shadow-sm: 0 1px 3px rgba(26,17,11,0.10);
-    --shadow-md: 0 4px 12px rgba(26,17,11,0.08);
-    --shadow-lg: 0 10px 24px rgba(26,17,11,0.12);
-    --shadow-xl: 0 20px 40px rgba(26,17,11,0.15);
+    --shadow-sm: 0 1px 3px rgba(26, 17, 11, 0.1);
+    --shadow-md: 0 4px 12px rgba(26, 17, 11, 0.08);
+    --shadow-lg: 0 10px 24px rgba(26, 17, 11, 0.12);
+    --shadow-xl: 0 20px 40px rgba(26, 17, 11, 0.15);
 
-    --bg-footer: #3D281A;
-    --checkout-gradient: linear-gradient(135deg, #D4885A 0%, #C07545 100%);
-    --banner-gradient: linear-gradient(135deg, #F5A623 0%, #D4885A 50%, #C07545 100%);
+    --bg-footer: #3d281a;
+    --checkout-gradient: linear-gradient(135deg, #d4885a 0%, #c07545 100%);
+    --banner-gradient: linear-gradient(135deg, #f5a623 0%, #d4885a 50%, #c07545 100%);
   }
 
   .dark {
-    --background: 15 19% 7%;           /* #161110 → bg-body dark */
-    --foreground: 25 40% 96%;          /* #FAF5F0 → text-primary dark */
+    --background: 15 19% 7%; /* #161110 → bg-body dark */
+    --foreground: 25 40% 96%; /* #FAF5F0 → text-primary dark */
 
-    --card: 20 20% 9%;                 /* #1E1712 → bg-surface dark */
+    --card: 20 20% 9%; /* #1E1712 → bg-surface dark */
     --card-foreground: 25 40% 96%;
 
     --popover: 20 20% 9%;
     --popover-foreground: 25 40% 96%;
 
-    --primary: 24 60% 63%;             /* #E0965F → primary-500 dark */
+    --primary: 24 60% 63%; /* #E0965F → primary-500 dark */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 20 25% 12%;           /* #2A1E14 → primary-50 dark */
+    --secondary: 20 25% 12%; /* #2A1E14 → primary-50 dark */
     --secondary-foreground: 24 47% 63%; /* #D49A6A → primary-400 dark */
 
-    --muted: 20 20% 13%;               /* #2A2018 → bg-elevated dark */
-    --muted-foreground: 25 14% 70%;    /* #C4B8AB → text-secondary dark */
+    --muted: 20 20% 13%; /* #2A2018 → bg-elevated dark */
+    --muted-foreground: 25 14% 70%; /* #C4B8AB → text-secondary dark */
 
     --accent: 20 25% 12%;
     --accent-foreground: 24 47% 63%;
 
-    --destructive: 0 84% 60%;          /* #EF4444 → error-500 dark */
+    --destructive: 0 84% 60%; /* #EF4444 → error-500 dark */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 20 19% 20%;              /* #3D3028 → border-light dark */
-    --input: 20 15% 30%;               /* #5A4D42 → border-default dark */
+    --border: 20 19% 20%; /* #3D3028 → border-light dark */
+    --input: 20 15% 30%; /* #5A4D42 → border-default dark */
     --ring: 24 60% 63%;
 
     /* Extended dark tokens */
-    --primary-50: #2A1E14;
-    --primary-100: #3A2A1C;
-    --primary-200: #4D3825;
-    --primary-300: #6B4E34;
-    --primary-400: #D49A6A;
-    --primary-500: #E0965F;
-    --primary-600: #C8824E;
-    --primary-700: #F0B080;
-    --primary-800: #F5C8A0;
-    --primary-900: #FAE0C8;
+    --primary-50: #2a1e14;
+    --primary-100: #3a2a1c;
+    --primary-200: #4d3825;
+    --primary-300: #6b4e34;
+    --primary-400: #d49a6a;
+    --primary-500: #e0965f;
+    --primary-600: #c8824e;
+    --primary-700: #f0b080;
+    --primary-800: #f5c8a0;
+    --primary-900: #fae0c8;
 
     --neutral-50: #161110;
-    --neutral-100: #1E1712;
-    --neutral-800: #E8DDD2;
+    --neutral-100: #1e1712;
+    --neutral-800: #e8ddd2;
 
-    --success-500: #6BCCA0;
-    --warning-500: #F5B840;
-    --error-500: #EF4444;
+    --success-500: #6bcca0;
+    --warning-500: #f5b840;
+    --error-500: #ef4444;
 
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.30);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
-    --shadow-lg: 0 10px 24px rgba(0,0,0,0.35);
-    --shadow-xl: 0 20px 40px rgba(0,0,0,0.45);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.35);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.45);
 
-    --bg-footer: #0E0A08;
-    --checkout-gradient: linear-gradient(135deg, #E0965F 0%, #C8824E 100%);
-    --banner-gradient: linear-gradient(135deg, #C07545 0%, #9D5F31 50%, #7A4620 100%);
+    --bg-footer: #0e0a08;
+    --checkout-gradient: linear-gradient(135deg, #e0965f 0%, #c8824e 100%);
+    --banner-gradient: linear-gradient(135deg, #c07545 0%, #9d5f31 50%, #7a4620 100%);
   }
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, sans-serif;
-    transition: background-color 400ms ease-in-out, color 400ms ease-in-out;
+    font-family:
+      system-ui,
+      -apple-system,
+      sans-serif;
+    transition:
+      background-color 400ms ease-in-out,
+      color 400ms ease-in-out;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Noto Serif TC', serif;
     font-weight: 700;
   }
@@ -761,6 +771,7 @@ export function useToggleFavorite() {
 **File:** `frontend/src/components/layout/header.tsx`
 
 Key elements:
+
 - Logo: "周爸烘焙坊" / "Papa Bakery" (based on locale)
 - Nav: Home, About, Contact
 - Actions: Language toggle (EN/中), Dark mode toggle (sun/moon), Auth button, Cart icon with badge
@@ -772,6 +783,7 @@ Key elements:
 **File:** `frontend/src/components/product/product-card.tsx`
 
 Key elements:
+
 - Product image with hover zoom (scale 1.05)
 - Badge (HOT/NEW/Seasonal) positioned top-right
 - Category label
@@ -784,6 +796,7 @@ Key elements:
 **File:** `frontend/src/components/product/product-editorial.tsx`
 
 Key elements:
+
 - Alternating layout (image left/right on even/odd items)
 - Large product image (500px height, rounded-2xl)
 - Category label, product name (28px), description
@@ -794,6 +807,7 @@ Key elements:
 **File:** `frontend/src/components/cart/order-summary.tsx`
 
 Key elements:
+
 - Sticky sidebar (top: 120px)
 - Item summary list (name × qty = price)
 - Subtotal, shipping (free if >= 500), total
@@ -886,6 +900,7 @@ export default function HomePage() {
 **File:** `frontend/src/app/cart/page.tsx` — Cart page
 
 Implements the design from `design-cart.html`:
+
 - Cart items list with image, name, price, quantity controls, remove button
 - Customer info form (name, phone, email, address, notes)
 - Order summary sidebar (sticky)
@@ -992,20 +1007,20 @@ const response = await fetch(url, { credentials: 'include' });
 
 ## Component ↔ Design Mapping
 
-| Design Element | Component | shadcn/ui |
-|---|---|---|
-| Header | `header.tsx` | `Button`, `Badge` |
-| Seasonal Banner | `seasonal-banner.tsx` | — (custom) |
-| Category Pills | `category-pills.tsx` | `Button` variant="outline" |
-| Product Card | `product-card.tsx` | `Card`, `Button`, `Badge` |
-| Editorial Item | `product-editorial.tsx` | `Button`, `Separator` |
-| Cart Item | `cart-item.tsx` | `Button`, `Input` |
-| Customer Form | `customer-form.tsx` | `Input`, `Label`, `Textarea` |
-| Order Summary | `order-summary.tsx` | `Card`, `Separator`, `Button` |
-| Login Form | `login-form.tsx` | `Input`, `Label`, `Button` |
-| Dark Mode Toggle | `dark-mode-toggle.tsx` | `Button` |
-| Language Toggle | `language-toggle.tsx` | `Button` |
-| Notification | shadcn `toast` | `Toast`, `Toaster` |
+| Design Element   | Component               | shadcn/ui                     |
+| ---------------- | ----------------------- | ----------------------------- |
+| Header           | `header.tsx`            | `Button`, `Badge`             |
+| Seasonal Banner  | `seasonal-banner.tsx`   | — (custom)                    |
+| Category Pills   | `category-pills.tsx`    | `Button` variant="outline"    |
+| Product Card     | `product-card.tsx`      | `Card`, `Button`, `Badge`     |
+| Editorial Item   | `product-editorial.tsx` | `Button`, `Separator`         |
+| Cart Item        | `cart-item.tsx`         | `Button`, `Input`             |
+| Customer Form    | `customer-form.tsx`     | `Input`, `Label`, `Textarea`  |
+| Order Summary    | `order-summary.tsx`     | `Card`, `Separator`, `Button` |
+| Login Form       | `login-form.tsx`        | `Input`, `Label`, `Button`    |
+| Dark Mode Toggle | `dark-mode-toggle.tsx`  | `Button`                      |
+| Language Toggle  | `language-toggle.tsx`   | `Button`                      |
+| Notification     | shadcn `toast`          | `Toast`, `Toaster`            |
 
 ## Testing Steps
 
@@ -1035,12 +1050,15 @@ const response = await fetch(url, { credentials: 'include' });
 ## Review Remediations Applied
 
 ### M-9: Provider import mismatch
+
 Use default import for `TanStackQueryProvider` to match existing export style.
 
 ### M-10: Add `credentials: 'include'` to existing fetcher
+
 Update `frontend/src/utils/fetchers/fetchers.utils.ts` — add `credentials: 'include'` to the fetch options in `getFetchQueryOptions()`. Also update the TanStack Query default `queryFn`.
 
 ### M-14: Use `next/image` for product images
+
 Configure `next.config.ts`:
 
 ```typescript
@@ -1077,17 +1095,24 @@ export function useCategories() {
 ```
 
 ### L-5: Use `next/font/google` instead of `<link>` tag
+
 Updated root layout to use `Noto_Serif_TC` from `next/font/google`. Reference via CSS variable `--font-noto-serif-tc`.
 
 Update `globals.css` heading rule:
 
 ```css
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-noto-serif-tc), 'Noto Serif TC', serif;
 }
 ```
 
 ### L-6: Error boundary
+
 Add `frontend/src/components/shared/error-boundary.tsx`:
 
 ```typescript
@@ -1125,18 +1150,18 @@ Add the missing tokens from `design-token.md`:
 /* Add to :root and .dark blocks */
 
 /* Full neutral scale */
---neutral-200: #F5F1EC;  /* dark: #2A2018 */
---neutral-300: #E8E2D9;  /* dark: #3D3028 */
---neutral-400: #D6CCC0;  /* dark: #5A4D42 */
---neutral-500: #B8ADA0;  /* dark: #7A6E62 */
---neutral-600: #9A8E83;  /* dark: #9A8E83 */
---neutral-700: #6F645A;  /* dark: #C4B8AB */
+--neutral-200: #f5f1ec; /* dark: #2A2018 */
+--neutral-300: #e8e2d9; /* dark: #3D3028 */
+--neutral-400: #d6ccc0; /* dark: #5A4D42 */
+--neutral-500: #b8ada0; /* dark: #7A6E62 */
+--neutral-600: #9a8e83; /* dark: #9A8E83 */
+--neutral-700: #6f645a; /* dark: #C4B8AB */
 
 /* Derived tokens */
---text-tertiary: #A89E92;   /* dark: #8A7E72 */
---border-strong: #9A8E83;   /* dark: #7A6E62 */
---bg-overlay: rgba(26,17,11,0.5); /* dark: rgba(0,0,0,0.6) */
---shadow-header: 0 1px 3px rgba(26,17,11,0.10); /* dark: 0 2px 8px rgba(0,0,0,0.35) */
+--text-tertiary: #a89e92; /* dark: #8A7E72 */
+--border-strong: #9a8e83; /* dark: #7A6E62 */
+--bg-overlay: rgba(26, 17, 11, 0.5); /* dark: rgba(0,0,0,0.6) */
+--shadow-header: 0 1px 3px rgba(26, 17, 11, 0.1); /* dark: 0 2px 8px rgba(0,0,0,0.35) */
 
 /* Spacing (Tailwind extend in tailwind.config.ts) */
 /* Map --space-X tokens to Tailwind spacing scale */
@@ -1151,11 +1176,16 @@ Add the missing tokens from `design-token.md`:
 /* globals.css — match design-token.md exactly */
 body {
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', var(--font-noto-serif-tc), sans-serif;
-  line-height: 1.65;  /* Review L-7 */
+  line-height: 1.65; /* Review L-7 */
 }
 
-h1, h2, h3, h4, h5, h6 {
-  line-height: 1.2;   /* Review L-7 */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.2; /* Review L-7 */
 }
 ```
 
@@ -1163,16 +1193,17 @@ Product card hover: use `hover:-translate-y-1.5` (6px) instead of `hover:-transl
 
 ### L-8: Responsive grid breakpoints
 
-| Breakpoint | Product Grid Columns | Editorial View |
-|---|---|---|
-| < 600px | 1 column | Single column |
-| 600-768px | 2 columns | Single column |
-| 768-1024px | 2 columns | Single column, reduced gap |
-| > 1024px | 3 columns (auto-fit, minmax(280px, 1fr)) | Two-column alternating layout |
+| Breakpoint | Product Grid Columns                     | Editorial View                |
+| ---------- | ---------------------------------------- | ----------------------------- |
+| < 600px    | 1 column                                 | Single column                 |
+| 600-768px  | 2 columns                                | Single column                 |
+| 768-1024px | 2 columns                                | Single column, reduced gap    |
+| > 1024px   | 3 columns (auto-fit, minmax(280px, 1fr)) | Two-column alternating layout |
 
 ### M-12: SSR / SEO note
 
 The current approach uses `'use client'` for the home page due to TanStack Query hooks. This is acceptable for the MVP. For future SEO improvement:
+
 - Use `next-intl` with `[locale]` route segments and `generateStaticParams`
 - Pre-fetch product data on the server using `dehydrate()` and `HydrationBoundary`
 - This enables SSR while still using TanStack Query for client-side updates
@@ -1180,6 +1211,7 @@ The current approach uses `'use client'` for the home page due to TanStack Query
 ### H-4: localStorage token storage note
 
 Storing tokens in `localStorage` is a known XSS risk. For the MVP, this is accepted with the following mitigations:
+
 - Add `Content-Security-Policy` header in `next.config.ts` to restrict script sources
 - All user content is rendered as text (no `dangerouslySetInnerHTML`)
 - Future improvement: migrate to HttpOnly cookie-based token storage

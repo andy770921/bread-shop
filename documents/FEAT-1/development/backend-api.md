@@ -99,6 +99,7 @@ cd backend && npm install -D \
 **File:** `backend/src/main.ts`
 
 **Changes:**
+
 - Add `cookie-parser` middleware
 - Enable `rawBody` for webhook signature verification
 - Add `class-validator` global pipe
@@ -323,7 +324,7 @@ export class AddToCartDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   @IsPositive()
-  @Max(99)  // Review M-5: quantity upper limit
+  @Max(99) // Review M-5: quantity upper limit
   quantity: number;
 }
 ```
@@ -338,7 +339,7 @@ export class UpdateCartItemDto {
   @ApiProperty({ example: 2 })
   @IsInt()
   @IsPositive()
-  @Max(99)  // Review M-5: quantity upper limit
+  @Max(99) // Review M-5: quantity upper limit
   quantity: number;
 }
 ```
@@ -362,12 +363,9 @@ export class CartService {
     if (!userId) return [sessionId];
 
     const supabase = this.supabaseService.getClient();
-    const { data } = await supabase
-      .from('sessions')
-      .select('id')
-      .eq('user_id', userId);
+    const { data } = await supabase.from('sessions').select('id').eq('user_id', userId);
 
-    return data?.map(s => s.id) || [sessionId];
+    return data?.map((s) => s.id) || [sessionId];
   }
 
   async getCart(sessionId: string, userId?: string) {
@@ -376,7 +374,8 @@ export class CartService {
 
     const { data: items, error } = await supabase
       .from('cart_items')
-      .select(`
+      .select(
+        `
         id,
         session_id,
         product_id,
@@ -389,14 +388,15 @@ export class CartService {
           image_url,
           category:categories(name_zh, name_en)
         )
-      `)
+      `,
+      )
       .in('session_id', sessionIds)
       .order('created_at', { ascending: true });
 
     if (error) throw error;
 
     // Review H-2: omit session_id from response (internal field)
-    const cartItems = (items || []).map(item => ({
+    const cartItems = (items || []).map((item) => ({
       id: item.id,
       product_id: item.product_id,
       quantity: item.quantity,
@@ -495,10 +495,7 @@ export class CartService {
     const supabase = this.supabaseService.getClient();
     const sessionIds = await this.getSessionIds(sessionId, userId);
 
-    await supabase
-      .from('cart_items')
-      .delete()
-      .in('session_id', sessionIds);
+    await supabase.from('cart_items').delete().in('session_id', sessionIds);
 
     // Review H-3: empty cart should have 0 shipping and 0 total
     return { items: [], subtotal: 0, shipping_fee: 0, total: 0, item_count: 0 };
@@ -509,7 +506,18 @@ export class CartService {
 **File:** `backend/src/cart/cart.controller.ts`
 
 ```typescript
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { CartService } from './cart.service';
@@ -571,12 +579,9 @@ export class FavoriteService {
   async getAll(userId: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data } = await supabase
-      .from('favorites')
-      .select('product_id')
-      .eq('user_id', userId);
+    const { data } = await supabase.from('favorites').select('product_id').eq('user_id', userId);
 
-    return { product_ids: data?.map(f => f.product_id) || [] };
+    return { product_ids: data?.map((f) => f.product_id) || [] };
   }
 
   async add(userId: string, productId: number) {
@@ -584,10 +589,7 @@ export class FavoriteService {
 
     await supabase
       .from('favorites')
-      .upsert(
-        { user_id: userId, product_id: productId },
-        { onConflict: 'user_id,product_id' },
-      );
+      .upsert({ user_id: userId, product_id: productId }, { onConflict: 'user_id,product_id' });
 
     return { success: true };
   }
@@ -595,11 +597,7 @@ export class FavoriteService {
   async remove(userId: string, productId: number) {
     const supabase = this.supabaseService.getClient();
 
-    await supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('product_id', productId);
+    await supabase.from('favorites').delete().eq('user_id', userId).eq('product_id', productId);
 
     return { success: true };
   }
@@ -714,17 +712,17 @@ export class OrderService {
 
     // Review H-12: validate all products are still active before creating order
     const supabase = this.supabaseService.getClient();
-    const productIds = cart.items.map(i => i.product_id);
+    const productIds = cart.items.map((i) => i.product_id);
     const { data: activeProducts } = await supabase
       .from('products')
       .select('id')
       .in('id', productIds)
       .eq('is_active', true);
-    const activeIds = new Set(activeProducts?.map(p => p.id) || []);
-    const inactiveItems = cart.items.filter(i => !activeIds.has(i.product_id));
+    const activeIds = new Set(activeProducts?.map((p) => p.id) || []);
+    const inactiveItems = cart.items.filter((i) => !activeIds.has(i.product_id));
     if (inactiveItems.length > 0) {
       throw new BadRequestException(
-        `Some products are no longer available: ${inactiveItems.map(i => i.product.name_zh).join(', ')}`,
+        `Some products are no longer available: ${inactiveItems.map((i) => i.product.name_zh).join(', ')}`,
       );
     }
 
@@ -750,7 +748,7 @@ export class OrderService {
     if (orderError) throw orderError;
 
     // 3. Create order items (snapshot)
-    const orderItems = cart.items.map(item => ({
+    const orderItems = cart.items.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
       product_name_zh: item.product.name_zh,
@@ -772,10 +770,7 @@ export class OrderService {
   async getOrderById(orderId: number, userId?: string | null) {
     const supabase = this.supabaseService.getClient();
 
-    let query = supabase
-      .from('orders')
-      .select('*, items:order_items(*)')
-      .eq('id', orderId);
+    let query = supabase.from('orders').select('*, items:order_items(*)').eq('id', orderId);
 
     if (userId) {
       query = query.eq('user_id', userId);
@@ -794,7 +789,9 @@ export class OrderService {
     // Review M-1: explicit columns, omit internal fields (user_id, payment_id, line_user_id)
     const { data, error } = await supabase
       .from('orders')
-      .select('id, order_number, status, subtotal, shipping_fee, total, customer_name, payment_method, created_at, updated_at')
+      .select(
+        'id, order_number, status, subtotal, shipping_fee, total, customer_name, payment_method, created_at, updated_at',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -825,11 +822,7 @@ export class OrderController {
   @Post()
   @UseGuards(OptionalAuthGuard)
   create(@Req() req: Request, @Body() dto: CreateOrderDto) {
-    return this.orderService.createOrder(
-      req.sessionId!,
-      req.user?.id || null,
-      dto,
-    );
+    return this.orderService.createOrder(req.sessionId!, req.user?.id || null, dto);
   }
 
   @Get()
@@ -887,13 +880,11 @@ export class UserService {
   async getProfile(userId: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
-    const { data: { user } } = await supabase.auth.admin.getUserById(userId);
+    const {
+      data: { user },
+    } = await supabase.auth.admin.getUserById(userId);
 
     return {
       id: userId,
@@ -904,7 +895,10 @@ export class UserService {
     };
   }
 
-  async updateProfile(userId: string, updates: { name?: string; phone?: string; preferred_language?: string }) {
+  async updateProfile(
+    userId: string,
+    updates: { name?: string; phone?: string; preferred_language?: string },
+  ) {
     const supabase = this.supabaseService.getClient();
 
     const { data, error } = await supabase

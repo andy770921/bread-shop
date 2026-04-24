@@ -19,26 +19,26 @@ This proposal is the **next step**: for fields whose values are **enumerable and
 
 ### Already Using This Pattern (Reference)
 
-| Field | Enum Type | Frontend Usage | Status |
-|-------|-----------|----------------|--------|
+| Field        | Enum Type                                                                            | Frontend Usage                | Status   |
+| ------------ | ------------------------------------------------------------------------------------ | ----------------------------- | -------- |
 | Order status | `OrderStatus` (`pending`, `paid`, `preparing`, `shipping`, `delivered`, `cancelled`) | `t('status.${order.status}')` | **Done** |
 
 ### Candidates for Refactor
 
-| Field | Enum / Key | Current Approach | Proposed Approach |
-|-------|------------|------------------|-------------------|
-| **Category name** | `Category.slug` (`toast`, `cake`, `cookie`, `bread`, `other`) | `pickLocalizedText(locale, { zh: cat.name_zh, en: cat.name_en })` | `t('category.${cat.slug}')` |
-| **Badge text** | `BadgeType` (`hot`, `new`, `seasonal`) | `pickLocalizedText(locale, { zh: product.badge_text_zh, en: product.badge_text_en })` | `t('badge.${product.badge_type}')` |
-| **Spec labels** | Canonical label keys (`weight`, `shelf_life`, `size`, `serves`, ...) | `pickLocalizedText(locale, { zh: spec.label_zh, en: spec.label_en })` | `t('spec.${spec.label_key}')` |
-| **Cart category** | `category_slug` on `CartItem.product` | `category_name_zh` / `category_name_en` from BE join | FE uses `t('category.${slug}')` |
+| Field             | Enum / Key                                                           | Current Approach                                                                      | Proposed Approach                  |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Category name** | `Category.slug` (`toast`, `cake`, `cookie`, `bread`, `other`)        | `pickLocalizedText(locale, { zh: cat.name_zh, en: cat.name_en })`                     | `t('category.${cat.slug}')`        |
+| **Badge text**    | `BadgeType` (`hot`, `new`, `seasonal`)                               | `pickLocalizedText(locale, { zh: product.badge_text_zh, en: product.badge_text_en })` | `t('badge.${product.badge_type}')` |
+| **Spec labels**   | Canonical label keys (`weight`, `shelf_life`, `size`, `serves`, ...) | `pickLocalizedText(locale, { zh: spec.label_zh, en: spec.label_en })`                 | `t('spec.${spec.label_key}')`      |
+| **Cart category** | `category_slug` on `CartItem.product`                                | `category_name_zh` / `category_name_en` from BE join                                  | FE uses `t('category.${slug}')`    |
 
 ### NOT Candidates (Dynamic Content — Must Stay Bilingual in DB)
 
-| Field | Reason |
-|-------|--------|
-| Product name (`name_zh` / `name_en`) | Unique per product, truly dynamic |
-| Product description (`description_zh` / `description_en`) | Unique per product |
-| Product spec **values** (`value_zh` / `value_en`) | Product-specific (e.g. "450g", "3 days", "6 inch") |
+| Field                                                            | Reason                                                     |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| Product name (`name_zh` / `name_en`)                             | Unique per product, truly dynamic                          |
+| Product description (`description_zh` / `description_en`)        | Unique per product                                         |
+| Product spec **values** (`value_zh` / `value_en`)                | Product-specific (e.g. "450g", "3 days", "6 inch")         |
 | Order item product names (`product_name_zh` / `product_name_en`) | Historical snapshot — must preserve the name at order time |
 
 ---
@@ -50,6 +50,7 @@ This proposal is the **next step**: for fields whose values are **enumerable and
 **Rationale**: Categories have **stable slugs** that act as natural i18n keys. The current seed data has exactly 5 categories (`toast`, `cake`, `cookie`, `bread`, `other`) and this set changes infrequently. The `slug` field is already exposed by the API and used for filtering — it's a perfect enum-like key.
 
 **Changes**:
+
 1. Add `category.*` keys to `zh.json` and `en.json`
 2. Replace `pickLocalizedText(locale, { zh: cat.name_zh, en: cat.name_en })` with `t('category.${cat.slug}')` in:
    - `category-pills.tsx` — pill labels
@@ -63,6 +64,7 @@ This proposal is the **next step**: for fields whose values are **enumerable and
 **Rationale**: `BadgeType` is already a TypeScript enum (`'hot' | 'new' | 'seasonal'`). The DB stores `badge_text_zh` / `badge_text_en` per product, but in practice these are always the same text for the same badge type (e.g., `hot` → "HOT"/"HOT", `seasonal` → "季節限定"/"Seasonal", `new` → "NEW"/"NEW"). Moving to i18n eliminates this redundancy and ensures consistent badge labels.
 
 **Changes**:
+
 1. Add `badge.*` keys to `zh.json` and `en.json`
 2. Replace badge text rendering in `product-card.tsx` and `product-editorial.tsx` with `t('badge.${product.badge_type}')`
 
@@ -75,22 +77,26 @@ This proposal is the **next step**: for fields whose values are **enumerable and
 **Principle**: Minimize bilingual data in DB. Only keep `_zh`/`_en` for truly dynamic, per-product content (product names, descriptions, spec values). Everything that can be represented by an enum key should use `BE enum → FE t(key)`.
 
 **DB Migration**:
+
 1. `categories` table — drop `name_zh`, `name_en` columns (slug is the canonical key)
 2. `products` table — drop `badge_text_zh`, `badge_text_en` columns (badge_type is the canonical key)
 3. `products.specs` JSONB — migrate from `{label_zh, label_en, value_zh, value_en}` to `{label_key, value_zh, value_en}`
 
 **Shared Type Changes**:
+
 1. `Category` — remove `name_zh`, `name_en` fields
 2. `Product` — remove `badge_text_zh`, `badge_text_en` fields
 3. `ProductSpec` — replace `label_zh`/`label_en` with single `label_key: string`
 4. `CartItem.product` — replace `category_name_zh`/`category_name_en` with `category_slug: string`
 
 **Backend Changes**:
+
 1. `cart.service.ts` — change category join from `categories(name_zh, name_en)` to `categories(slug)`; map `category_slug`
 2. `order.service.ts` — same change in both the `createOrder` canonicalization and the `normalizeCheckoutCart` flow
 3. `product.service.ts` — no code changes needed (uses `*` select; columns simply disappear)
 
 **Frontend Changes**:
+
 1. Remove fallback helpers (`getCategoryName`, `getBadgeText`) → use `t()` directly
 2. Update cart item rendering to use `category_slug` + `t('category.${slug}')`
 3. Update `use-add-to-cart-handler.ts` to pass `category_slug` instead of `category_name_zh`/`category_name_en`
@@ -100,19 +106,19 @@ This proposal is the **next step**: for fields whose values are **enumerable and
 
 **Canonical Spec Label Keys** (derived from current seed data):
 
-| DB `label_key` | zh.json | en.json |
-|----------------|---------|---------|
-| `weight` | 重量 | Weight |
-| `shelf_life` | 保鮮期 | Shelf Life |
-| `prep_time` | 製作時間 | Prep Time |
-| `size` | 尺寸 | Size |
-| `serves` | 適用 | Serves |
-| `quantity` | 數量 | Quantity |
-| `packaging` | 包裝 | Packaging |
-| `production` | 製作 | Production |
-| `best_before` | 最佳享用 | Best Before |
-| `texture` | 口感 | Texture |
-| `flavor` | 風味 | Flavor |
+| DB `label_key` | zh.json  | en.json     |
+| -------------- | -------- | ----------- |
+| `weight`       | 重量     | Weight      |
+| `shelf_life`   | 保鮮期   | Shelf Life  |
+| `prep_time`    | 製作時間 | Prep Time   |
+| `size`         | 尺寸     | Size        |
+| `serves`       | 適用     | Serves      |
+| `quantity`     | 數量     | Quantity    |
+| `packaging`    | 包裝     | Packaging   |
+| `production`   | 製作     | Production  |
+| `best_before`  | 最佳享用 | Best Before |
+| `texture`      | 口感     | Texture     |
+| `flavor`       | 風味     | Flavor      |
 
 ---
 

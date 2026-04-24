@@ -3,6 +3,7 @@
 ## Prerequisites
 
 The following in-progress changes must be committed first (currently unstaged):
+
 - `frontend/src/i18n/utils.ts` — locale helper functions
 - `frontend/src/i18n/config.ts` — `Locale` type definition
 - All files updated to use `pickLocalizedText` / `pickByLocale` / `Locale` type
@@ -563,35 +564,35 @@ Update any cart/order service spec files that mock category or badge locale fiel
 
 ### Phase 1–2 (Frontend Only)
 
-| File | Change |
-|------|--------|
-| `frontend/src/i18n/zh.json` | Add `category.*`, `badge.*` keys |
-| `frontend/src/i18n/en.json` | Add `category.*`, `badge.*` keys |
-| `frontend/src/i18n/utils.ts` | Add transitional `getCategoryName()`, `getBadgeText()` |
-| `frontend/src/components/product/category-pills.tsx` | Use `getCategoryName()` |
-| `frontend/src/components/product/product-card.tsx` | Use `getCategoryName()`, `getBadgeText()` |
-| `frontend/src/components/product/product-editorial.tsx` | Use `getCategoryName()`, `getBadgeText()` |
+| File                                                    | Change                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------ |
+| `frontend/src/i18n/zh.json`                             | Add `category.*`, `badge.*` keys                       |
+| `frontend/src/i18n/en.json`                             | Add `category.*`, `badge.*` keys                       |
+| `frontend/src/i18n/utils.ts`                            | Add transitional `getCategoryName()`, `getBadgeText()` |
+| `frontend/src/components/product/category-pills.tsx`    | Use `getCategoryName()`                                |
+| `frontend/src/components/product/product-card.tsx`      | Use `getCategoryName()`, `getBadgeText()`              |
+| `frontend/src/components/product/product-editorial.tsx` | Use `getCategoryName()`, `getBadgeText()`              |
 
 ### Phase 3 (Full Stack)
 
-| Layer | File | Change |
-|-------|------|--------|
-| **DB** | Supabase migration | Drop columns, migrate specs JSONB |
-| **Shared** | `shared/src/types/product.ts` | Remove `name_zh`/`name_en` from Category, `badge_text_zh`/`badge_text_en` from Product, `label_zh`/`label_en` → `label_key` in ProductSpec |
-| **Shared** | `shared/src/types/cart.ts` | `category_name_zh`/`category_name_en` → `category_slug` |
-| **Backend** | `backend/src/cart/cart.service.ts` | Category join `(name_zh, name_en)` → `(slug)`, map `category_slug` |
-| **Backend** | `backend/src/order/order.service.ts` | Same join changes in `createOrder()` + `normalizeCheckoutCart()` |
-| **Frontend** | `frontend/src/i18n/zh.json` | Add `spec.*` keys |
-| **Frontend** | `frontend/src/i18n/en.json` | Add `spec.*` keys |
-| **Frontend** | `frontend/src/i18n/utils.ts` | Remove `getCategoryName()`, `getBadgeText()` (use `t()` directly) |
-| **Frontend** | `frontend/src/components/product/category-pills.tsx` | `t('category.${slug}')` directly |
-| **Frontend** | `frontend/src/components/product/product-card.tsx` | `t('category.${slug}')`, `t('badge.${type}')` directly |
-| **Frontend** | `frontend/src/components/product/product-editorial.tsx` | Same + `t('spec.${label_key}')` for spec labels |
-| **Frontend** | `frontend/src/hooks/use-add-to-cart-handler.ts` | Pass `category_slug` |
-| **Frontend** | `frontend/src/queries/use-cart.ts` | Optimistic item uses `category_slug` |
-| **Tests** | `frontend/src/app/cart/page.spec.tsx` | Update mock data |
-| **Tests** | `frontend/src/queries/use-cart.spec.tsx` | Update mock data |
-| **Tests** | `backend/src/cart/cart.service.spec.ts` | Update mock data |
+| Layer        | File                                                    | Change                                                                                                                                     |
+| ------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **DB**       | Supabase migration                                      | Drop columns, migrate specs JSONB                                                                                                          |
+| **Shared**   | `shared/src/types/product.ts`                           | Remove `name_zh`/`name_en` from Category, `badge_text_zh`/`badge_text_en` from Product, `label_zh`/`label_en` → `label_key` in ProductSpec |
+| **Shared**   | `shared/src/types/cart.ts`                              | `category_name_zh`/`category_name_en` → `category_slug`                                                                                    |
+| **Backend**  | `backend/src/cart/cart.service.ts`                      | Category join `(name_zh, name_en)` → `(slug)`, map `category_slug`                                                                         |
+| **Backend**  | `backend/src/order/order.service.ts`                    | Same join changes in `createOrder()` + `normalizeCheckoutCart()`                                                                           |
+| **Frontend** | `frontend/src/i18n/zh.json`                             | Add `spec.*` keys                                                                                                                          |
+| **Frontend** | `frontend/src/i18n/en.json`                             | Add `spec.*` keys                                                                                                                          |
+| **Frontend** | `frontend/src/i18n/utils.ts`                            | Remove `getCategoryName()`, `getBadgeText()` (use `t()` directly)                                                                          |
+| **Frontend** | `frontend/src/components/product/category-pills.tsx`    | `t('category.${slug}')` directly                                                                                                           |
+| **Frontend** | `frontend/src/components/product/product-card.tsx`      | `t('category.${slug}')`, `t('badge.${type}')` directly                                                                                     |
+| **Frontend** | `frontend/src/components/product/product-editorial.tsx` | Same + `t('spec.${label_key}')` for spec labels                                                                                            |
+| **Frontend** | `frontend/src/hooks/use-add-to-cart-handler.ts`         | Pass `category_slug`                                                                                                                       |
+| **Frontend** | `frontend/src/queries/use-cart.ts`                      | Optimistic item uses `category_slug`                                                                                                       |
+| **Tests**    | `frontend/src/app/cart/page.spec.tsx`                   | Update mock data                                                                                                                           |
+| **Tests**    | `frontend/src/queries/use-cart.spec.tsx`                | Update mock data                                                                                                                           |
+| **Tests**    | `backend/src/cart/cart.service.spec.ts`                 | Update mock data                                                                                                                           |
 
 ---
 
@@ -626,13 +627,13 @@ Update any cart/order service spec files that mock category or badge locale fiel
 
 ## Enum Summary: What DB Stores vs. What FE Displays
 
-| Data | DB Column | FE i18n Key | Example |
-|------|-----------|-------------|---------|
-| Category name | `categories.slug` | `t('category.${slug}')` | `toast` → "吐司" / "Toast" |
-| Badge text | `products.badge_type` | `t('badge.${type}')` | `seasonal` → "季節限定" / "Seasonal" |
-| Spec label | `specs[].label_key` | `t('spec.${key}')` | `weight` → "重量" / "Weight" |
-| Order status | `orders.status` | `t('status.${status}')` | `pending` → "待付款" / "Pending" |
-| **Product name** | `products.name_zh/en` | `pickLocalizedText()` | Dynamic, stays bilingual |
-| **Product desc** | `products.description_zh/en` | `pickLocalizedText()` | Dynamic, stays bilingual |
-| **Spec value** | `specs[].value_zh/en` | `pickLocalizedText()` | Dynamic, stays bilingual |
-| **Order item name** | `order_items.product_name_zh/en` | `pickLocalizedText()` | Historical snapshot |
+| Data                | DB Column                        | FE i18n Key             | Example                              |
+| ------------------- | -------------------------------- | ----------------------- | ------------------------------------ |
+| Category name       | `categories.slug`                | `t('category.${slug}')` | `toast` → "吐司" / "Toast"           |
+| Badge text          | `products.badge_type`            | `t('badge.${type}')`    | `seasonal` → "季節限定" / "Seasonal" |
+| Spec label          | `specs[].label_key`              | `t('spec.${key}')`      | `weight` → "重量" / "Weight"         |
+| Order status        | `orders.status`                  | `t('status.${status}')` | `pending` → "待付款" / "Pending"     |
+| **Product name**    | `products.name_zh/en`            | `pickLocalizedText()`   | Dynamic, stays bilingual             |
+| **Product desc**    | `products.description_zh/en`     | `pickLocalizedText()`   | Dynamic, stays bilingual             |
+| **Spec value**      | `specs[].value_zh/en`            | `pickLocalizedText()`   | Dynamic, stays bilingual             |
+| **Order item name** | `order_items.product_name_zh/en` | `pickLocalizedText()`   | Historical snapshot                  |

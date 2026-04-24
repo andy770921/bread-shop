@@ -130,9 +130,7 @@ export class CartContactDraftService {
     userId: string | undefined,
     dto: UpsertCartContactDraftDto,
   ): Promise<CartContactDraft> {
-    const expiresAt = new Date(
-      Date.now() + CartContactDraftService.DRAFT_TTL_MS,
-    ).toISOString();
+    const expiresAt = new Date(Date.now() + CartContactDraftService.DRAFT_TTL_MS).toISOString();
 
     const record = {
       session_id: sessionId,

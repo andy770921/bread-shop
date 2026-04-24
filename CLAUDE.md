@@ -71,20 +71,21 @@ Every visitor gets a `session_id` HttpOnly cookie. Cart items link to sessions, 
 
 All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` — inject `SupabaseService` anywhere.
 
-| Module       | Key Endpoints                                                                | Auth                   |
-| ------------ | ---------------------------------------------------------------------------- | ---------------------- |
-| Auth         | POST login, register, logout; GET me; LINE OAuth                             | — / Bearer             |
-| Product      | GET /api/products(?category=slug), /api/products/:id                         | —                      |
-| Category     | GET /api/categories                                                          | —                      |
-| Cart         | GET/POST/PATCH/DELETE /api/cart/\*                                           | Session (OptionalAuth) |
-| Favorite     | GET/POST/DELETE /api/favorites/\*                                            | Bearer required        |
-| Order        | POST /api/orders; GET list, detail, by-number                                | Session + Bearer       |
-| LINE         | POST /api/orders/:id/line-send                                               | Bearer required        |
-| User         | GET/PATCH /api/user/profile                                                  | Bearer required        |
-| SiteContent  | GET /api/site-content                                                        | —                      |
-| Admin        | /api/admin/{me,dashboard,products,content,orders,upload}                     | AdminAuthGuard         |
+| Module      | Key Endpoints                                            | Auth                   |
+| ----------- | -------------------------------------------------------- | ---------------------- |
+| Auth        | POST login, register, logout; GET me; LINE OAuth         | — / Bearer             |
+| Product     | GET /api/products(?category=slug), /api/products/:id     | —                      |
+| Category    | GET /api/categories                                      | —                      |
+| Cart        | GET/POST/PATCH/DELETE /api/cart/\*                       | Session (OptionalAuth) |
+| Favorite    | GET/POST/DELETE /api/favorites/\*                        | Bearer required        |
+| Order       | POST /api/orders; GET list, detail, by-number            | Session + Bearer       |
+| LINE        | POST /api/orders/:id/line-send                           | Bearer required        |
+| User        | GET/PATCH /api/user/profile                              | Bearer required        |
+| SiteContent | GET /api/site-content                                    | —                      |
+| Admin       | /api/admin/{me,dashboard,products,content,orders,upload} | AdminAuthGuard         |
 
 **Guards**:
+
 - `AuthGuard` — requires Bearer JWT via `supabase.auth.getUser()`.
 - `OptionalAuthGuard` — passes through guests.
 - `AdminAuthGuard` (`backend/src/admin/guards/admin-auth.guard.ts`) — validates Bearer token, then checks `profiles.role IN ('admin', 'owner')`. Throws 403 otherwise. Email is sourced from `auth.users`, not `profiles` (no email column there). Populates `req.user = { id, email, role }`.

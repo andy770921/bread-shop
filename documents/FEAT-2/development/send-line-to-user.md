@@ -68,23 +68,23 @@ Because "no error" does not mean "message delivered."
 
 ## Backend responsibilities
 
-| Area | Responsibility |
-|---|---|
-| `AuthController` | LINE Login initiation, callback handling, pending-order flow, message-eligibility endpoint |
-| `AuthService` | LINE OAuth exchange, user linking, pending-order storage |
-| `LineService` | Admin/customer push message sending and customer reachability probe |
-| `LineController` | Order-specific LINE send endpoint with a defensive fallback check |
-| `CheckoutService` | Finalize pending LINE checkout and redirect to success |
-| `OrderService` | Create order, assign user, confirm order, persist LINE metadata |
+| Area              | Responsibility                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `AuthController`  | LINE Login initiation, callback handling, pending-order flow, message-eligibility endpoint |
+| `AuthService`     | LINE OAuth exchange, user linking, pending-order storage                                   |
+| `LineService`     | Admin/customer push message sending and customer reachability probe                        |
+| `LineController`  | Order-specific LINE send endpoint with a defensive fallback check                          |
+| `CheckoutService` | Finalize pending LINE checkout and redirect to success                                     |
+| `OrderService`    | Create order, assign user, confirm order, persist LINE metadata                            |
 
 ## Frontend responsibilities
 
-| Area | Responsibility |
-|---|---|
-| `useCheckoutFlow` | Main checkout decision tree |
-| `cart/page.tsx` | Cart form UI, submission entrypoint, failure redirect |
+| Area                        | Responsibility                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `useCheckoutFlow`           | Main checkout decision tree                                                               |
+| `cart/page.tsx`             | Cart form UI, submission entrypoint, failure redirect                                     |
 | `checkout/pending/page.tsx` | Recovery page for users who must add/unblock the official account before final submission |
-| `checkout/failed/page.tsx` | Explicit failure states such as `not_friend` and `login_declined` |
+| `checkout/failed/page.tsx`  | Explicit failure states such as `not_friend` and `login_declined`                         |
 
 ## Core Implementation Decisions
 

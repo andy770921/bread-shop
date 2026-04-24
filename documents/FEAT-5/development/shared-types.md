@@ -39,13 +39,13 @@ Keep all DTO request shapes on the backend (using `class-validator` decorators) 
 
 #### Moved from `frontend/src/` → `shared/src/`
 
-| Source (frontend) | Destination (shared) | Exports |
-|---|---|---|
-| `utils/fetchers/fetchers.error.ts` | `utils/fetchers/fetchers.error.ts` | `ApiResponseError` |
-| `utils/fetchers/fetchers.utils.ts` | `utils/fetchers/fetchers.utils.ts` | `FetchOptions`, `getFetchQueryOptions`, `parseErrorBody` |
-| `utils/fetchers/fetchers.ts` | `utils/fetchers/fetchers.ts` | `fetchApi`, `streamingFetchApi` |
-| `constants/common.ts` | `constants/common.ts` | `HTTP_STATUS_CODE` |
-| `vendors/tanstack-query/provider.utils.ts` | `utils/query/stringify-query-key.ts` | `stringifyQueryKey` |
+| Source (frontend)                          | Destination (shared)                 | Exports                                                  |
+| ------------------------------------------ | ------------------------------------ | -------------------------------------------------------- |
+| `utils/fetchers/fetchers.error.ts`         | `utils/fetchers/fetchers.error.ts`   | `ApiResponseError`                                       |
+| `utils/fetchers/fetchers.utils.ts`         | `utils/fetchers/fetchers.utils.ts`   | `FetchOptions`, `getFetchQueryOptions`, `parseErrorBody` |
+| `utils/fetchers/fetchers.ts`               | `utils/fetchers/fetchers.ts`         | `fetchApi`, `streamingFetchApi`                          |
+| `constants/common.ts`                      | `constants/common.ts`                | `HTTP_STATUS_CODE`                                       |
+| `vendors/tanstack-query/provider.utils.ts` | `utils/query/stringify-query-key.ts` | `stringifyQueryKey`                                      |
 
 #### New (barrel re-exports)
 
@@ -54,13 +54,13 @@ Keep all DTO request shapes on the backend (using `class-validator` decorators) 
 
 #### Stays in `frontend/` (NOT extracted)
 
-| File | Reason |
-|---|---|
-| `utils/fetchers/fetchers.client.ts` | Wires `authTokenStore` (frontend-specific) into shared `fetchApi` |
-| `vendors/tanstack-query/provider.tsx` | React component; each app creates its own |
-| All query hooks (`queries/*`) | Domain-specific (cart, favorites, orders, etc.) |
-| Cart session bootstrap (`queries/cart-session.ts`) | Frontend-specific session cookie logic |
-| Debounced cart mutation hook | Too specialized for cart domain |
+| File                                               | Reason                                                            |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| `utils/fetchers/fetchers.client.ts`                | Wires `authTokenStore` (frontend-specific) into shared `fetchApi` |
+| `vendors/tanstack-query/provider.tsx`              | React component; each app creates its own                         |
+| All query hooks (`queries/*`)                      | Domain-specific (cart, favorites, orders, etc.)                   |
+| Cart session bootstrap (`queries/cart-session.ts`) | Frontend-specific session cookie logic                            |
+| Debounced cart mutation hook                       | Too specialized for cart domain                                   |
 
 ## Step-by-Step Implementation
 
@@ -80,7 +80,7 @@ export interface UserProfile {
   phone: string | null;
   preferred_language: string;
   line_user_id: string | null;
-  role: UserRole;          // new
+  role: UserRole; // new
 }
 
 export interface UpdateProfileRequest {
@@ -111,7 +111,7 @@ export interface Product {
   specs: ProductSpec[];
   is_active: boolean;
   sort_order: number;
-  stock_quantity: number;    // new
+  stock_quantity: number; // new
   created_at: string;
   updated_at: string;
 }
@@ -169,7 +169,7 @@ export interface AdminDashboardStats {
 
 ```ts
 export interface SiteContentEntry {
-  key: string;                 // e.g. "home.title"
+  key: string; // e.g. "home.title"
   value_zh: string | null;
   value_en: string | null;
   updated_at: string;
@@ -204,8 +204,8 @@ export * from './types/health';
 export * from './types/order';
 export * from './types/product';
 export * from './types/user';
-export * from './types/admin';          // new
-export * from './types/site-content';   // new
+export * from './types/admin'; // new
+export * from './types/site-content'; // new
 
 // Utilities (added in Part 2)
 export * from './constants/common';

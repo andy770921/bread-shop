@@ -5,11 +5,11 @@ Reviewed: `prd.md`, `database-schema.md`, `shared-types.md`, `auth-and-cart-sess
 ## Summary
 
 | Severity | Count |
-|----------|-------|
-| CRITICAL | 5 |
-| HIGH | 19 |
-| MEDIUM | 19 |
-| LOW | 8 |
+| -------- | ----- |
+| CRITICAL | 5     |
+| HIGH     | 19    |
+| MEDIUM   | 19    |
+| LOW      | 8     |
 
 ---
 

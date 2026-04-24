@@ -9,30 +9,34 @@ Guide the user through deploying this fullstack application to Vercel. Both fron
 ## TICKET Resolution
 
 **If `$ARGUMENTS` is empty or not provided:**
+
 1. Scan the `documents/` folder for existing FEAT-X folders
 2. Find the highest number X in FEAT-X folders
 3. Use `FEAT-{X+1}` as the new TICKET
 4. Example: If FEAT-1, FEAT-2 exist → use FEAT-3
 
 **If `$ARGUMENTS` is provided:**
+
 - If folder exists → extend existing documents
 - If folder doesn't exist → create new folder
 
 **Prefix rules:**
+
 - Deployment → `FEAT-X` (or use existing ticket if deploying a feature)
 
 ## Overview
 
-| App | Type | Config | URL Pattern |
-|-----|------|--------|-------------|
-| Frontend | Static/SSR | `frontend/vercel.json` | `your-app.vercel.app` |
-| Backend | Serverless | `backend/vercel.json` + `api/index.ts` | `your-api.vercel.app` |
+| App      | Type       | Config                                 | URL Pattern           |
+| -------- | ---------- | -------------------------------------- | --------------------- |
+| Frontend | Static/SSR | `frontend/vercel.json`                 | `your-app.vercel.app` |
+| Backend  | Serverless | `backend/vercel.json` + `api/index.ts` | `your-api.vercel.app` |
 
 ## Process
 
 ### Step 1: Determine Deployment Target
 
 Ask the user: "What would you like to deploy?"
+
 1. Frontend only
 2. Backend only
 3. Both frontend and backend
@@ -40,6 +44,7 @@ Ask the user: "What would you like to deploy?"
 ### Step 2: Prerequisites Check
 
 Verify with user:
+
 - [ ] Vercel account created at https://vercel.com
 - [ ] Git repository pushed to GitHub/GitLab/Bitbucket
 - [ ] Vercel CLI installed (optional): `npm i -g vercel`
@@ -51,7 +56,9 @@ Verify with user:
 ## Frontend Deployment
 
 ### Configuration
+
 The frontend is pre-configured in `frontend/vercel.json`:
+
 ```json
 {
   "framework": "nextjs"
@@ -101,6 +108,7 @@ vercel
 ```
 
 ### Post-Deployment
+
 - Note the deployment URL (e.g., `https://my-app-frontend.vercel.app`)
 - Set up custom domain in Project Settings → Domains (optional)
 
@@ -109,7 +117,9 @@ vercel
 ## Backend Deployment
 
 ### Configuration
+
 The backend uses serverless functions via:
+
 - `backend/vercel.json` - Routes and build config
 - `backend/api/index.ts` - NestJS serverless handler
 
@@ -123,13 +133,13 @@ The backend uses serverless functions via:
 
 ### Important Limitations
 
-| Limitation | Details | Workaround |
-|------------|---------|------------|
-| Cold Starts | First request ~1-2s slower | Use cron to keep warm |
-| Timeout | 10s (Hobby), 60s (Pro) | Split long operations |
-| No WebSockets | Not supported | Use polling or Pusher/Ably |
-| No Persistent Connections | Serverless is stateless | Use external DB connection pooling |
-| Memory | 1024MB default | Increase in vercel.json if needed |
+| Limitation                | Details                    | Workaround                         |
+| ------------------------- | -------------------------- | ---------------------------------- |
+| Cold Starts               | First request ~1-2s slower | Use cron to keep warm              |
+| Timeout                   | 10s (Hobby), 60s (Pro)     | Split long operations              |
+| No WebSockets             | Not supported              | Use polling or Pusher/Ably         |
+| No Persistent Connections | Serverless is stateless    | Use external DB connection pooling |
+| Memory                    | 1024MB default             | Increase in vercel.json if needed  |
 
 ### Deployment Steps
 
@@ -168,6 +178,7 @@ vercel
 ```
 
 ### Post-Deployment
+
 - Test API: `curl https://your-api.vercel.app/health`
 - Check logs: Vercel Dashboard → Project → Deployments → Functions tab
 
@@ -201,6 +212,7 @@ After both are deployed:
 ## Step 5: Document Deployment
 
 **Determine TICKET:**
+
 - If `$ARGUMENTS` provided → use `$ARGUMENTS`
 - If empty → auto-generate next `FEAT-X` number
 
@@ -212,6 +224,7 @@ Create deployment record at: `documents/{TICKET}/development/deployment-vercel.m
 ## Deployed Applications
 
 ### Frontend
+
 - **URL**: https://[your-frontend].vercel.app
 - **Project**: [project-name]
 - **Root Directory**: frontend
@@ -219,6 +232,7 @@ Create deployment record at: `documents/{TICKET}/development/deployment-vercel.m
   - NEXT_PUBLIC_API_URL: [backend-url]
 
 ### Backend
+
 - **URL**: https://[your-api].vercel.app
 - **Project**: [project-name]
 - **Root Directory**: backend
@@ -228,6 +242,7 @@ Create deployment record at: `documents/{TICKET}/development/deployment-vercel.m
   - [other secrets...]
 
 ## Deployment Checklist
+
 - [ ] Frontend deployed
 - [ ] Backend deployed
 - [ ] CORS configured
@@ -236,6 +251,7 @@ Create deployment record at: `documents/{TICKET}/development/deployment-vercel.m
 - [ ] Custom domain configured (optional)
 
 ## Notes
+
 [Any deployment-specific notes]
 ```
 
@@ -246,26 +262,32 @@ Create deployment record at: `documents/{TICKET}/development/deployment-vercel.m
 ### Common Issues
 
 #### "Module not found" errors
+
 - Check that all dependencies are in `dependencies`, not just `devDependencies`
 - Serverless may not install devDependencies in production
 
 #### CORS errors
+
 - Verify `CORS_ORIGIN` environment variable is set correctly
 - Check backend `app.enableCors()` configuration
 
 #### Cold start too slow
+
 - Keep functions warm with external cron service
 - Consider Edge Functions for faster cold starts
 
 #### Build timeout
+
 - Increase memory in vercel.json: `"functions": { "api/index.ts": { "memory": 1024 } }`
 - Split large builds
 
 #### 404 on API routes
+
 - Verify `vercel.json` routes configuration
 - Check that `api/index.ts` is being built
 
 ### Vercel Logs
+
 ```bash
 # View logs via CLI
 vercel logs your-project.vercel.app
@@ -284,4 +306,5 @@ vercel logs your-project.vercel.app
 - [Vercel Serverless Functions](https://vercel.com/docs/concepts/functions/serverless-functions)
 
 ## Notes
+
 - Always inform user which TICKET number is being used

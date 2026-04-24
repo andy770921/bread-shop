@@ -25,7 +25,7 @@ The backend continues to use the `SupabaseService.getClient()` service-role clie
 - `backend/src/admin/me.controller.ts`
 - `backend/src/admin/dto/*.ts` (one per create/update payload)
 - `backend/src/site-content/site-content.module.ts`
-- `backend/src/site-content/site-content.controller.ts`  (public `GET /api/site-content`)
+- `backend/src/site-content/site-content.controller.ts` (public `GET /api/site-content`)
 - `backend/src/site-content/site-content.service.ts`
 
 ### Modified Files
@@ -52,7 +52,13 @@ The backend continues to use the `SupabaseService.getClient()` service-role clie
 **Why:** Single chokepoint that verifies JWT and checks `profiles.role`. Applied to every admin endpoint.
 
 ```ts
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 
 const ADMIN_ROLES = ['admin', 'owner'] as const;
@@ -70,7 +76,10 @@ export class AdminAuthGuard implements CanActivate {
 
     const token = header.split(' ')[1];
     const supabase = this.supabaseService.getClient();
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
     if (error || !user) throw new UnauthorizedException('Invalid or expired token');
 
     const { data: profile } = await supabase

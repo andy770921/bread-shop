@@ -13,6 +13,7 @@ To reduce document drift, the findings below reference stable file and method na
 ### 1. AuthController LINE Pending-Order Flow — God Orchestrator (Critical)
 
 **Files:**
+
 - `backend/src/auth/auth.controller.ts` — `lineCallback()`, `confirmLineOrder()`, `handlePendingOrder()`, `checkLineFriendship()`, `sendLoadingPage()`
 - `backend/src/auth/auth.controller.spec.ts` — controller tests currently spy on `handlePendingOrder()` instead of testing an extracted orchestration service
 
@@ -33,6 +34,7 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 13. Reuse the same order-creation helper from `confirmLineOrder()`
 
 **Problems:**
+
 - The controller still owns the business state machine; it is not just routing.
 - The flow is split across `lineCallback()` and `confirmLineOrder()`, so extracting only the callback tail would still leave orchestration fragmented.
 - Direct `orders` and `profiles` queries inside the controller bypass service boundaries.
@@ -47,6 +49,7 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 ### 2. Session Identity — Same Concept, Multiple Implementations
 
 **Files:**
+
 - `backend/src/common/middleware/session.middleware.ts` — `use()`
 - `backend/src/cart/cart.service.ts` — `getSessionIds()`
 - `backend/src/auth/auth.service.ts` — `mergeSessionOnLogin()`
@@ -54,6 +57,7 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 - `backend/src/payment/payment.service.ts` — `createCheckout()`
 
 **Problems:**
+
 - Ownership is still resolved ad hoc with `user_id` vs `session_id` branches in each module.
 - `CartService.getSessionIds()` and `SessionMiddleware` both read `sessions`, but there is no shared resolver or cache policy.
 - `mergeSessionOnLogin()` deletes old sessions and cart rows, but other modules treat session rows as stable during request handling.
@@ -67,6 +71,7 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 ### 3. Order Lifecycle — No Single Owner
 
 **Files:**
+
 - `backend/src/order/order.service.ts` — `createOrder()`
 - `backend/src/payment/payment.service.ts` — `handleWebhook()`
 - `backend/src/auth/auth.controller.ts` — `handlePendingOrder()`
@@ -74,6 +79,7 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 - `shared/src/types/order.ts` — `OrderStatus`
 
 **Problems:**
+
 - `OrderService` creates orders with `status: 'pending'`, but `PaymentService` transitions status via raw Supabase updates.
 - `AuthController` directly sets `orders.user_id` instead of going through `OrderService`.
 - `LineService.sendOrderMessage()` directly sets `orders.line_user_id`, so even non-status order mutations are not centrally owned.
@@ -85,11 +91,13 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 ### 4. Duplicated Order Fetching
 
 **Files:**
+
 - `backend/src/order/order.service.ts` — `getOrderById()`
 - `backend/src/line/line.service.ts` — `sendOrderToAdmin()`, `sendOrderMessage()`
 - `backend/src/payment/payment.service.ts` — `createCheckout()`
 
 **Problems:**
+
 - The same `orders + order_items` query is duplicated across modules.
 - Schema changes require hand-editing multiple services.
 - `LineService` and `PaymentService` bypass `OrderService`, so any validation or mapping added there will be skipped.
@@ -98,13 +106,14 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 
 ### 5. Business Rules Scattered Across Layers
 
-| Business Rule | Location(s) |
-|---|---|
+| Business Rule                         | Location(s)                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------- |
 | Shipping fee: free if subtotal >= 500 | `backend/src/cart/cart.service.ts`, `frontend/src/queries/use-cart.ts` |
-| Quantity cap: max 99 | `backend/src/auth/auth.service.ts`, `frontend/src/queries/use-cart.ts` |
-| Session expiry: 90 days | `backend/src/common/middleware/session.middleware.ts` |
+| Quantity cap: max 99                  | `backend/src/auth/auth.service.ts`, `frontend/src/queries/use-cart.ts` |
+| Session expiry: 90 days               | `backend/src/common/middleware/session.middleware.ts`                  |
 
 **Problems:**
+
 - Shipping threshold and quantity cap are duplicated between backend and frontend with no shared constant.
 - Session max-age is duplicated even within the same middleware file.
 - These are domain rules, but today they live as magic numbers inside implementation files.
@@ -118,11 +127,13 @@ The pending-order LINE checkout flow now spans two endpoints and several private
 **File:** `frontend/src/queries/use-cart.ts`
 
 Three independent concerns are still tangled in one file:
+
 1. React Query integration
 2. Debounce and reconciliation state machine
 3. Cart math and quantity rules
 
 **Problems:**
+
 - `recalcCartTotals()`, `reconcileWithPending()`, and `applyPendingUpdates()` are pure logic but live inside a React hook file.
 - Shipping logic is duplicated from the backend.
 - `useAddToCart()` and `useUpdateCartItem()` each manage their own timer-driven pending state via `useRef`.
@@ -133,12 +144,14 @@ Three independent concerns are still tangled in one file:
 ### 7. Auth Token Lifecycle — Fragmented
 
 **Files:**
+
 - `frontend/src/lib/auth-context.tsx`
 - `frontend/src/utils/fetchers/fetchers.client.ts`
 - `frontend/src/lib/api.ts`
 - `frontend/src/lib/api-client.ts`
 
 **Problems:**
+
 - `AuthProvider` manages token state, but `authedFetchFn` reads directly from `localStorage`.
 - `frontend/src/lib/api.ts` is dead code today.
 - `frontend/src/lib/api-client.ts` also appears unreferenced in the current tree and should be treated as a second dead-code candidate.
@@ -149,6 +162,7 @@ Three independent concerns are still tangled in one file:
 ### 8. Checkout Flow — Page-Level Orchestration Still Owns the Decision Tree
 
 **Files:**
+
 - `frontend/src/app/cart/page.tsx` — `cartFormSchema`, `onSubmit`, conditional field resets, LINE redirect handling, cart invalidation
 - `frontend/src/queries/use-checkout.ts` — thin mutation wrappers only
 
@@ -161,6 +175,7 @@ The raw network mutations have been moved into hooks, but the cart page still ow
 - navigation, toast, and query invalidation policy
 
 **Problems:**
+
 - Adding a new payment method still means editing a page component.
 - The LINE flow is encoded as nested `if` branches instead of a named coordinator.
 - The validation schema is not reusable outside the page.
@@ -170,13 +185,13 @@ The raw network mutations have been moved into hooks, but the cart page still ow
 
 ## Summary of Candidates (Prioritized)
 
-| # | Candidate | Type | Severity | Effort |
-|---|---|---|---|---|
-| 1 | Pending-Order Checkout Orchestrator (backend) | Extract service from `AuthController` | Critical | Medium |
-| 2 | Session Identity Resolution (backend) | Unify session ownership logic | High | Medium |
-| 3 | Order Lifecycle Owner (backend) | Centralize transitions and metadata writes | High | Medium |
-| 4 | Cart State Machine (frontend) | Extract pure logic from React hooks | Medium | Medium |
-| 5 | Checkout Flow Coordinator (frontend) | Extract page-level orchestration + schema | Medium | Medium |
-| 6 | Duplicated Order Fetching (backend) | Route reads through `OrderService` | Medium | Low |
-| 7 | Auth Token Lifecycle (frontend) | Remove dead helpers + unify auth read path | Low | Low |
-| 8 | Shared Business Constants | Extract shipping / quantity / session constants | Low | Low |
+| #   | Candidate                                     | Type                                            | Severity | Effort |
+| --- | --------------------------------------------- | ----------------------------------------------- | -------- | ------ |
+| 1   | Pending-Order Checkout Orchestrator (backend) | Extract service from `AuthController`           | Critical | Medium |
+| 2   | Session Identity Resolution (backend)         | Unify session ownership logic                   | High     | Medium |
+| 3   | Order Lifecycle Owner (backend)               | Centralize transitions and metadata writes      | High     | Medium |
+| 4   | Cart State Machine (frontend)                 | Extract pure logic from React hooks             | Medium   | Medium |
+| 5   | Checkout Flow Coordinator (frontend)          | Extract page-level orchestration + schema       | Medium   | Medium |
+| 6   | Duplicated Order Fetching (backend)           | Route reads through `OrderService`              | Medium   | Low    |
+| 7   | Auth Token Lifecycle (frontend)               | Remove dead helpers + unify auth read path      | Low      | Low    |
+| 8   | Shared Business Constants                     | Extract shipping / quantity / session constants | Low      | Low    |

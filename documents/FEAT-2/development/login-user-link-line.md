@@ -88,10 +88,10 @@ When `linkToUserId` is set:
 4. load the target Bread Shop profile by `linkToUserId`
 5. enforce these checks:
 
-| Check | Failure |
-|---|---|
-| LINE user already linked to a different Bread Shop user | `"This LINE account is already linked to another user."` |
-| Bread Shop user already linked to another LINE account | `"This Bread Shop account is already linked to a different LINE account."` |
+| Check                                                   | Failure                                                                    |
+| ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| LINE user already linked to a different Bread Shop user | `"This LINE account is already linked to another user."`                   |
+| Bread Shop user already linked to another LINE account  | `"This Bread Shop account is already linked to a different LINE account."` |
 
 6. if the target profile has no `line_user_id`, update it
 7. only backfill `name` from LINE when the existing profile name is empty
@@ -122,11 +122,11 @@ Use this helper for:
 
 Effect:
 
-| Flow | Redirect contains auth hash? |
-|---|---|
-| Guest / new LINE local account | Yes |
-| Logged-in user linking existing account | No |
-| Pending confirmation submit (`confirm-order`) | No |
+| Flow                                          | Redirect contains auth hash? |
+| --------------------------------------------- | ---------------------------- |
+| Guest / new LINE local account                | Yes                          |
+| Logged-in user linking existing account       | No                           |
+| Pending confirmation submit (`confirm-order`) | No                           |
 
 This avoids overwriting the original email/password session with a `line_xxx@line.local` session.
 

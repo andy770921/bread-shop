@@ -123,7 +123,11 @@ export class SessionMiddleware implements NestMiddleware {
         req.sessionId = sessionId;
         req.userId = cached.userId;
         // Review M-7: refresh session TTL on access
-        supabase.from('sessions').update({ expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() }).eq('id', sessionId).then();
+        supabase
+          .from('sessions')
+          .update({ expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() })
+          .eq('id', sessionId)
+          .then();
         return next();
       }
 
@@ -138,7 +142,10 @@ export class SessionMiddleware implements NestMiddleware {
       if (session) {
         req.sessionId = session.id;
         req.userId = session.user_id;
-        this.sessionCache.set(sessionId, { userId: session.user_id, expiresAt: Date.now() + this.CACHE_TTL });
+        this.sessionCache.set(sessionId, {
+          userId: session.user_id,
+          expiresAt: Date.now() + this.CACHE_TTL,
+        });
       } else {
         // Session expired or invalid — will create new one below
         sessionId = null;
@@ -148,7 +155,14 @@ export class SessionMiddleware implements NestMiddleware {
     if (!sessionId) {
       // Review H-17: lazy session creation — only create if not a read-only GET
       // For GET requests without a session, skip session creation (products, categories)
-      if (req.method === 'GET' && !req.path.includes('/cart') && !req.path.includes('/favorites') && !req.path.includes('/orders') && !req.path.includes('/auth/me') && !req.path.includes('/user/')) {
+      if (
+        req.method === 'GET' &&
+        !req.path.includes('/cart') &&
+        !req.path.includes('/favorites') &&
+        !req.path.includes('/orders') &&
+        !req.path.includes('/auth/me') &&
+        !req.path.includes('/user/')
+      ) {
         return next();
       }
 
@@ -189,12 +203,10 @@ export class SessionMiddleware implements NestMiddleware {
 ```typescript
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-export const SessionId = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): string => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.sessionId;
-  },
-);
+export const SessionId = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.sessionId;
+});
 ```
 
 **File:** `backend/src/common/decorators/current-user.decorator.ts`
@@ -202,12 +214,10 @@ export const SessionId = createParamDecorator(
 ```typescript
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
-export const CurrentUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user; // set by AuthGuard
-  },
-);
+export const CurrentUser = createParamDecorator((data: unknown, ctx: ExecutionContext) => {
+  const request = ctx.switchToHttp().getRequest();
+  return request.user; // set by AuthGuard
+});
 ```
 
 ### Step 5: Create Auth Guard
@@ -233,7 +243,10 @@ export class AuthGuard implements CanActivate {
     const token = authHeader.split(' ')[1];
     const supabase = this.supabaseService.getClient();
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
 
     if (error || !user) {
       throw new UnauthorizedException('Invalid or expired token');
@@ -262,7 +275,9 @@ export class OptionalAuthGuard implements CanActivate {
     if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const supabase = this.supabaseService.getClient();
-      const { data: { user } } = await supabase.auth.getUser(token);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser(token);
       if (user) {
         request.user = user;
       }
@@ -341,10 +356,7 @@ export class AuthService {
     const supabase = this.supabaseService.getClient();
 
     // 1. Assign current session to user
-    await supabase
-      .from('sessions')
-      .update({ user_id: userId })
-      .eq('id', sessionId);
+    await supabase.from('sessions').update({ user_id: userId }).eq('id', sessionId);
 
     // 2. Find old sessions for this user (excluding current)
     const { data: oldSessions } = await supabase
@@ -355,7 +367,7 @@ export class AuthService {
 
     if (!oldSessions?.length) return;
 
-    const oldSessionIds = oldSessions.map(s => s.id);
+    const oldSessionIds = oldSessions.map((s) => s.id);
 
     // 3. Get cart items from old sessions
     const { data: oldItems } = await supabase
@@ -370,9 +382,7 @@ export class AuthService {
         .select('id, product_id, quantity')
         .eq('session_id', sessionId);
 
-      const currentMap = new Map(
-        (currentItems || []).map(item => [item.product_id, item])
-      );
+      const currentMap = new Map((currentItems || []).map((item) => [item.product_id, item]));
 
       // 5. Merge: sum quantities for same product, add new products
       for (const oldItem of oldItems) {
@@ -383,34 +393,27 @@ export class AuthService {
             .update({ quantity: existing.quantity + oldItem.quantity })
             .eq('id', existing.id);
         } else {
-          await supabase
-            .from('cart_items')
-            .insert({
-              session_id: sessionId,
-              product_id: oldItem.product_id,
-              quantity: oldItem.quantity,
-            });
+          await supabase.from('cart_items').insert({
+            session_id: sessionId,
+            product_id: oldItem.product_id,
+            quantity: oldItem.quantity,
+          });
         }
       }
     }
 
     // 6. Delete old sessions (cascades to their cart_items)
-    await supabase
-      .from('sessions')
-      .delete()
-      .in('id', oldSessionIds);
+    await supabase.from('sessions').delete().in('id', oldSessionIds);
   }
 
   async getMe(userId: string) {
     const supabase = this.supabaseService.getClient();
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
-    const { data: { user } } = await supabase.auth.admin.getUserById(userId);
+    const {
+      data: { user },
+    } = await supabase.auth.admin.getUserById(userId);
 
     return {
       id: userId,
@@ -443,10 +446,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  async register(
-    @Body() dto: RegisterRequest,
-    @Req() req: Request,
-  ) {
+  async register(@Body() dto: RegisterRequest, @Req() req: Request) {
     const result = await this.authService.register(dto);
     // Merge guest cart into new user's session
     if (req.sessionId) {
@@ -456,10 +456,7 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(
-    @Body() dto: LoginRequest,
-    @Req() req: Request,
-  ) {
+  async login(@Body() dto: LoginRequest, @Req() req: Request) {
     const result = await this.authService.login(dto);
     // Merge guest cart into user's session
     if (req.sessionId) {
@@ -473,10 +470,7 @@ export class AuthController {
     const supabase = this.authService['supabaseService'].getClient();
     // Disassociate session from user
     if (req.sessionId) {
-      await supabase
-        .from('sessions')
-        .update({ user_id: null })
-        .eq('id', req.sessionId);
+      await supabase.from('sessions').update({ user_id: null }).eq('id', req.sessionId);
     }
     return { success: true };
   }

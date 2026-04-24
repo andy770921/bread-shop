@@ -19,9 +19,10 @@ These were **authored for a shadcn "nova" preset that expects Tailwind custom va
 
 Radix Tabs, however, sets **`data-orientation="horizontal"`**, not `data-horizontal`. Every one of these variant classes silently fails to apply.
 
-Consequence: the `Tabs` root stays `display: flex` with default `flex-direction: row`. `TabsList` (narrow, `w-fit`) lands on the left, `TabsContent` (cards) lands on the right. The "empty left area" the user saw is actually the tiny invisible TabsList next to a very wide, sparsely populated TabsContent. The page *looks* like side-by-side layout, but it's unintentional.
+Consequence: the `Tabs` root stays `display: flex` with default `flex-direction: row`. `TabsList` (narrow, `w-fit`) lands on the left, `TabsContent` (cards) lands on the right. The "empty left area" the user saw is actually the tiny invisible TabsList next to a very wide, sparsely populated TabsContent. The page _looks_ like side-by-side layout, but it's unintentional.
 
 Verification done:
+
 - `admin-frontend/src/globals.css` has no `@custom-variant data-horizontal` or `data-vertical`.
 - Only `ContentEditor.tsx` consumes the Tabs primitive, so the fix is safe to apply globally without regressing other pages.
 

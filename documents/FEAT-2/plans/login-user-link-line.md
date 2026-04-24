@@ -12,10 +12,10 @@ That flow works for guests, but it breaks for a logged-in email/password user wh
 
 Current behavior:
 
-| User state before CTA | After LINE Login | Order `user_id` | Result |
-|---|---|---|---|
-| Guest | New `line_xxx@line.local` account | LINE account | Expected |
-| Logged in as `test@papabakery.com` | Switched to `line_xxx@line.local` | LINE account | Wrong account owns the order |
+| User state before CTA              | After LINE Login                  | Order `user_id` | Result                       |
+| ---------------------------------- | --------------------------------- | --------------- | ---------------------------- |
+| Guest                              | New `line_xxx@line.local` account | LINE account    | Expected                     |
+| Logged in as `test@papabakery.com` | Switched to `line_xxx@line.local` | LINE account    | Wrong account owns the order |
 
 The order is then invisible from `/orders` when the user logs back in with email.
 
@@ -29,9 +29,9 @@ When a logged-in Bread Shop user clicks the LINE CTA from the cart:
 
 Target behavior:
 
-| User state before CTA | After LINE Login | Order `user_id` | Result |
-|---|---|---|---|
-| Guest | New `line_xxx@line.local` account | LINE account | Unchanged |
+| User state before CTA              | After LINE Login                   | Order `user_id`  | Result                                 |
+| ---------------------------------- | ---------------------------------- | ---------------- | -------------------------------------- |
+| Guest                              | New `line_xxx@line.local` account  | LINE account     | Unchanged                              |
 | Logged in as `test@papabakery.com` | Same account, `line_user_id` added | Original account | Order remains visible from email login |
 
 ## Current Architecture Constraint
@@ -100,12 +100,12 @@ When `linkToUserId` is present in `handleLineLogin`:
 3. Load the target Bread Shop profile (`linkToUserId`)
 4. Apply the following rules:
 
-| Scenario | Behavior |
-|---|---|
-| LINE account already linked to another Bread Shop user | Fail with clear error |
-| Bread Shop account already linked to a different LINE account | Fail with clear error |
-| Bread Shop account already linked to the same LINE account | Treat as already linked |
-| Bread Shop account has no LINE link yet | Update `profiles.line_user_id` |
+| Scenario                                                      | Behavior                       |
+| ------------------------------------------------------------- | ------------------------------ |
+| LINE account already linked to another Bread Shop user        | Fail with clear error          |
+| Bread Shop account already linked to a different LINE account | Fail with clear error          |
+| Bread Shop account already linked to the same LINE account    | Treat as already linked        |
+| Bread Shop account has no LINE link yet                       | Update `profiles.line_user_id` |
 
 Additional rule:
 
@@ -147,19 +147,19 @@ Internal pending-order fields used by this flow:
 
 ## Files To Change
 
-| File | Change |
-|---|---|
+| File                                  | Change                                                                                       |
+| ------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `backend/src/auth/auth.controller.ts` | Store `_link_user_id` during `line/start`; read it in callback; omit auth hash for link flow |
-| `backend/src/auth/auth.service.ts` | Add `linkToUserId?: string` branch in `handleLineLogin` |
-| `frontend/src/app/cart/page.tsx` | Surface backend error messages from `line/start` |
+| `backend/src/auth/auth.service.ts`    | Add `linkToUserId?: string` branch in `handleLineLogin`                                      |
+| `frontend/src/app/cart/page.tsx`      | Surface backend error messages from `line/start`                                             |
 
 ## Risks / Residual Gaps
 
-| Risk | Notes |
-|---|---|
-| `profiles.line_user_id` still has no DB uniqueness constraint | Code checks prevent most collisions, but DB constraint would harden it |
-| Existing browser token is assumed to survive the OAuth round-trip | This matches normal app login persistence, but is still a browser-level dependency |
-| Account merging remains unsupported | If someone already has orders under both email and `line_xxx@line.local`, histories stay separate |
+| Risk                                                              | Notes                                                                                             |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `profiles.line_user_id` still has no DB uniqueness constraint     | Code checks prevent most collisions, but DB constraint would harden it                            |
+| Existing browser token is assumed to survive the OAuth round-trip | This matches normal app login persistence, but is still a browser-level dependency                |
+| Account merging remains unsupported                               | If someone already has orders under both email and `line_xxx@line.local`, histories stay separate |
 
 ## Out Of Scope
 

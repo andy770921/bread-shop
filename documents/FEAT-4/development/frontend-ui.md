@@ -62,7 +62,7 @@ The frontend goal is:
 - Add:
 
 ```ts
-cartContactDraft: ['cart-contact-draft'] as const
+cartContactDraft: ['cart-contact-draft'] as const;
 ```
 
 - Include it in `invalidateAuthQueries()`
@@ -78,9 +78,9 @@ cartContactDraft: ['cart-contact-draft'] as const
 - Add three hooks:
 
 ```ts
-useCartContactDraft()
-useUpsertCartContactDraft()
-useClearCartContactDraft()
+useCartContactDraft();
+useUpsertCartContactDraft();
+useClearCartContactDraft();
 ```
 
 Recommended behavior:
@@ -204,12 +204,14 @@ Suggested behavior:
 - The current "Continue Shopping" button is at **lines 503-508** and uses a passive `<Link href="/">` wrapper:
 
 ```tsx
-{/* Current implementation */}
+{
+  /* Current implementation */
+}
 <Link href="/">
   <Button variant="ghost" size="sm">
     &larr; {t('cart.continueShopping')}
   </Button>
-</Link>
+</Link>;
 ```
 
 - Replace with an explicit flush-then-navigate handler. This requires `useRouter` from `next/navigation`:
@@ -222,10 +224,12 @@ const handleContinueShopping = async () => {
   router.push('/');
 };
 
-{/* Updated implementation */}
+{
+  /* Updated implementation */
+}
 <Button variant="ghost" size="sm" onClick={handleContinueShopping}>
   &larr; {t('cart.continueShopping')}
-</Button>
+</Button>;
 ```
 
 - Keep the visual styling the same, but make the action deterministic.

@@ -13,22 +13,22 @@ Additionally, `utils/fetchers/fetchers.client.ts` exports a `defaultFetchFn` uti
 
 ### Files with raw fetch (NOT using defaultFetchFn or React Query hooks)
 
-| File | Calls | Methods | Issue |
-|------|-------|---------|-------|
-| `lib/auth-context.tsx` | 4 | GET, POST x3 | Raw fetch for /auth/me, login, register, logout |
-| `app/cart/page.tsx` | 3 | POST x3 | Raw fetch in handleCheckout for orders, line-send, confirm |
-| `app/profile/page.tsx` | 1 | PATCH | Raw fetch for profile update |
-| `app/orders/page.tsx` | 1 | GET | Raw fetch inside inline useQuery (no shared hook) |
-| `app/orders/[id]/page.tsx` | 1 | GET | Raw fetch inside inline useQuery (no shared hook) |
+| File                       | Calls | Methods      | Issue                                                      |
+| -------------------------- | ----- | ------------ | ---------------------------------------------------------- |
+| `lib/auth-context.tsx`     | 4     | GET, POST x3 | Raw fetch for /auth/me, login, register, logout            |
+| `app/cart/page.tsx`        | 3     | POST x3      | Raw fetch in handleCheckout for orders, line-send, confirm |
+| `app/profile/page.tsx`     | 1     | PATCH        | Raw fetch for profile update                               |
+| `app/orders/page.tsx`      | 1     | GET          | Raw fetch inside inline useQuery (no shared hook)          |
+| `app/orders/[id]/page.tsx` | 1     | GET          | Raw fetch inside inline useQuery (no shared hook)          |
 
 ### Files already using React Query hooks (in `queries/`)
 
-| File | Hooks | Uses defaultFetchFn? |
-|------|-------|---------------------|
-| `queries/use-cart.ts` | useQuery + 2 useMutation | No — raw fetch |
-| `queries/use-products.ts` | useQuery | No — raw fetch |
-| `queries/use-favorites.ts` | useQuery + useMutation | No — raw fetch |
-| `queries/use-categories.ts` | useQuery | No — raw fetch |
+| File                        | Hooks                    | Uses defaultFetchFn? |
+| --------------------------- | ------------------------ | -------------------- |
+| `queries/use-cart.ts`       | useQuery + 2 useMutation | No — raw fetch       |
+| `queries/use-products.ts`   | useQuery                 | No — raw fetch       |
+| `queries/use-favorites.ts`  | useQuery + useMutation   | No — raw fetch       |
+| `queries/use-categories.ts` | useQuery                 | No — raw fetch       |
 
 ### Common issues across all raw fetch calls
 

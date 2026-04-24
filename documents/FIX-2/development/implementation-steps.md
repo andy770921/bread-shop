@@ -41,6 +41,7 @@ Rewrite `handleCheckout` for LINE payment:
 4. **If LINE send succeeds:** call `POST /api/orders/:id/confirm` to clear cart, then invalidate `['cart']` query, then navigate to success page.
 
 For `lemon_squeezy` payment (no change to cart clearing logic):
+
 1. Call `POST /api/orders` (cart cleared immediately on backend).
 2. Invalidate `['cart']` query.
 3. Redirect to checkout URL.
@@ -54,9 +55,9 @@ For `lemon_squeezy` payment (no change to cart clearing logic):
 
 ## Summary of changes
 
-| File | Change |
-|------|--------|
-| `backend/src/order/order.service.ts` | Add `skipCartClear` param to `createOrder()`, add `confirmOrder()` method |
-| `backend/src/order/dto/create-order.dto.ts` | Add `skip_cart_clear` optional field |
-| `backend/src/order/order.controller.ts` | Pass `skip_cart_clear`, add `POST :id/confirm` endpoint |
-| `frontend/src/app/cart/page.tsx` | Fix LINE flow (no navigate on fail, confirm+clear on success), invalidate cart query |
+| File                                        | Change                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `backend/src/order/order.service.ts`        | Add `skipCartClear` param to `createOrder()`, add `confirmOrder()` method            |
+| `backend/src/order/dto/create-order.dto.ts` | Add `skip_cart_clear` optional field                                                 |
+| `backend/src/order/order.controller.ts`     | Pass `skip_cart_clear`, add `POST :id/confirm` endpoint                              |
+| `frontend/src/app/cart/page.tsx`            | Fix LINE flow (no navigate on fail, confirm+clear on success), invalidate cart query |

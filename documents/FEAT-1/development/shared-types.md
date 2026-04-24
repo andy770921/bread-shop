@@ -81,11 +81,11 @@ export interface Category {
   name_zh: string;
   name_en: string;
   sort_order: number;
-  created_at: string;  // Review H-1: match DB column
+  created_at: string; // Review H-1: match DB column
 }
 
 export interface ProductListParams {
-  category?: string;  // category slug
+  category?: string; // category slug
 }
 
 export interface ProductListResponse {
@@ -121,19 +121,19 @@ export interface CartItem {
 
 export interface CartResponse {
   items: CartItem[];
-  subtotal: number;      // sum of all line_totals
-  shipping_fee: number;  // 0 if subtotal >= 500, else 60
-  total: number;         // subtotal + shipping_fee
-  item_count: number;    // total quantity across all items
+  subtotal: number; // sum of all line_totals
+  shipping_fee: number; // 0 if subtotal >= 500, else 60
+  total: number; // subtotal + shipping_fee
+  item_count: number; // total quantity across all items
 }
 
 export interface AddToCartRequest {
   product_id: number;
-  quantity: number;  // 1-99 (Review M-5: upper limit)
+  quantity: number; // 1-99 (Review M-5: upper limit)
 }
 
 export interface UpdateCartItemRequest {
-  quantity: number;  // 1-99 (Review M-5: upper limit)
+  quantity: number; // 1-99 (Review M-5: upper limit)
 }
 ```
 
@@ -201,7 +201,7 @@ export interface Favorite {
 }
 
 export interface FavoriteListResponse {
-  product_ids: number[];  // simple list for checking "is favorited"
+  product_ids: number[]; // simple list for checking "is favorited"
 }
 ```
 
@@ -255,7 +255,7 @@ export interface OrderListResponse {
 }
 
 export interface CheckoutResponse {
-  checkout_url: string;  // Lemon Squeezy checkout URL
+  checkout_url: string; // Lemon Squeezy checkout URL
 }
 
 export interface LineSendResponse {

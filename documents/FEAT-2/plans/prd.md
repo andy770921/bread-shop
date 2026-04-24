@@ -32,43 +32,44 @@ The credit card form fields are purely UI — on submit, the existing Lemon Sque
 
 ### Payment Method Dropdown
 
-| Option Label             | Internal Value     | Conditional Fields                                      |
-| ------------------------ | ------------------ | ------------------------------------------------------- |
-| 信用卡                   | `credit_card`      | Card number, Expiry (MM/YY), CVV, Cardholder name       |
-| LINE 聯繫，銀行轉帳       | `line_transfer`    | LINE ID                                                 |
+| Option Label        | Internal Value  | Conditional Fields                                |
+| ------------------- | --------------- | ------------------------------------------------- |
+| 信用卡              | `credit_card`   | Card number, Expiry (MM/YY), CVV, Cardholder name |
+| LINE 聯繫，銀行轉帳 | `line_transfer` | LINE ID                                           |
 
 Default: no selection (placeholder prompts user to choose).
 
 ### Credit Card Fields (when `credit_card` selected)
 
-| Field           | Label (zh)     | Label (en)          | Required | Validation               |
-| --------------- | -------------- | ------------------- | -------- | ------------------------ |
-| Card number     | 信用卡號       | Card Number         | Yes      | 16 digits, formatted     |
-| Expiry          | 到期日         | Expiry Date         | Yes      | MM/YY format             |
-| CVV             | 安全碼         | CVV                 | Yes      | 3-4 digits               |
-| Cardholder name | 持卡人姓名     | Cardholder Name     | Yes      | Non-empty string         |
+| Field           | Label (zh) | Label (en)      | Required | Validation           |
+| --------------- | ---------- | --------------- | -------- | -------------------- |
+| Card number     | 信用卡號   | Card Number     | Yes      | 16 digits, formatted |
+| Expiry          | 到期日     | Expiry Date     | Yes      | MM/YY format         |
+| CVV             | 安全碼     | CVV             | Yes      | 3-4 digits           |
+| Cardholder name | 持卡人姓名 | Cardholder Name | Yes      | Non-empty string     |
 
 These fields are **UI-only** — values are not sent to the backend. On submit, the existing Lemon Squeezy checkout redirect flow is used.
 
 ### LINE Transfer Fields (when `line_transfer` selected)
 
-| Field   | Label (zh)      | Label (en)        | Required | Validation       |
-| ------- | --------------- | ----------------- | -------- | ---------------- |
-| LINE ID | 訂購人 LINE ID  | Your LINE ID      | Yes      | Non-empty string |
+| Field   | Label (zh)     | Label (en)   | Required | Validation       |
+| ------- | -------------- | ------------ | -------- | ---------------- |
+| LINE ID | 訂購人 LINE ID | Your LINE ID | Yes      | Non-empty string |
 
 LINE ID is sent to the backend and stored in the `orders.customer_line_id` column. It is included in the admin LINE flex message so the admin can manually contact the customer on LINE. See the LINE API Feasibility section below for details.
 
 ### CTA Button Behavior
 
-| Payment Method    | Button Text       | Button Style                        | Action on Click                    |
-| ----------------- | ----------------- | ----------------------------------- | ---------------------------------- |
-| `credit_card`     | 信用卡付款        | Gradient fill (existing style)      | `handleCheckout('lemon_squeezy')`  |
-| `line_transfer`   | 透過 LINE 聯繫    | LINE green outline (existing style) | `handleCheckout('line')`           |
-| (none selected)   | —                 | No button shown                     | —                                  |
+| Payment Method  | Button Text    | Button Style                        | Action on Click                   |
+| --------------- | -------------- | ----------------------------------- | --------------------------------- |
+| `credit_card`   | 信用卡付款     | Gradient fill (existing style)      | `handleCheckout('lemon_squeezy')` |
+| `line_transfer` | 透過 LINE 聯繫 | LINE green outline (existing style) | `handleCheckout('line')`          |
+| (none selected) | —              | No button shown                     | —                                 |
 
 ### CTA Disabled Logic
 
 The CTA button is **disabled** when ANY of these are true:
+
 - `submitting` is true (existing)
 - Any "訂購資訊" required field is empty: `customerName`, `customerPhone`, `customerAddress`
 - Payment method not selected

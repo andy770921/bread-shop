@@ -254,9 +254,7 @@ export function LocaleToggle({ className }: { className?: string }) {
 // Card opening tag — add `relative`
 <Card className="relative w-full max-w-md shadow-md">
   <LocaleToggle className="absolute right-2 top-2" />
-  <CardHeader className="space-y-2 text-center">
-    {/* unchanged */}
-  </CardHeader>
+  <CardHeader className="space-y-2 text-center">{/* unchanged */}</CardHeader>
   {/* ... */}
 </Card>
 ```

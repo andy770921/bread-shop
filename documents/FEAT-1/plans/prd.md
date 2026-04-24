@@ -65,6 +65,7 @@ Built on the existing Next.js + NestJS monorepo, the following feature modules w
    - Cart items stay in the session (user can continue as guest).
 
 **Cart resolution**:
+
 - **Guest**: `SELECT cart_items WHERE session_id = cookie.session_id`
 - **Authenticated**: `SELECT cart_items WHERE session_id IN (SELECT id FROM sessions WHERE user_id = current_user)`
 
@@ -94,17 +95,17 @@ Built on the existing Next.js + NestJS monorepo, the following feature modules w
 
 ### Modules
 
-| Module | Purpose | Interface |
-|--------|---------|-----------|
-| **SupabaseModule** | Supabase client provider for NestJS | `SupabaseService.getClient()` |
-| **AuthModule** | Email/password + LINE Login, JWT guard | `AuthController`, `AuthGuard`, `SessionMiddleware` |
-| **ProductModule** | Read-only for products + categories | `GET /api/products`, `GET /api/categories` |
-| **CartModule** | Server-side cart operations | `GET/POST/PATCH/DELETE /api/cart/*` |
-| **FavoriteModule** | Favorite toggle for authenticated users | `GET/POST/DELETE /api/favorites/*` |
-| **OrderModule** | Order creation, history, status tracking | `GET/POST /api/orders/*` |
-| **PaymentModule** | Lemon Squeezy checkout + webhook handling | `POST /api/payments/checkout`, webhook endpoint |
-| **LineModule** | LINE Login callback + order messaging | `POST /api/orders/:id/line-send` |
-| **UserModule** | Profile management | `GET/PATCH /api/user/profile` |
+| Module             | Purpose                                   | Interface                                          |
+| ------------------ | ----------------------------------------- | -------------------------------------------------- |
+| **SupabaseModule** | Supabase client provider for NestJS       | `SupabaseService.getClient()`                      |
+| **AuthModule**     | Email/password + LINE Login, JWT guard    | `AuthController`, `AuthGuard`, `SessionMiddleware` |
+| **ProductModule**  | Read-only for products + categories       | `GET /api/products`, `GET /api/categories`         |
+| **CartModule**     | Server-side cart operations               | `GET/POST/PATCH/DELETE /api/cart/*`                |
+| **FavoriteModule** | Favorite toggle for authenticated users   | `GET/POST/DELETE /api/favorites/*`                 |
+| **OrderModule**    | Order creation, history, status tracking  | `GET/POST /api/orders/*`                           |
+| **PaymentModule**  | Lemon Squeezy checkout + webhook handling | `POST /api/payments/checkout`, webhook endpoint    |
+| **LineModule**     | LINE Login callback + order messaging     | `POST /api/orders/:id/line-send`                   |
+| **UserModule**     | Profile management                        | `GET/PATCH /api/user/profile`                      |
 
 ### Architecture
 
@@ -151,32 +152,32 @@ See detailed API specifications in `documents/FEAT-1/development/backend-api.md`
 
 **Summary of all endpoints:**
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/auth/register | — | Register with email/password |
-| POST | /api/auth/login | — | Login with email/password |
-| POST | /api/auth/logout | — | Logout, clear auth token |
-| GET | /api/auth/me | Bearer | Get current user info |
-| GET | /api/auth/line/callback | — | LINE OAuth callback |
-| GET | /api/products | — | List products (optional ?category=slug) |
-| GET | /api/products/:id | — | Get single product |
-| GET | /api/categories | — | List categories |
-| GET | /api/cart | Session | Get cart with server-computed totals |
-| POST | /api/cart/items | Session | Add item to cart |
-| PATCH | /api/cart/items/:id | Session | Update item quantity |
-| DELETE | /api/cart/items/:id | Session | Remove item |
-| DELETE | /api/cart | Session | Clear entire cart |
-| GET | /api/favorites | Bearer | List user's favorites |
-| POST | /api/favorites/:productId | Bearer | Add favorite |
-| DELETE | /api/favorites/:productId | Bearer | Remove favorite |
-| POST | /api/orders | Session | Create order from cart |
-| GET | /api/orders | Bearer | List user's orders |
-| GET | /api/orders/:id | Bearer | Get order detail |
-| POST | /api/payments/checkout | Session | Create Lemon Squeezy checkout URL |
-| POST | /api/webhooks/lemon-squeezy | — | Lemon Squeezy payment webhook |
-| POST | /api/orders/:id/line-send | Session | Send order via LINE message |
-| GET | /api/user/profile | Bearer | Get user profile |
-| PATCH | /api/user/profile | Bearer | Update profile (name, phone) |
+| Method | Path                        | Auth    | Description                             |
+| ------ | --------------------------- | ------- | --------------------------------------- |
+| POST   | /api/auth/register          | —       | Register with email/password            |
+| POST   | /api/auth/login             | —       | Login with email/password               |
+| POST   | /api/auth/logout            | —       | Logout, clear auth token                |
+| GET    | /api/auth/me                | Bearer  | Get current user info                   |
+| GET    | /api/auth/line/callback     | —       | LINE OAuth callback                     |
+| GET    | /api/products               | —       | List products (optional ?category=slug) |
+| GET    | /api/products/:id           | —       | Get single product                      |
+| GET    | /api/categories             | —       | List categories                         |
+| GET    | /api/cart                   | Session | Get cart with server-computed totals    |
+| POST   | /api/cart/items             | Session | Add item to cart                        |
+| PATCH  | /api/cart/items/:id         | Session | Update item quantity                    |
+| DELETE | /api/cart/items/:id         | Session | Remove item                             |
+| DELETE | /api/cart                   | Session | Clear entire cart                       |
+| GET    | /api/favorites              | Bearer  | List user's favorites                   |
+| POST   | /api/favorites/:productId   | Bearer  | Add favorite                            |
+| DELETE | /api/favorites/:productId   | Bearer  | Remove favorite                         |
+| POST   | /api/orders                 | Session | Create order from cart                  |
+| GET    | /api/orders                 | Bearer  | List user's orders                      |
+| GET    | /api/orders/:id             | Bearer  | Get order detail                        |
+| POST   | /api/payments/checkout      | Session | Create Lemon Squeezy checkout URL       |
+| POST   | /api/webhooks/lemon-squeezy | —       | Lemon Squeezy payment webhook           |
+| POST   | /api/orders/:id/line-send   | Session | Send order via LINE message             |
+| GET    | /api/user/profile           | Bearer  | Get user profile                        |
+| PATCH  | /api/user/profile           | Bearer  | Update profile (name, phone)            |
 
 ### Database Schema
 
@@ -186,27 +187,29 @@ See full SQL in `documents/FEAT-1/development/database-schema.md`.
 
 ### Frontend Pages
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Home | Hero, product grid/editorial, category filter, favorites |
-| `/cart` | Cart | Cart items, customer form, order summary, checkout |
-| `/profile` | Profile | Edit name/phone (auth required) |
-| `/orders` | Orders | Order history list (auth required) |
-| `/orders/[id]` | Order Detail | Single order with status tracking (auth required) |
-| `/auth/login` | Login | Email + LINE login |
-| `/auth/register` | Register | Email registration |
-| `/checkout/success` | Success | Post-payment success page |
+| Route               | Page         | Description                                              |
+| ------------------- | ------------ | -------------------------------------------------------- |
+| `/`                 | Home         | Hero, product grid/editorial, category filter, favorites |
+| `/cart`             | Cart         | Cart items, customer form, order summary, checkout       |
+| `/profile`          | Profile      | Edit name/phone (auth required)                          |
+| `/orders`           | Orders       | Order history list (auth required)                       |
+| `/orders/[id]`      | Order Detail | Single order with status tracking (auth required)        |
+| `/auth/login`       | Login        | Email + LINE login                                       |
+| `/auth/register`    | Register     | Email registration                                       |
+| `/checkout/success` | Success      | Post-payment success page                                |
 
 ---
 
 ## Testing Strategy
 
 ### Backend
+
 - **Unit tests**: Each service method tested with mocked Supabase client
 - **E2E tests**: Full HTTP request cycle for critical flows (cart operations, order creation)
 - **Webhook tests**: Lemon Squeezy webhook signature verification
 
 ### Frontend
+
 - **Component tests**: Jest + React Testing Library for key components
 - **Integration tests**: TanStack Query hooks with MSW (Mock Service Worker)
 - **Manual testing**: Browser-based testing for i18n, dark mode, responsive design

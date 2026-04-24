@@ -51,28 +51,28 @@ cd frontend && npm install react-hook-form @hookform/resolvers zod@3.25.76
 
 **Changes:** Add 17 new keys under the `"cart"` object:
 
-| Key | zh | en |
-|-----|----|----|
-| `paymentInfo` | 付款資訊 | Payment Info |
-| `paymentMethod` | 付款方式 | Payment Method |
-| `paymentMethodPlaceholder` | 請選擇付款方式 | Select payment method |
-| `paymentCreditCard` | 信用卡 | Credit Card |
-| `paymentLineTransfer` | LINE 聯繫，銀行轉帳 | LINE Contact, Bank Transfer |
-| `cardNumber` | 信用卡號 | Card Number |
-| `cardNumberPlaceholder` | 0000 0000 0000 0000 | 0000 0000 0000 0000 |
-| `cardExpiry` | 到期日 | Expiry Date |
-| `cardExpiryPlaceholder` | MM/YY | MM/YY |
-| `cardCvv` | 安全碼 | CVV |
-| `cardCvvPlaceholder` | CVV | CVV |
-| `cardholderName` | 持卡人姓名 | Cardholder Name |
-| `cardholderNamePlaceholder` | 持卡人姓名 | Cardholder Name |
-| `lineId` | 訂購人 LINE ID | Your LINE ID |
-| `lineIdPlaceholder` | 請輸入您的 LINE ID | Enter your LINE ID |
-| `lineLinked` | 已連結 LINE 帳號，訂單確認將自動傳送至您的 LINE | LINE account linked. Order confirmation will be sent to your LINE automatically. |
-| `lineLoginPrompt` | 使用 LINE 登入後，我們可以透過 LINE 自動傳送訂單確認給您 | Log in with LINE so we can send order confirmation to you via LINE. |
-| `lineLoginBtn` | 使用 LINE 登入 | Login with LINE |
-| `lineIdOptional` | LINE ID（選填，供店家參考） | LINE ID (optional, for shop reference) |
-| `required` | 此欄位為必填 | This field is required |
+| Key                         | zh                                                       | en                                                                               |
+| --------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `paymentInfo`               | 付款資訊                                                 | Payment Info                                                                     |
+| `paymentMethod`             | 付款方式                                                 | Payment Method                                                                   |
+| `paymentMethodPlaceholder`  | 請選擇付款方式                                           | Select payment method                                                            |
+| `paymentCreditCard`         | 信用卡                                                   | Credit Card                                                                      |
+| `paymentLineTransfer`       | LINE 聯繫，銀行轉帳                                      | LINE Contact, Bank Transfer                                                      |
+| `cardNumber`                | 信用卡號                                                 | Card Number                                                                      |
+| `cardNumberPlaceholder`     | 0000 0000 0000 0000                                      | 0000 0000 0000 0000                                                              |
+| `cardExpiry`                | 到期日                                                   | Expiry Date                                                                      |
+| `cardExpiryPlaceholder`     | MM/YY                                                    | MM/YY                                                                            |
+| `cardCvv`                   | 安全碼                                                   | CVV                                                                              |
+| `cardCvvPlaceholder`        | CVV                                                      | CVV                                                                              |
+| `cardholderName`            | 持卡人姓名                                               | Cardholder Name                                                                  |
+| `cardholderNamePlaceholder` | 持卡人姓名                                               | Cardholder Name                                                                  |
+| `lineId`                    | 訂購人 LINE ID                                           | Your LINE ID                                                                     |
+| `lineIdPlaceholder`         | 請輸入您的 LINE ID                                       | Enter your LINE ID                                                               |
+| `lineLinked`                | 已連結 LINE 帳號，訂單確認將自動傳送至您的 LINE          | LINE account linked. Order confirmation will be sent to your LINE automatically. |
+| `lineLoginPrompt`           | 使用 LINE 登入後，我們可以透過 LINE 自動傳送訂單確認給您 | Log in with LINE so we can send order confirmation to you via LINE.              |
+| `lineLoginBtn`              | 使用 LINE 登入                                           | Login with LINE                                                                  |
+| `lineIdOptional`            | LINE ID（選填，供店家參考）                              | LINE ID (optional, for shop reference)                                           |
+| `required`                  | 此欄位為必填                                             | This field is required                                                           |
 
 ---
 
@@ -88,7 +88,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckCircle2 } from 'lucide-react';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from '@/components/ui/form';
 import { useAuth } from '@/lib/auth-context';
 ```
 
@@ -101,28 +108,30 @@ Define outside the component:
 ```typescript
 const paymentMethods = ['credit_card', 'line_transfer'] as const;
 
-const cartFormSchema = z.object({
-  customerName: z.string().min(1, 'required'),
-  customerPhone: z.string().min(1, 'required'),
-  customerEmail: z.string().email().or(z.literal('')).optional(),
-  customerAddress: z.string().min(1, 'required'),
-  notes: z.string().optional(),
-  paymentMethod: z.enum(paymentMethods, { required_error: 'required' }),
-  cardNumber: z.string().optional(),
-  cardExpiry: z.string().optional(),
-  cardCvv: z.string().optional(),
-  cardholderName: z.string().optional(),
-  lineId: z.string().optional(),
-}).superRefine((data, ctx) => {
-  // Credit card fields required when credit_card selected
-  if (data.paymentMethod === 'credit_card') {
-    if (!data.cardNumber) addRequired(ctx, 'cardNumber');
-    if (!data.cardExpiry) addRequired(ctx, 'cardExpiry');
-    if (!data.cardCvv) addRequired(ctx, 'cardCvv');
-    if (!data.cardholderName) addRequired(ctx, 'cardholderName');
-  }
-  // lineId is always optional — CTA handles LINE Login redirect when not logged in
-});
+const cartFormSchema = z
+  .object({
+    customerName: z.string().min(1, 'required'),
+    customerPhone: z.string().min(1, 'required'),
+    customerEmail: z.string().email().or(z.literal('')).optional(),
+    customerAddress: z.string().min(1, 'required'),
+    notes: z.string().optional(),
+    paymentMethod: z.enum(paymentMethods, { required_error: 'required' }),
+    cardNumber: z.string().optional(),
+    cardExpiry: z.string().optional(),
+    cardCvv: z.string().optional(),
+    cardholderName: z.string().optional(),
+    lineId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    // Credit card fields required when credit_card selected
+    if (data.paymentMethod === 'credit_card') {
+      if (!data.cardNumber) addRequired(ctx, 'cardNumber');
+      if (!data.cardExpiry) addRequired(ctx, 'cardExpiry');
+      if (!data.cardCvv) addRequired(ctx, 'cardCvv');
+      if (!data.cardholderName) addRequired(ctx, 'cardholderName');
+    }
+    // lineId is always optional — CTA handles LINE Login redirect when not logged in
+  });
 ```
 
 **Why lineId is not validated in zod:** LINE ID is always optional in the schema. When the user is not logged in via LINE, clicking the CTA triggers LINE Login (which obtains the internal userId). The LINE ID field is purely for admin reference — it is never a blocking requirement.
@@ -181,9 +190,11 @@ disabled={!form.formState.isValid || submitting}
 ```
 
 This means:
+
 - **Credit card:** disabled until all 4 CC fields + customer info filled (via zod isValid)
 - **LINE transfer:** disabled until customer info filled (LINE ID is always optional in zod). When clicked, if user is not logged in via LINE, the CTA redirects to LINE Login instead of submitting the order.
-```
+
+````
 
 #### 4g. Form Submit Handler
 
@@ -211,7 +222,7 @@ const onSubmit = async (values: CartFormValues) => {
   });
   // ... rest of checkout flow (LINE send / Lemon Squeezy redirect)
 };
-```
+````
 
 **Key behavior:** When the user clicks "透過 LINE 聯繫" and is not logged in via LINE, the form validates first (all customer info must be filled), then saves all form values to `localStorage('cart_form_data')` and redirects to LINE OAuth. On return, the form is auto-restored (see Step 4d) and the user can click the CTA again to submit the order.
 

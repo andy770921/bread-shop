@@ -121,9 +121,7 @@ export class SiteContentSyncService implements OnModuleInit {
         updated_by: null,
       }));
 
-      const { error: insertError } = await client
-        .from('site_content')
-        .insert(rows);
+      const { error: insertError } = await client.from('site_content').insert(rows);
       if (insertError) {
         this.logger.error(`Site content sync failed to insert: ${insertError.message}`);
         return { inserted: 0, skipped: defaults.length };

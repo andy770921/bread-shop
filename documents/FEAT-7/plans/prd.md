@@ -88,6 +88,7 @@ Rationale for each decision is captured in `json-usage-decision.md` (same folder
 ```
 
 Why Option B-2 (startup sync) and not a migration / npm script:
+
 - Every environment that runs the backend is guaranteed to be synced, including brand-new dev setups — no "remember to run `npm run seed`" step.
 - Works naturally on Vercel serverless: the sync runs during the lazy NestJS init on the first cold start after a deploy.
 - Idempotent by design (`INSERT … ON CONFLICT DO NOTHING`), so repeated cold starts don't thrash the DB.
@@ -107,7 +108,7 @@ Shared types (in `@repo/shared`):
 ```ts
 export interface SiteContentEntry {
   key: string;
-  value_zh: string | null;  // '' is valid; null only for rows mid-migration
+  value_zh: string | null; // '' is valid; null only for rows mid-migration
   value_en: string | null;
   updated_at: string;
   updated_by: string | null;
@@ -120,7 +121,7 @@ export type UpdateSiteContentRequest = {
 
 // New:
 export type DefaultContent = { zh: NestedRecord; en: NestedRecord };
-export const defaultContent: DefaultContent;  // exported from @repo/shared
+export const defaultContent: DefaultContent; // exported from @repo/shared
 ```
 
 ## Testing Strategy

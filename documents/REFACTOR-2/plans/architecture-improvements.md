@@ -22,11 +22,11 @@ useEffect(() => {
 }, [authLoading, user, router]);
 ```
 
-| File                          | Lines  |
-| ----------------------------- | ------ |
-| `app/orders/page.tsx`         | 40-44  |
-| `app/orders/[id]/page.tsx`    | 46-50  |
-| `app/profile/page.tsx`        | 28-32  |
+| File                       | Lines |
+| -------------------------- | ----- |
+| `app/orders/page.tsx`      | 40-44 |
+| `app/orders/[id]/page.tsx` | 46-50 |
+| `app/profile/page.tsx`     | 28-32 |
 
 Each page also independently handles the "still loading auth" skeleton and the `if (!user) return null` early exit. Adding a new protected page means copy-pasting all three pieces.
 
@@ -54,8 +54,8 @@ const handleAddToCart = (productId: number) => {
 };
 ```
 
-| File                              | Lines |
-| --------------------------------- | ----- |
+| File                                      | Lines |
+| ----------------------------------------- | ----- |
 | `components/product/product-grid.tsx`     | 25-30 |
 | `components/product/product-showcase.tsx` | 20-25 |
 
@@ -65,12 +65,12 @@ Both also independently instantiate `useAddToCart` with the same error handler.
 
 REFACTOR-1 created three new hook files but used local interfaces and `any` instead of shared types:
 
-| File                    | Issue                                              |
-| ----------------------- | -------------------------------------------------- |
-| `queries/use-orders.ts` | Local `OrderListResponse` with `orders: any[]`     |
-| `queries/use-orders.ts` | `useOrder()` returns untyped `any`                 |
+| File                      | Issue                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `queries/use-orders.ts`   | Local `OrderListResponse` with `orders: any[]`                                                   |
+| `queries/use-orders.ts`   | `useOrder()` returns untyped `any`                                                               |
 | `queries/use-checkout.ts` | `useCreateOrder` returns `any`; local `LineSendResponse` missing `needs_friend`/`add_friend_url` |
-| `queries/use-profile.ts` | `useUpdateProfile` returns `any`                  |
+| `queries/use-profile.ts`  | `useUpdateProfile` returns `any`                                                                 |
 
 All these types already exist in `@repo/shared` (`Order`, `OrderListResponse`, `CreateOrderRequest`, `LineSendResponse`).
 
@@ -79,6 +79,7 @@ All these types already exist in `@repo/shared` (`Order`, `OrderListResponse`, `
 ### A. `useAuthGuard()` hook — Deep module for protected routes
 
 Create `hooks/use-auth-guard.ts` that encapsulates:
+
 - Auth loading check
 - Redirect to login
 - Return `{ user, isReady }` — pages only render when `isReady && user`
@@ -92,6 +93,7 @@ Move to `utils/order.ts`. Single source of truth imported by both order pages.
 ### C. `useAddToCartHandler()` hook
 
 Create `hooks/use-add-to-cart-handler.ts` that encapsulates:
+
 - `useAddToCart()` with standard error toast
 - Product lookup + price extraction
 - Success toast

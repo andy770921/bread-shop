@@ -24,6 +24,7 @@ export function useAuthGuard() {
 ```
 
 **Consumers:** Replace auth boilerplate in:
+
 - `app/orders/page.tsx` — remove `useAuth`, `useRouter`, `useEffect` for auth; use `useAuthGuard()`
 - `app/orders/[id]/page.tsx` — same
 - `app/profile/page.tsx` — same (keep `refreshUser` from `useAuth` separately)
@@ -51,6 +52,7 @@ export function getStatusColor(status: OrderStatus): React.CSSProperties {
 ```
 
 **Consumers:**
+
 - `app/orders/page.tsx` — delete local `getStatusColor`, import from `@/utils/order`
 - `app/orders/[id]/page.tsx` — same
 
@@ -84,6 +86,7 @@ export function useAddToCartHandler(products: ProductWithCategory[]) {
 ```
 
 **Consumers:**
+
 - `components/product/product-grid.tsx` — remove `useAddToCart`, `useLocale` (for cart), `toast` imports; use `useAddToCartHandler(products)`
 - `components/product/product-showcase.tsx` — same
 
@@ -92,11 +95,13 @@ export function useAddToCartHandler(products: ProductWithCategory[]) {
 ## Step 4: Fix shared types in query hooks
 
 ### `queries/use-orders.ts`
+
 - Delete local `OrderListResponse` interface
 - Import `OrderListResponse`, `Order` from `@repo/shared`
 - Type `useOrder()` return as `Order`
 
 ### `queries/use-checkout.ts`
+
 - Delete local `CreateOrderBody` and `LineSendResponse` interfaces
 - Import `CreateOrderRequest` from `@repo/shared`
 - Extend `CreateOrderRequest` with `skip_cart_clear` field locally
@@ -104,6 +109,7 @@ export function useAddToCartHandler(products: ProductWithCategory[]) {
 - Keep local `LineSendResponse` but add `needs_friend` and `add_friend_url` fields (these are not in shared types yet)
 
 ### `queries/use-profile.ts`
+
 - Import `UserProfile` from `@repo/shared` for return type (if available), otherwise keep `any` for now
 
 ---
@@ -111,16 +117,19 @@ export function useAddToCartHandler(products: ProductWithCategory[]) {
 ## Step 5: Update consumer pages
 
 ### `app/orders/page.tsx`
+
 1. Remove: `useEffect` import, `useRouter` import, `useAuth` import, local `getStatusColor`
 2. Add: `import { useAuthGuard } from '@/hooks/use-auth-guard'`, `import { getStatusColor } from '@/utils/order'`
 3. Replace auth logic with: `const { user, isLoading: authLoading } = useAuthGuard();`
 4. Remove: `const router = useRouter();` and the auth `useEffect` block
 
 ### `app/orders/[id]/page.tsx`
+
 1. Same removals and additions as orders list page
 2. Keep `useParams` for route params
 
 ### `app/profile/page.tsx`
+
 1. Replace auth guard useEffect with `useAuthGuard`
 2. Keep `useAuth` for `refreshUser` only
 3. Remove `useRouter` import, `useEffect` import (for auth)

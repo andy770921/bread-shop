@@ -11,6 +11,7 @@ The LINE Messaging API requires the recipient to have added the Official Account
 The LINE Messaging API `pushMessage` endpoint rejects requests with HTTP 400 when the target user ID belongs to someone who has not befriended the bot. The `@line/bot-sdk` throws this as an error with `statusCode: 400`.
 
 Flow before fix:
+
 1. `POST /api/orders/:id/line-send` calls `lineService.sendOrderToAdmin(orderId)`
 2. `sendOrderToAdmin` calls `messagingClient.pushMessage({ to: adminUserId, ... })`
 3. LINE API returns 400 → SDK throws error
