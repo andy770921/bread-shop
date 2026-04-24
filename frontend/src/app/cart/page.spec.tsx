@@ -128,7 +128,7 @@ jest.mock('@/features/pickup/PickupSection', () => {
         form.setValue('pickup', {
           method: 'in_person',
           locationId: '07a54160-795d-4943-8338-1be861253ecb',
-          date: new Date('2099-12-31T00:00:00+08:00'),
+          date: new Date(2099, 11, 31),
           timeSlot: '15:00',
         });
       }, [form]);

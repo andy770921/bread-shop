@@ -13,6 +13,7 @@ export interface AdminOrderListItem {
   customer_phone: string;
   payment_method: string | null;
   line_user_id: string | null;
+  pickup_at: string;
   created_at: string;
   updated_at: string;
 }
