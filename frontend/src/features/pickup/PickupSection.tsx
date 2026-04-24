@@ -76,7 +76,8 @@ export function PickupSection() {
                 value={field.value ?? 'in_person'}
                 onChange={(e) => field.onChange(e.target.value)}
                 onBlur={field.onBlur}
-                className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2"
+                disabled
+                className="select-chevron flex h-10 w-full rounded-md border pl-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
                 style={{
                   backgroundColor: 'var(--bg-surface)',
                   borderColor: 'var(--border-default)',
@@ -118,7 +119,7 @@ export function PickupSection() {
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(e.target.value || undefined)}
                     onBlur={field.onBlur}
-                    className="flex h-10 w-full rounded-md border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2"
+                    className="select-chevron flex h-10 w-full rounded-md border pl-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2"
                     style={{
                       backgroundColor: 'var(--bg-surface)',
                       borderColor: 'var(--border-default)',
