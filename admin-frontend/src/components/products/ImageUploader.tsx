@@ -3,6 +3,7 @@ import { Upload } from 'lucide-react';
 import { uploadProductImage } from '@/queries/useProductImageUpload';
 import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
+import { extractErrorMessage } from '@/lib/extract-error-message';
 import { toast } from 'sonner';
 
 interface Props {
@@ -22,8 +23,8 @@ export function ImageUploader({ value, onChange, productId }: Props) {
       const url = await uploadProductImage(file, productId);
       onChange(url);
     } catch (err) {
-      console.error(err);
-      toast.error(t('common.error'));
+      console.error('Product image upload failed', err);
+      toast.error(`${t('product.uploadFailed')}: ${extractErrorMessage(err, t('common.error'))}`);
     } finally {
       setUploading(false);
     }
@@ -61,7 +62,7 @@ export function ImageUploader({ value, onChange, productId }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0];

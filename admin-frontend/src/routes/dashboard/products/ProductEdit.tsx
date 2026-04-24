@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ProductForm, type ProductFormValues } from '@/components/products/ProductForm';
 import { useAdminProduct, useUpdateProduct } from '@/queries/useAdminProducts';
 import { useLocale } from '@/hooks/use-locale';
+import { extractErrorMessage } from '@/lib/extract-error-message';
 
 export default function ProductEdit() {
   const { t } = useLocale();
@@ -24,8 +25,8 @@ export default function ProductEdit() {
       toast.success(t('product.save'));
       navigate('/dashboard/products');
     } catch (err) {
-      console.error(err);
-      toast.error(t('common.error'));
+      console.error('Product update failed', err);
+      toast.error(`${t('product.saveFailed')}: ${extractErrorMessage(err, t('common.error'))}`);
     }
   }
 
