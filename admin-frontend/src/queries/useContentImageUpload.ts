@@ -52,13 +52,13 @@ export async function uploadContentImage(input: File): Promise<string> {
 
   let signed: SignedUrlResponse;
   try {
-    signed = await defaultFetchFn<
-      SignedUrlResponse,
-      { filename: string; contentType: string }
-    >('/api/admin/uploads/content-image', {
-      method: 'POST',
-      body: { filename: file.name, contentType: file.type },
-    });
+    signed = await defaultFetchFn<SignedUrlResponse, { filename: string; contentType: string }>(
+      '/api/admin/uploads/content-image',
+      {
+        method: 'POST',
+        body: { filename: file.name, contentType: file.type },
+      },
+    );
   } catch (err) {
     if (err instanceof ApiResponseError) {
       const body = err.body as { message?: unknown } | null;

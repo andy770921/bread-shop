@@ -1,12 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Package,
-  FileText,
-  ShoppingBag,
-  ToggleRight,
-  Layers,
-} from 'lucide-react';
+import { LayoutDashboard, Package, FileText, ShoppingBag, ToggleRight, Layers } from 'lucide-react';
 import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
 

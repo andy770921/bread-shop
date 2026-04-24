@@ -113,11 +113,7 @@ export class ContentBlocksAdminService {
 
   async delete(id: string): Promise<void> {
     await this.getById(id);
-    const { error } = await this.supabase
-      .getClient()
-      .from('content_blocks')
-      .delete()
-      .eq('id', id);
+    const { error } = await this.supabase.getClient().from('content_blocks').delete().eq('id', id);
     if (error) throw new InternalServerErrorException(error.message);
   }
 

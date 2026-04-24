@@ -30,10 +30,10 @@ export function useUpdateContentBlock() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateContentBlockRequest }) =>
-      defaultFetchFn<ContentBlock, UpdateContentBlockRequest>(
-        `/api/admin/content-blocks/${id}`,
-        { method: 'PATCH', body },
-      ),
+      defaultFetchFn<ContentBlock, UpdateContentBlockRequest>(`/api/admin/content-blocks/${id}`, {
+        method: 'PATCH',
+        body,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

@@ -102,9 +102,7 @@ export function ContentBlockForm({ initial, onSubmit, onCancel, submitting }: Pr
         <Controller
           name="is_published"
           control={control}
-          render={({ field }) => (
-            <Switch checked={field.value} onCheckedChange={field.onChange} />
-          )}
+          render={({ field }) => <Switch checked={field.value} onCheckedChange={field.onChange} />}
         />
         <Label>{t('contentBlocks.isPublished')}</Label>
       </div>
