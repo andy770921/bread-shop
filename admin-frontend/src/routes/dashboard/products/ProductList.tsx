@@ -15,9 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAdminProducts, useDeleteProduct } from '@/queries/useAdminProducts';
 import { useLocale } from '@/hooks/use-locale';
+import { useContentT } from '@/hooks/use-content-t';
 
 export default function ProductList() {
   const { t } = useLocale();
+  const contentT = useContentT();
   const { data, isLoading } = useAdminProducts();
   const del = useDeleteProduct();
 
@@ -92,7 +94,9 @@ export default function ProductList() {
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{p.name_zh}</TableCell>
-                      <TableCell className="text-text-secondary">{p.category?.slug}</TableCell>
+                      <TableCell className="text-text-secondary">
+                        {p.category ? contentT(`category.${p.category.slug}`) : ''}
+                      </TableCell>
                       <TableCell className="text-right">NT${p.price}</TableCell>
                       <TableCell>
                         {p.is_active ? (
@@ -158,7 +162,9 @@ export default function ProductList() {
                         )}
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-xs text-text-secondary">
-                        <span className="truncate">{p.category?.slug ?? '—'}</span>
+                        <span className="truncate">
+                          {p.category ? contentT(`category.${p.category.slug}`) : '—'}
+                        </span>
                         <span>·</span>
                         <span className="shrink-0">NT${p.price}</span>
                       </div>

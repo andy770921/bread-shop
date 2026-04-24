@@ -20,6 +20,7 @@ import {
 import { ImageUploader } from './ImageUploader';
 import { useCategories } from '@/queries/useAdminProducts';
 import { useLocale } from '@/hooks/use-locale';
+import { useContentT } from '@/hooks/use-content-t';
 
 const schema = z.object({
   name_zh: z.string().min(1),
@@ -48,6 +49,7 @@ interface Props {
 
 export function ProductForm({ initial, onSubmit, submitting, productId }: Props) {
   const { t } = useLocale();
+  const contentT = useContentT();
   const navigate = useNavigate();
   const { data: categories } = useCategories();
 
@@ -155,7 +157,7 @@ export function ProductForm({ initial, onSubmit, submitting, productId }: Props)
                       <SelectContent>
                         {categories?.categories.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>
-                            {c.slug}
+                            {contentT(`category.${c.slug}`)}
                           </SelectItem>
                         ))}
                       </SelectContent>
