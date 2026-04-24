@@ -15,6 +15,7 @@ interface PickupSettingsRow {
   id: number;
   time_slots: string[];
   window_days: number;
+  lead_days: number;
   disabled_weekdays: number[];
   closure_start_date: string | null;
   closure_end_date: string | null;
@@ -26,6 +27,7 @@ function rowToSettings(row: PickupSettingsRow): PickupSettings {
   return {
     timeSlots: row.time_slots ?? [],
     windowDays: row.window_days,
+    leadDays: row.lead_days ?? 0,
     disabledWeekdays: row.disabled_weekdays ?? [],
     closureStartDate: row.closure_start_date,
     closureEndDate: row.closure_end_date,
@@ -91,6 +93,7 @@ export class PickupService {
       .update({
         time_slots: uniqueSlots,
         window_days: dto.windowDays,
+        lead_days: dto.leadDays,
         disabled_weekdays: uniqueWeekdays,
         closure_start_date: closureStart,
         closure_end_date: closureEnd,
@@ -191,7 +194,9 @@ export class PickupService {
     const { data, error } = await this.supabase
       .getClient()
       .from('pickup_settings')
-      .select('time_slots, window_days, disabled_weekdays, closure_start_date, closure_end_date')
+      .select(
+        'time_slots, window_days, lead_days, disabled_weekdays, closure_start_date, closure_end_date',
+      )
       .eq('id', SETTINGS_ID)
       .single();
     if (error) throw new BadRequestException(error.message);

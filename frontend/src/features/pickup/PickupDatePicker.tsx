@@ -22,12 +22,13 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
   // Align the picker bounds with the backend validator, which computes the
   // window in Asia/Taipei regardless of host timezone.
   const today = taipeiToday();
+  const earliest = addDays(today, settings.leadDays ?? 0);
   const end = addDays(today, settings.windowDays);
   const closureStart = settings.closureStartDate ? parseISO(settings.closureStartDate) : null;
   const closureEnd = settings.closureEndDate ? parseISO(settings.closureEndDate) : null;
 
   const disabled = [
-    { before: today },
+    { before: earliest },
     { after: end },
     (d: Date) => settings.disabledWeekdays.includes(d.getDay()),
     ...(closureStart && closureEnd ? [{ from: closureStart, to: closureEnd }] : []),

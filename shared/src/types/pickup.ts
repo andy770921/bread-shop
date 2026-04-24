@@ -11,6 +11,7 @@ export interface PickupLocation {
 export interface PickupSettings {
   timeSlots: string[];
   windowDays: number;
+  leadDays: number;
   disabledWeekdays: number[];
   closureStartDate: string | null;
   closureEndDate: string | null;

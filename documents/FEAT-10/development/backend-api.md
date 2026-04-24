@@ -55,6 +55,7 @@ export interface PickupLocation {
 export interface PickupSettings {
   timeSlots: string[]; // ["15:00","20:00"]
   windowDays: number; // default 30
+  leadDays: number; // default 2 — earliest bookable date = today + leadDays
   disabledWeekdays: number[]; // 0=Sun..6=Sat
   closureStartDate: string | null; // YYYY-MM-DD
   closureEndDate: string | null;
@@ -188,7 +189,13 @@ export function validatePickupAt(input: {
   windowEndDate.setUTCDate(windowEndDate.getUTCDate() + settings.windowDays);
   const windowEndYmd = `${windowEndDate.getUTCFullYear()}-${pad(windowEndDate.getUTCMonth() + 1)}-${pad(windowEndDate.getUTCDate())}`;
 
-  if (pickYmd < nowYmd) return { ok: false, reason: 'pickup_in_past' };
+  // Lead-days check: earliest bookable date = today + leadDays
+  const leadDays = settings.leadDays ?? 0;
+  const earliestDate = new Date(Date.UTC(nowParts.y, nowParts.m - 1, nowParts.day));
+  earliestDate.setUTCDate(earliestDate.getUTCDate() + leadDays);
+  const earliestYmd = `${earliestDate.getUTCFullYear()}-${pad(earliestDate.getUTCMonth() + 1)}-${pad(earliestDate.getUTCDate())}`;
+
+  if (pickYmd < earliestYmd) return { ok: false, reason: 'pickup_in_past' };
   if (pickYmd > windowEndYmd) return { ok: false, reason: 'pickup_beyond_window' };
 
   if (settings.disabledWeekdays.includes(pickParts.weekday))
@@ -245,13 +252,14 @@ which `OrderService` calls right before submit.
 
 - `timeSlots`: each entry matches `/^(1[5-9]|2[0-2]):00$/`; array length ≥ 1. Enforced by the `@Matches` / `@ArrayMinSize` decorators on `UpdatePickupSettingsDto` (defence-in-depth at both DTO and service layers).
 - `windowDays`: integer 1–365.
+- `leadDays`: integer 0–30. Controls the earliest bookable date (`today + leadDays`). 0 = today, 2 = day after tomorrow (default).
 - `disabledWeekdays`: unique integers in `[0..6]`.
 - Closure range: either both null or both set and `end >= start`.
 - `label_zh` / `label_en` trim + non-empty.
 
 **Defensive guard — last active location.** `softDeleteLocation(id)` (and any `updateLocation` call that flips `is_active` to `false`) must refuse when the target is the **only remaining active row** in `pickup_locations`. Otherwise the customer cart page would render an empty location dropdown and no order could ever be placed. Implemented via a `SELECT id FROM pickup_locations WHERE is_active = true AND id <> :id` count — if zero, throw `BadRequestException('cannot_delete_last_active_location')`.
 
-**Public-read narrowing for `pickup_settings.updated_by`.** `readSettings()` explicitly lists the five functional columns (`time_slots, window_days, disabled_weekdays, closure_start_date, closure_end_date`) and never selects `updated_by`, so the public `GET /api/pickup-settings` cannot leak the admin's auth UUID. See the "RLS leakage note" in `database-schema.md` for context.
+**Public-read narrowing for `pickup_settings.updated_by`.** `readSettings()` explicitly lists the six functional columns (`time_slots, window_days, lead_days, disabled_weekdays, closure_start_date, closure_end_date`) and never selects `updated_by`, so the public `GET /api/pickup-settings` cannot leak the admin's auth UUID. See the "RLS leakage note" in `database-schema.md` for context.
 
 Throw `BadRequestException` with a user-readable message per violation.
 

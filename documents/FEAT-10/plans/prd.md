@@ -24,6 +24,7 @@ A new **top-level admin sidebar tab "取貨設定"** lets the owner manage locat
 4. As the **shop owner**, I want to add, rename, and retire pickup locations without needing a developer.
 5. As the **shop owner**, I want to choose which hours (15:00 through 22:00) and which weekdays are bookable, plus block an arbitrary date range for vacations.
 6. As the **shop owner**, I want to configure how many days ahead the calendar opens (default 30) so I can keep the booking horizon short during busy periods.
+6b. As the **shop owner**, I want to configure a lead-time buffer (default 2 days) so that customers can only book starting from the day after tomorrow, giving me preparation time.
 7. As the **shop owner**, I want every order in the admin order detail to show pickup method, location, and the exact timestamp so I can plan daily fulfillment.
 
 ## Implementation Decisions
@@ -54,7 +55,7 @@ A new **top-level admin sidebar tab "取貨設定"** lets the owner manage locat
 
 - `PickupConfigPage.tsx` — two-section layout: `LocationManager` + `ScheduleSettings`.
 - `LocationManager.tsx` — add / rename / soft-delete, `react-hook-form` + mutation hooks.
-- `ScheduleSettings.tsx` — time-slot checkbox grid (15:00–22:00), weekday blackout checkboxes (Mon–Sun), closure date-range picker, window-days text input.
+- `ScheduleSettings.tsx` — time-slot checkbox grid (15:00–22:00), weekday blackout checkboxes (Mon–Sun), closure date-range picker, window-days text input, lead-days text input.
 - `queries/usePickupConfig.ts` — fetch/mutation hooks mirroring `useSiteContent`.
 
 **Shared** (`shared/src/types/pickup.ts`)
@@ -82,6 +83,7 @@ GET /api/pickup-settings            # cart page reads this
     locations: [{ id, label_zh, label_en }],
     timeSlots: ["15:00", "20:00"],
     windowDays: 30,
+    leadDays: 2,                         # earliest bookable date = today + leadDays
     disabledWeekdays: [0],               # 0=Sun ... 6=Sat (JS Date.getDay)
     closureStartDate: "2026-05-10" | null,
     closureEndDate:   "2026-05-14" | null,
@@ -97,7 +99,8 @@ PATCH  /api/admin/pickup-locations/:id      { label_zh?, label_en?, is_active? }
 DELETE /api/admin/pickup-locations/:id      # soft delete (is_active=false)
 
 GET    /api/admin/pickup-settings
-PUT    /api/admin/pickup-settings           { timeSlots, windowDays, disabledWeekdays,
+PUT    /api/admin/pickup-settings           { timeSlots, windowDays, leadDays,
+                                              disabledWeekdays,
                                               closureStartDate, closureEndDate }
 ```
 

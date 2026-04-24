@@ -57,6 +57,12 @@ export function ScheduleSettings({ initial }: Props) {
     setState((s) => ({ ...s, windowDays: n }));
   };
 
+  const setLeadDays = (raw: string) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return;
+    setState((s) => ({ ...s, leadDays: n }));
+  };
+
   const handleSave = async () => {
     if (state.timeSlots.length === 0) {
       toast.error('請至少保留一個可預約時段');
@@ -64,6 +70,10 @@ export function ScheduleSettings({ initial }: Props) {
     }
     if (state.windowDays < 1 || state.windowDays > 365) {
       toast.error('可預約天數必須在 1–365 之間');
+      return;
+    }
+    if (state.leadDays < 0 || state.leadDays > 30) {
+      toast.error('開放訂購天數必須在 0–30 之間');
       return;
     }
     try {
@@ -151,6 +161,24 @@ export function ScheduleSettings({ initial }: Props) {
               className="w-32"
             />
             <span className="text-xs text-text-tertiary">後端預設為 30 天</span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <Label htmlFor="leadDays" className="text-sm font-medium text-text-primary">
+            X 天後開放訂購
+          </Label>
+          <div className="mt-1 flex items-center gap-3">
+            <Input
+              id="leadDays"
+              type="number"
+              min={0}
+              max={30}
+              value={state.leadDays}
+              onChange={(e) => setLeadDays(e.target.value)}
+              className="w-32"
+            />
+            <span className="text-xs text-text-tertiary">0 = 今天即可預約，2 = 後天起</span>
           </div>
         </fieldset>
 

@@ -7,7 +7,7 @@ Adds a new top-level sidebar tab **「取貨設定」** (Pickup Config) to the a
 The page has two cards:
 
 1. **地點管理** — list existing locations; add / rename / soft-delete.
-2. **時段設定** — checkbox grid for time slots 15:00–22:00 (hourly), weekday blackout checkboxes Mon–Sun, closure-range calendar picker, `window_days` text input.
+2. **時段設定** — checkbox grid for time slots 15:00–22:00 (hourly), weekday blackout checkboxes Mon–Sun, closure-range calendar picker, `window_days` text input, `lead_days` text input (how many days before the earliest bookable date).
 
 Also extends the existing admin order detail view so pickup method, location, and timestamp are visible for fulfillment.
 
@@ -182,6 +182,18 @@ Layout:
         onChange={(e) => setValues({ ...values, windowDays: Number(e.target.value) })}
       />
       <p className="text-xs text-[var(--fg-muted)]">後端預設為 30 天</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>X 天後開放訂購</legend>
+      <Input
+        type="number"
+        min={0}
+        max={30}
+        value={values.leadDays}
+        onChange={(e) => setValues({ ...values, leadDays: Number(e.target.value) })}
+      />
+      <p className="text-xs text-[var(--fg-muted)]">0 = 今天即可預約，2 = 後天起</p>
     </fieldset>
 
     <Button onClick={onSave}>儲存</Button>
@@ -371,6 +383,8 @@ Admin is zh-only for v1 per the existing `use-locale.ts` hook, so hardcoded zh s
    - Toggle a time-slot off → customer cart's time-slot radio hides it.
    - Set closure range to today..today+3 → customer calendar greys those dates.
    - Check `window_days` = 5 → customer calendar only offers next 5 days.
+   - Set `lead_days` = 3 → customer calendar disables today, tomorrow, and day-after-tomorrow; earliest selectable date is today+3.
+   - Set `lead_days` = 0 → customer calendar allows booking from today.
    - Open an existing order in admin → confirm pickup info renders (after backfill).
 3. **Smoke**: `cd admin-frontend && npx vitest run` passes; `cd admin-frontend && npm run build` succeeds (types from `@repo/shared` resolve).
 

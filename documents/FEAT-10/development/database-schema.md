@@ -62,6 +62,7 @@ CREATE TABLE public.pickup_settings (
   id                   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   time_slots           text[]   NOT NULL DEFAULT ARRAY['15:00','20:00'],
   window_days          int      NOT NULL DEFAULT 30 CHECK (window_days BETWEEN 1 AND 365),
+  lead_days            int      NOT NULL DEFAULT 2  CHECK (lead_days BETWEEN 0 AND 30),
   disabled_weekdays    int[]    NOT NULL DEFAULT ARRAY[]::int[],
   closure_start_date   date,
   closure_end_date     date,
@@ -87,6 +88,7 @@ CREATE POLICY "pickup_settings_read_public" ON public.pickup_settings
 
 - `CHECK (id = 1)` guarantees exactly one row — no key/value juggling, simple `WHERE id = 1` reads.
 - `time_slots text[]` of `HH:mm` strings; validation (each entry matches `^([01]\d|2[0-3]):00$` and lies in 15–22) is enforced at the service layer rather than the DB, so admin edits can produce a nicer 400 message.
+- `lead_days` (default 2) controls the earliest bookable date: `today + lead_days`. A value of 0 means "today", 2 means "day after tomorrow". This gives the shop owner preparation time before the earliest possible pickup.
 - `disabled_weekdays` uses JS `Date.getDay()` semantics (`0=Sun..6=Sat`) to match the frontend directly.
 - Closure range stored as two nullable `date` columns with a CHECK preventing a start without an end or inverted ranges. If requirements grow to support multiple closures later, promote to a child table.
 
@@ -172,7 +174,7 @@ ON CONFLICT (id) DO NOTHING;
 3. **Row sanity** —
    ```sql
    SELECT count(*) FROM pickup_locations;                          -- 2
-   SELECT id, time_slots, window_days FROM pickup_settings;        -- 1 row, defaults
+   SELECT id, time_slots, window_days, lead_days FROM pickup_settings;  -- 1 row, defaults (lead_days=2)
    SELECT count(*) FROM orders WHERE pickup_method IS NULL;        -- 0
    ```
 4. **FK + CHECK round-trip** — try inserting an order with `pickup_method='fedex'` or an unknown `pickup_location_id` and confirm Postgres rejects (useful as a baseline before wiring the DTO layer).

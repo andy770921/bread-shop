@@ -203,12 +203,13 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
   const date = form.watch('pickup.date');
 
   const today = startOfDayTaipei(new Date());
+  const earliest = addDays(today, settings.leadDays ?? 0);
   const end = addDays(today, settings.windowDays);
   const closureStart = settings.closureStartDate ? parseISO(settings.closureStartDate) : null;
   const closureEnd = settings.closureEndDate ? parseISO(settings.closureEndDate) : null;
 
   const disabled = [
-    { before: today },
+    { before: earliest },
     { after: end },
     (d: Date) => settings.disabledWeekdays.includes(d.getDay()),
     ...(closureStart && closureEnd ? [{ from: closureStart, to: closureEnd }] : []),
@@ -236,7 +237,7 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
 }
 ```
 
-**Rationale:** Composing `disabled` as an array of matchers is react-day-picker's idiomatic pattern — no need to write a single mega-predicate. `startMonth` / `endMonth` cap the month navigation; these props replaced the legacy `fromDate` / `toDate` in react-day-picker v9. The per-day bound is enforced by the `{ before: today }` / `{ after: end }` matchers inside `disabled`, not by the navigation props, so don't also pass `fromDate`/`toDate` — they were removed in v9 and will either error or silently no-op.
+**Rationale:** Composing `disabled` as an array of matchers is react-day-picker's idiomatic pattern — no need to write a single mega-predicate. `startMonth` / `endMonth` cap the month navigation; these props replaced the legacy `fromDate` / `toDate` in react-day-picker v9. The per-day bound is enforced by the `{ before: earliest }` / `{ after: end }` matchers inside `disabled`, not by the navigation props, so don't also pass `fromDate`/`toDate` — they were removed in v9 and will either error or silently no-op. The `earliest` date is `today + leadDays` (default 2), which means customers cannot book today or tomorrow — this gives the shop owner preparation time.
 
 ### Step 8: `PickupTimeSlotRadio`
 

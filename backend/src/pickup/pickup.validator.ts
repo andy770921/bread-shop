@@ -83,14 +83,18 @@ export function validatePickupAt(input: {
 
   const nowParts = taipeiParts(now);
   const pickParts = taipeiParts(pickupAt);
-  const nowYmd = ymdString(nowParts);
+
+  const leadDays = settings.leadDays ?? 0;
+  const earliestDate = new Date(Date.UTC(nowParts.y, nowParts.m - 1, nowParts.day));
+  earliestDate.setUTCDate(earliestDate.getUTCDate() + leadDays);
+  const earliestYmd = `${earliestDate.getUTCFullYear()}-${pad(earliestDate.getUTCMonth() + 1)}-${pad(earliestDate.getUTCDate())}`;
 
   const windowEnd = new Date(Date.UTC(nowParts.y, nowParts.m - 1, nowParts.day));
   windowEnd.setUTCDate(windowEnd.getUTCDate() + settings.windowDays);
   const windowEndYmd = `${windowEnd.getUTCFullYear()}-${pad(windowEnd.getUTCMonth() + 1)}-${pad(windowEnd.getUTCDate())}`;
 
   const pickYmd = ymdString(pickParts);
-  if (pickYmd < nowYmd) {
+  if (pickYmd < earliestYmd) {
     return { ok: false, reason: 'pickup_in_past' };
   }
   if (pickYmd > windowEndYmd) {

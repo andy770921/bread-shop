@@ -30,6 +30,12 @@ export class UpdatePickupSettingsDto {
   @Max(365)
   windowDays: number;
 
+  @ApiProperty({ example: 2, description: 'Lead days before earliest pickup (0 = today)' })
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  leadDays: number;
+
   @ApiProperty({ example: [0], description: 'Weekday ints to close (0=Sun..6=Sat)' })
   @IsArray()
   @ArrayMaxSize(7)
