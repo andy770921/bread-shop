@@ -36,7 +36,11 @@ export class OrderAdminService {
     let query = supabase
       .from('orders')
       .select(
-        'id, order_number, status, subtotal, shipping_fee, total, customer_name, customer_phone, payment_method, line_user_id, created_at, updated_at',
+        `id, order_number, status, subtotal, shipping_fee, total,
+         customer_name, customer_phone, payment_method, line_user_id,
+         pickup_method, pickup_at,
+         pickup_location:pickup_locations ( label_zh, label_en ),
+         created_at, updated_at`,
         { count: 'exact' },
       )
       .order('created_at', { ascending: false })
@@ -49,7 +53,12 @@ export class OrderAdminService {
     const { data, error, count } = await query;
     if (error) throw new BadRequestException(error.message);
     return {
-      orders: data ?? [],
+      orders: (data ?? []).map((o: any) => ({
+        ...o,
+        pickup_location_label_zh: o.pickup_location?.label_zh ?? null,
+        pickup_location_label_en: o.pickup_location?.label_en ?? null,
+        pickup_location: undefined,
+      })),
       total: count ?? 0,
       page,
       pageSize,
@@ -57,7 +66,23 @@ export class OrderAdminService {
   }
 
   async detail(orderId: number) {
-    return this.orderService.getOrderWithItems(orderId);
+    const supabase = this.supabase.getClient();
+    const { data, error } = await supabase
+      .from('orders')
+      .select(
+        `*, items:order_items(*),
+         pickup_location:pickup_locations ( label_zh, label_en )`,
+      )
+      .eq('id', orderId)
+      .single();
+    if (error || !data) throw new NotFoundException('Order not found');
+    const pickup = (data as any).pickup_location ?? null;
+    return {
+      ...(data as any),
+      pickup_location_label_zh: pickup?.label_zh ?? null,
+      pickup_location_label_en: pickup?.label_en ?? null,
+      pickup_location: undefined,
+    };
   }
 
   async updateStatus(orderId: number, newStatus: OrderStatus) {

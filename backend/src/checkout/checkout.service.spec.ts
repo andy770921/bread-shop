@@ -11,6 +11,9 @@ describe('CheckoutService', () => {
       customerAddress: 'Taipei',
       notes: 'Ring bell',
       lineId: '@andy',
+      pickup_method: 'in_person',
+      pickup_location_id: '07a54160-795d-4943-8338-1be861253ecb',
+      pickup_at: '2099-12-31T15:00:00+08:00',
       _cart_snapshot: {
         items: [{ product_id: 1, quantity: 2 }],
         subtotal: 400,
@@ -108,6 +111,9 @@ describe('CheckoutService', () => {
         payment_method: 'line',
         customer_line_id: '@andy',
         skip_cart_clear: true,
+        pickup_method: 'in_person',
+        pickup_location_id: '07a54160-795d-4943-8338-1be861253ecb',
+        pickup_at: '2099-12-31T15:00:00+08:00',
       },
       pending.form_data._cart_snapshot,
     );

@@ -25,6 +25,7 @@ describe('OrderService', () => {
         } as any,
         {} as any,
         { clearForSession: jest.fn().mockResolvedValue(undefined) } as any,
+        { loadValidationBundle: jest.fn() } as any,
       );
     });
 
@@ -75,6 +76,7 @@ describe('OrderService', () => {
         { getClient: jest.fn() } as any,
         { clearCart } as any,
         { clearForSession: clearDraft } as any,
+        { loadValidationBundle: jest.fn() } as any,
       );
 
       jest.spyOn(service as any, 'getOrderWithItemsForActor').mockResolvedValue({ id: 1 });

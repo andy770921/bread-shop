@@ -78,7 +78,21 @@
     "lineLoginBtn": "使用 LINE 登入",
     "lineIdOptional": "LINE ID（選填，供店家參考）",
     "lineLoginHint": "點擊後將先進行 LINE 登入，以便自動傳送訂單確認",
-    "required": "此欄位為必填"
+    "required": "此欄位為必填",
+    "pickup": {
+      "title": "取貨方式",
+      "methodLabel": "取貨方式",
+      "methodInPerson": "面交",
+      "methodSevenEleven": "7-11 冷凍取貨",
+      "sevenElevenNotice": "此方案正在擴展中",
+      "locationLabel": "面交地點",
+      "locationPlaceholder": "請選擇地點",
+      "dateLabel": "面交日期",
+      "datePlaceholder": "請選擇日期",
+      "timeSlotLabel": "面交時間",
+      "loadError": "無法載入取貨設定，請稍後再試",
+      "slotUnavailable": "此時段已無法預約，請重新選擇"
+    }
   },
   "process": {
     "title": "製作過程",

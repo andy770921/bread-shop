@@ -43,6 +43,12 @@ describe('[useCheckoutFlow]', () => {
     notes: 'Ring bell',
     paymentMethod: 'line_transfer',
     lineId: '@andy',
+    pickup: {
+      method: 'in_person',
+      locationId: '07a54160-795d-4943-8338-1be861253ecb',
+      date: new Date('2099-12-31T00:00:00+08:00'),
+      timeSlot: '15:00',
+    },
   };
 
   beforeEach(() => {
@@ -82,7 +88,12 @@ describe('[useCheckoutFlow]', () => {
     });
 
     expect(startLineCheckout).toHaveBeenCalledWith({
-      form_data: baseValues,
+      form_data: expect.objectContaining({
+        customerName: baseValues.customerName,
+        pickup_method: 'in_person',
+        pickup_location_id: baseValues.pickup.locationId,
+        pickup_at: expect.stringMatching(/T15:00:00\+08:00$/),
+      }),
     });
     expect(flushPendingCartMutations).toHaveBeenCalled();
     expect(redirectTo).toHaveBeenCalledWith('/api/auth/line?pending=pending-1');
@@ -104,7 +115,12 @@ describe('[useCheckoutFlow]', () => {
     });
 
     expect(startLineCheckout).toHaveBeenCalledWith({
-      form_data: baseValues,
+      form_data: expect.objectContaining({
+        customerName: baseValues.customerName,
+        pickup_method: 'in_person',
+        pickup_location_id: baseValues.pickup.locationId,
+        pickup_at: expect.stringMatching(/T15:00:00\+08:00$/),
+      }),
     });
     expect(confirmPendingLineOrder).toHaveBeenCalledWith('pending-9');
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: QUERY_KEYS.cart });

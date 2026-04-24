@@ -80,7 +80,10 @@ export function HomeContentBlocks() {
 }
 
 function ContentBlockRow({
-  block, locale, imageSide, tinted,
+  block,
+  locale,
+  imageSide,
+  tinted,
 }: {
   block: ContentBlock;
   locale: 'zh' | 'en';
@@ -107,13 +110,7 @@ function ContentBlockRow({
           }
         >
           <div
-            className={
-              hasImage
-                ? imageSide === 'right'
-                  ? 'lg:order-1'
-                  : 'lg:order-2'
-                : undefined
-            }
+            className={hasImage ? (imageSide === 'right' ? 'lg:order-1' : 'lg:order-2') : undefined}
           >
             <h2
               id={`content-block-${block.id}`}

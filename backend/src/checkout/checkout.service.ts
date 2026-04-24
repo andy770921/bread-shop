@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { PickupMethod } from '@repo/shared';
 import { AuthService } from '../auth/auth.service';
 import { LineService } from '../line/line.service';
 import { OrderService } from '../order/order.service';
@@ -31,6 +32,17 @@ export class CheckoutService {
     const cartSnapshot = fd._cart_snapshot as
       | { items: any[]; subtotal: number; shipping_fee: number; total: number }
       | undefined;
+
+    const pickupMethod = fd.pickup_method as PickupMethod | undefined;
+    const pickupLocationId = fd.pickup_location_id as string | undefined;
+    const pickupAt = fd.pickup_at as string | undefined;
+    if (!pickupMethod || !pickupLocationId || !pickupAt) {
+      throw new BadRequestException({
+        code: 'pickup_slot_unavailable',
+        reason: 'pending_order_missing_pickup_fields',
+      });
+    }
+
     const order = await this.orderService.createOrder(
       pending.session_id,
       null,
@@ -43,6 +55,9 @@ export class CheckoutService {
         payment_method: 'line',
         customer_line_id: (fd.lineId as string) || undefined,
         skip_cart_clear: true,
+        pickup_method: pickupMethod,
+        pickup_location_id: pickupLocationId,
+        pickup_at: pickupAt,
       },
       cartSnapshot,
     );

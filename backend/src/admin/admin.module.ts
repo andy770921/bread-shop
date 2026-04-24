@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OrderModule } from '../order/order.module';
+import { PickupModule } from '../pickup/pickup.module';
 import { LineModule } from '../line/line.module';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
 import { AdminMeController } from './me.controller';
@@ -17,9 +18,10 @@ import { FeatureFlagsAdminController } from './feature-flags-admin.controller';
 import { FeatureFlagsAdminService } from './feature-flags-admin.service';
 import { ContentBlocksAdminController } from './content-blocks-admin.controller';
 import { ContentBlocksAdminService } from './content-blocks-admin.service';
+import { PickupAdminController } from './pickup-admin.controller';
 
 @Module({
-  imports: [OrderModule, LineModule],
+  imports: [OrderModule, PickupModule, LineModule],
   controllers: [
     AdminMeController,
     DashboardAdminController,
@@ -29,6 +31,7 @@ import { ContentBlocksAdminService } from './content-blocks-admin.service';
     UploadAdminController,
     FeatureFlagsAdminController,
     ContentBlocksAdminController,
+    PickupAdminController,
   ],
   providers: [
     AdminAuthGuard,

@@ -108,7 +108,7 @@ DELETE FROM public.site_content WHERE key LIKE 'story.%';
 -- Returns 3 rows: story.title, story.p1, story.p2
 ```
 
-This pairs with the removal of the `story` block from `shared/src/i18n/{zh,en}.json`. Because `SiteContentSyncService` only inserts *missing* default keys (not delete-and-reinsert), removing the JSON + DB rows in the same deploy prevents the keys from coming back. The row count in `site_content` drops from 125 → 122.
+This pairs with the removal of the `story` block from `shared/src/i18n/{zh,en}.json`. Because `SiteContentSyncService` only inserts _missing_ default keys (not delete-and-reinsert), removing the JSON + DB rows in the same deploy prevents the keys from coming back. The row count in `site_content` drops from 125 → 122.
 
 ## Testing Steps
 

@@ -16,6 +16,7 @@ describe('[cart-contact-draft helpers]', () => {
         notes: '',
         paymentMethod: 'line_transfer',
         lineId: '@jane',
+        pickup: { method: 'in_person' },
       };
 
       const draft = toCartContactDraft(values);
@@ -34,6 +35,7 @@ describe('[cart-contact-draft helpers]', () => {
         customerPhone: '0912345678',
         customerAddress: 'Taipei',
         paymentMethod: 'credit_card',
+        pickup: { method: 'in_person' },
       };
 
       const draft = toCartContactDraft(values);

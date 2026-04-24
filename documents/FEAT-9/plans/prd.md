@@ -134,15 +134,15 @@ As a **customer**, I want to see a stack of content sections (story, announcemen
 
 ### APIs / Interfaces
 
-| Method | Path                                      | Auth      | Purpose                              |
-| ------ | ----------------------------------------- | --------- | ------------------------------------ |
-| GET    | `/api/content-blocks`                     | public    | List published blocks                |
-| GET    | `/api/admin/content-blocks`               | AdminAuth | List all (includes drafts) for admin |
-| POST   | `/api/admin/content-blocks`               | AdminAuth | Create block                         |
-| PATCH  | `/api/admin/content-blocks/:id`           | AdminAuth | Update fields (partial)              |
-| DELETE | `/api/admin/content-blocks/:id`           | AdminAuth | Delete row                           |
-| PATCH  | `/api/admin/content-blocks/reorder`       | AdminAuth | Body `{ ids: string[] }`, rewrites positions |
-| POST   | `/api/admin/uploads/content-image`        | AdminAuth | Mint signed upload URL for block image |
+| Method | Path                                | Auth      | Purpose                                      |
+| ------ | ----------------------------------- | --------- | -------------------------------------------- |
+| GET    | `/api/content-blocks`               | public    | List published blocks                        |
+| GET    | `/api/admin/content-blocks`         | AdminAuth | List all (includes drafts) for admin         |
+| POST   | `/api/admin/content-blocks`         | AdminAuth | Create block                                 |
+| PATCH  | `/api/admin/content-blocks/:id`     | AdminAuth | Update fields (partial)                      |
+| DELETE | `/api/admin/content-blocks/:id`     | AdminAuth | Delete row                                   |
+| PATCH  | `/api/admin/content-blocks/reorder` | AdminAuth | Body `{ ids: string[] }`, rewrites positions |
+| POST   | `/api/admin/uploads/content-image`  | AdminAuth | Mint signed upload URL for block image       |
 
 **Shared types** (`shared/src/types/content-block.ts`):
 

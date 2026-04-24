@@ -8,6 +8,7 @@
     "content": "文案管理",
     "contentBlocks": "內容區塊",
     "orders": "訂單管理",
+    "pickupConfig": "取貨設定",
     "featureFlags": "功能開關",
     "logout": "登出"
   },

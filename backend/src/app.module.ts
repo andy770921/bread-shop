@@ -9,6 +9,7 @@ import { CategoryModule } from './category/category.module';
 import { CartModule } from './cart/cart.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { OrderModule } from './order/order.module';
+import { PickupModule } from './pickup/pickup.module';
 import { LineModule } from './line/line.module';
 import { UserModule } from './user/user.module';
 import { AdminModule } from './admin/admin.module';
@@ -29,6 +30,7 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
     CartModule,
     FavoriteModule,
     OrderModule,
+    PickupModule,
     LineModule,
     UserModule,
     AdminModule,

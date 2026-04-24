@@ -85,6 +85,7 @@ export default function OrderList() {
                     <TableHead>{t('order.customer')}</TableHead>
                     <TableHead className="text-right">{t('order.total')}</TableHead>
                     <TableHead>{t('order.status')}</TableHead>
+                    <TableHead>取貨時間</TableHead>
                     <TableHead>{t('order.createdAt')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -105,6 +106,9 @@ export default function OrderList() {
                         <Badge variant="secondary" className={cn(STATUS_COLORS[o.status] ?? '')}>
                           {t(`order.status${capitalize(o.status)}`)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-text-secondary">
+                        {o.pickup_at ? formatPickupListDate(o.pickup_at) : '—'}
                       </TableCell>
                       <TableCell className="text-sm text-text-secondary">
                         {new Date(o.created_at).toLocaleString('zh-TW')}
@@ -155,4 +159,21 @@ export default function OrderList() {
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatPickupListDate(iso: string): string {
+  try {
+    return new Intl.DateTimeFormat('zh-TW', {
+      timeZone: 'Asia/Taipei',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+      .format(new Date(iso))
+      .replace(/\//g, '-');
+  } catch {
+    return iso;
+  }
 }

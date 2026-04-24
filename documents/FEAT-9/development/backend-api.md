@@ -146,7 +146,15 @@ async reorder(ids: string[]): Promise<ContentBlocksResponse> {
 
 ```ts
 import {
-  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminAuthGuard } from './guards/admin-auth.guard';
@@ -177,10 +185,7 @@ export class ContentBlocksAdminController {
   }
 
   @Patch(':id')
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpsertContentBlockDto,
-  ) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpsertContentBlockDto) {
     return this.service.update(id, dto);
   }
 
@@ -205,22 +210,38 @@ import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpsertContentBlockDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   title_zh?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   title_en?: string | null;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
   description_zh?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(5000)
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
   description_en?: string | null;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   image_url?: string | null;
 
-  @ApiPropertyOptional() @IsOptional() @IsBoolean()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
   is_published?: boolean;
 }
 ```

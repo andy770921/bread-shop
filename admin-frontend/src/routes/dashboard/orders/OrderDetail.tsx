@@ -112,6 +112,21 @@ export default function OrderDetail() {
             <InfoRow label={t('order.lineUserId')} value={order.customer_line_id ?? '—'} />
             <InfoRow label={t('order.notes')} value={order.notes ?? '—'} />
             <InfoRow label={t('order.paymentMethod')} value={order.payment_method ?? '—'} />
+            <InfoRow
+              label="取貨方式"
+              value={
+                order.pickup_method === 'in_person'
+                  ? '面交'
+                  : order.pickup_method === 'seven_eleven_frozen'
+                    ? '7-11 冷凍取貨'
+                    : '—'
+              }
+            />
+            <InfoRow label="取貨地點" value={order.pickup_location_label_zh ?? '—'} />
+            <InfoRow
+              label="取貨時間"
+              value={order.pickup_at ? formatPickupAt(order.pickup_at) : '—'}
+            />
           </CardContent>
         </Card>
 
@@ -205,4 +220,22 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatPickupAt(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const fmt = new Intl.DateTimeFormat('zh-TW', {
+      timeZone: 'Asia/Taipei',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return fmt.format(d).replace(/\//g, '-');
+  } catch {
+    return iso;
+  }
 }

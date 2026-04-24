@@ -45,6 +45,7 @@ import {
   useCheckoutFlow,
 } from '@/features/checkout/use-checkout-flow';
 import { useCartContactDraftSync } from '@/features/checkout/use-cart-contact-draft-sync';
+import { PickupSection } from '@/features/pickup/PickupSection';
 
 export default function CartPage() {
   return (
@@ -76,6 +77,12 @@ function CartContent() {
       notes: '',
       paymentMethod: undefined,
       lineId: '',
+      pickup: {
+        method: 'in_person',
+        locationId: undefined,
+        date: undefined,
+        timeSlot: undefined,
+      },
     },
   });
 
@@ -392,6 +399,9 @@ function CartContent() {
                         )}
                       />
                     </div>
+
+                    {/* Pickup Info Section (FEAT-10) */}
+                    <PickupSection />
 
                     {/* Payment Info Section */}
                     <div

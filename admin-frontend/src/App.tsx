@@ -11,6 +11,7 @@ import ContentBlocksPage from '@/routes/dashboard/content-blocks/ContentBlocksPa
 import OrderList from '@/routes/dashboard/orders/OrderList';
 import OrderDetail from '@/routes/dashboard/orders/OrderDetail';
 import FeatureFlags from '@/routes/dashboard/feature-flags/FeatureFlags';
+import PickupConfigPage from '@/routes/dashboard/pickup-config/PickupConfigPage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="orders" element={<OrderList />} />
           <Route path="orders/:id" element={<OrderDetail />} />
           <Route path="feature-flags" element={<FeatureFlags />} />
+          <Route path="pickup-config" element={<PickupConfigPage />} />
         </Route>
       </Routes>
       <Toaster position="top-right" />

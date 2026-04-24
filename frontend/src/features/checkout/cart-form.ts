@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pickupSchema } from '@/features/pickup/pickup-schema';
 
 export const paymentMethods = ['credit_card', 'line_transfer'] as const;
 
@@ -11,6 +12,7 @@ export const cartFormSchema = z
     notes: z.string().optional(),
     paymentMethod: z.enum(paymentMethods, { required_error: 'required' }),
     lineId: z.string().optional(),
+    pickup: pickupSchema,
   })
   .superRefine((data, ctx) => {
     const addRequired = (path: string) =>

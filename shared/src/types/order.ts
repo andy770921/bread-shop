@@ -1,3 +1,5 @@
+import type { PickupMethod } from './pickup';
+
 export type OrderStatus = 'pending' | 'paid' | 'preparing' | 'shipping' | 'delivered' | 'cancelled';
 export type PaymentMethod = 'line';
 
@@ -9,6 +11,9 @@ export interface CreateOrderRequest {
   notes?: string;
   payment_method: PaymentMethod;
   customer_line_id?: string;
+  pickup_method: PickupMethod;
+  pickup_location_id: string;
+  pickup_at: string;
 }
 
 export interface OrderItem {
@@ -35,6 +40,11 @@ export interface Order {
   notes: string | null;
   payment_method: PaymentMethod | null;
   customer_line_id: string | null;
+  pickup_method: PickupMethod;
+  pickup_location_id: string;
+  pickup_at: string;
+  pickup_location_label_zh?: string;
+  pickup_location_label_en?: string;
   items: OrderItem[];
   created_at: string;
   updated_at: string;

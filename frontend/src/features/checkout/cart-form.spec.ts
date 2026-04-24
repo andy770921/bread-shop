@@ -7,6 +7,12 @@ const baseValues = {
   customerAddress: 'Taipei',
   notes: 'Ring bell',
   lineId: '',
+  pickup: {
+    method: 'in_person' as const,
+    locationId: '07a54160-795d-4943-8338-1be861253ecb',
+    date: new Date('2099-12-31T00:00:00+08:00'),
+    timeSlot: '15:00',
+  },
 };
 
 describe('[checkout cart-form]', () => {

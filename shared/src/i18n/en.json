@@ -78,7 +78,21 @@
     "lineLoginBtn": "Login with LINE",
     "lineIdOptional": "LINE ID (optional, for shop reference)",
     "lineLoginHint": "You'll be redirected to LINE Login to enable automatic order confirmation",
-    "required": "This field is required"
+    "required": "This field is required",
+    "pickup": {
+      "title": "Pickup Method",
+      "methodLabel": "Pickup Method",
+      "methodInPerson": "In-Person",
+      "methodSevenEleven": "7-11 Frozen Pickup",
+      "sevenElevenNotice": "This option is coming soon.",
+      "locationLabel": "Pickup Location",
+      "locationPlaceholder": "Select a location",
+      "dateLabel": "Pickup Date",
+      "datePlaceholder": "Select a date",
+      "timeSlotLabel": "Pickup Time",
+      "loadError": "Could not load pickup settings. Please try again.",
+      "slotUnavailable": "This slot is no longer available. Please pick another."
+    }
   },
   "process": {
     "title": "Our Process",

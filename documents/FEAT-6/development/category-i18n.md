@@ -72,8 +72,8 @@ endpoint, no schema change, no new i18n files.
 
 ### Trade-offs accepted
 
-- On first load of any page using the new hook, the site_content query
-  is `undefined` for a tick, so the dropdown shows the _default_
+- On first load of any page using the new hook, the site*content query
+  is `undefined` for a tick, so the dropdown shows the \_default*
   label (e.g. 其他) before settling into the _override_ (e.g. 公告).
   TanStack Query caches for 5 min, so this only happens on a cold
   load.

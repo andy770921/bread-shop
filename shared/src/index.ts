@@ -9,6 +9,7 @@ export * from './types/auth';
 export * from './types/user';
 export * from './types/favorite';
 export * from './types/order';
+export * from './types/pickup';
 export * from './types/admin';
 export * from './types/site-content';
 export * from './types/feature-flags';

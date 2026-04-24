@@ -118,6 +118,25 @@ jest.mock('@/features/checkout/use-cart-contact-draft-sync', () => ({
   useCartContactDraftSync: jest.fn(),
 }));
 
+jest.mock('@/features/pickup/PickupSection', () => {
+  const { useEffect } = jest.requireActual('react');
+  const { useFormContext } = jest.requireActual('react-hook-form');
+  return {
+    PickupSection: () => {
+      const form = useFormContext();
+      useEffect(() => {
+        form.setValue('pickup', {
+          method: 'in_person',
+          locationId: '07a54160-795d-4943-8338-1be861253ecb',
+          date: new Date('2099-12-31T00:00:00+08:00'),
+          timeSlot: '15:00',
+        });
+      }, [form]);
+      return <div data-testid="pickup-section" />;
+    },
+  };
+});
+
 describe('[cart checkout e2e regression]', () => {
   const renderCartPage = async () => {
     await act(async () => {
@@ -256,6 +275,9 @@ describe('[cart checkout e2e regression]', () => {
         notes: '',
         paymentMethod: 'line_transfer',
         lineId: '@andy',
+        pickup_method: 'in_person',
+        pickup_location_id: '07a54160-795d-4943-8338-1be861253ecb',
+        pickup_at: '2099-12-31T15:00:00+08:00',
       },
     });
     expect(confirmPendingLineOrder).not.toHaveBeenCalled();

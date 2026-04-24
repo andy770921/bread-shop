@@ -8,6 +8,7 @@ import { redirectTo } from '@/lib/browser-navigation';
 import { useConfirmPendingLineOrder, useStartLineCheckout } from '@/queries/use-checkout';
 import { QUERY_KEYS } from '@/queries/query-keys';
 import { flushPendingCartMutations } from '@/queries/use-debounced-cart-mutation';
+import { composePickupAt } from '@/features/pickup/pickup-schema';
 import { CartFormValues } from './cart-form';
 
 export type CheckoutSubmitResult =
@@ -48,8 +49,19 @@ export function useCheckoutFlow() {
         throw new Error('Credit card service is currently unavailable.');
       }
 
+      const { pickup, ...rest } = values;
+      if (pickup.method !== 'in_person' || !pickup.locationId || !pickup.date || !pickup.timeSlot) {
+        throw new Error('Pickup info is incomplete.');
+      }
+      const composedFormData = {
+        ...rest,
+        pickup_method: pickup.method,
+        pickup_location_id: pickup.locationId,
+        pickup_at: composePickupAt(pickup.date, pickup.timeSlot),
+      };
+
       const start = await startLineCheckout({
-        form_data: values,
+        form_data: composedFormData,
       });
 
       if (start.next === 'line_login') {

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsISO8601, IsOptional, IsString, IsUUID } from 'class-validator';
+import type { PickupMethod } from '@repo/shared';
 
 export class CreateOrderDto {
   @ApiProperty({ example: '周小明' })
@@ -42,4 +43,16 @@ export class CreateOrderDto {
   @IsOptional()
   @IsBoolean()
   skip_cart_clear?: boolean;
+
+  @ApiProperty({ enum: ['in_person', 'seven_eleven_frozen'] })
+  @IsIn(['in_person', 'seven_eleven_frozen'])
+  pickup_method: PickupMethod;
+
+  @ApiProperty({ example: '07a54160-795d-4943-8338-1be861253ecb' })
+  @IsUUID()
+  pickup_location_id: string;
+
+  @ApiProperty({ example: '2026-05-10T15:00:00+08:00' })
+  @IsISO8601()
+  pickup_at: string;
 }

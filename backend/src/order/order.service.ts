@@ -1,8 +1,10 @@
-import { CART_CONSTANTS, CartResponse, Order, OrderStatus } from '@repo/shared';
+import { CART_CONSTANTS, CartResponse, Order, OrderStatus, PickupMethod } from '@repo/shared';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CartService } from '../cart/cart.service';
 import { CartContactDraftService } from '../cart/cart-contact-draft.service';
+import { PickupService } from '../pickup/pickup.service';
+import { validatePickupAt } from '../pickup/pickup.validator';
 
 type CheckoutCartSnapshotInput = Partial<CartResponse> & {
   items?: Array<{
@@ -26,6 +28,7 @@ export class OrderService {
     private supabaseService: SupabaseService,
     private cartService: CartService,
     private cartContactDraftService: CartContactDraftService,
+    private pickupService: PickupService,
   ) {}
 
   async getCartForSession(sessionId: string, userId?: string) {
@@ -57,10 +60,29 @@ export class OrderService {
       customer_line_id?: string;
       skip_cart_clear?: boolean;
       cart_snapshot?: CheckoutCartSnapshotInput;
+      pickup_method: PickupMethod;
+      pickup_location_id: string;
+      pickup_at: string;
     },
     cartOverride?: CheckoutCartSnapshotInput,
   ) {
     const supabase = this.supabaseService.getClient();
+
+    const bundle = await this.pickupService.loadValidationBundle();
+    const pickupResult = validatePickupAt({
+      method: dto.pickup_method,
+      locationId: dto.pickup_location_id,
+      pickupAt: new Date(dto.pickup_at),
+      now: new Date(),
+      settings: bundle.settings,
+      locations: bundle.locations,
+    });
+    if (!pickupResult.ok) {
+      throw new BadRequestException({
+        code: 'pickup_slot_unavailable',
+        reason: pickupResult.reason,
+      });
+    }
 
     // Use cart override (snapshot from pending order) if provided,
     // otherwise read from session. The override is needed when the
@@ -136,6 +158,9 @@ export class OrderService {
         notes: dto.notes,
         payment_method: dto.payment_method,
         customer_line_id: dto.customer_line_id,
+        pickup_method: dto.pickup_method,
+        pickup_location_id: dto.pickup_location_id,
+        pickup_at: dto.pickup_at,
       })
       .select()
       .single();
