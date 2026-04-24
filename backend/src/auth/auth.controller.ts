@@ -22,6 +22,7 @@ import { AuthGuard } from './guards/auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { OrderService } from '../order/order.service';
 import { CheckoutService } from '../checkout/checkout.service';
@@ -60,6 +61,11 @@ export class AuthController {
       await this.authService.mergeSessionOnLogin(req.sessionId, result.user.id);
     }
     return result;
+  }
+
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto.refresh_token);
   }
 
   @Post('logout')

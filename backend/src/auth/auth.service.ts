@@ -412,6 +412,22 @@ export class AuthService {
       .eq('id', pendingId);
   }
 
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    const authClient = this.supabaseService.getAuthClient();
+
+    const { data, error } = await authClient.auth.refreshSession({ refresh_token: refreshToken });
+
+    if (error || !data.session || !data.user) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    return {
+      user: { id: data.user.id, email: data.user.email! },
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    };
+  }
+
   async getMe(userId: string) {
     const supabase = this.supabaseService.getClient();
 

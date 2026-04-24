@@ -15,6 +15,7 @@ describe('AuthController', () => {
     deletePendingOrder: jest.Mock;
     mergeSessionOnLogin: jest.Mock;
     consumeOneTimeCode: jest.Mock;
+    refreshToken: jest.Mock;
   };
   let supabaseService: {
     getClient: jest.Mock;
@@ -81,6 +82,7 @@ describe('AuthController', () => {
       deletePendingOrder: jest.fn(),
       mergeSessionOnLogin: jest.fn(),
       consumeOneTimeCode: jest.fn(),
+      refreshToken: jest.fn(),
     };
 
     getUserMock = jest.fn();
@@ -141,6 +143,22 @@ describe('AuthController', () => {
       checkoutService as any,
       lineService as any,
     );
+  });
+
+  describe('refresh', () => {
+    it('delegates to authService.refreshToken and returns its result', async () => {
+      const refreshed = {
+        user: { id: 'user-1', email: 'user@example.com' },
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+      };
+      authService.refreshToken.mockResolvedValue(refreshed);
+
+      await expect(controller.refresh({ refresh_token: 'old-refresh' })).resolves.toEqual(
+        refreshed,
+      );
+      expect(authService.refreshToken).toHaveBeenCalledWith('old-refresh');
+    });
   });
 
   describe('getLineMessageEligibility', () => {

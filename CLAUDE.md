@@ -73,7 +73,7 @@ All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` 
 
 | Module      | Key Endpoints                                            | Auth                   |
 | ----------- | -------------------------------------------------------- | ---------------------- |
-| Auth        | POST login, register, logout; GET me; LINE OAuth         | — / Bearer             |
+| Auth        | POST login, register, refresh, logout; GET me; LINE OAuth | — / Bearer             |
 | Product     | GET /api/products(?category=slug), /api/products/:id     | —                      |
 | Category    | GET /api/categories                                      | —                      |
 | Cart        | GET/POST/PATCH/DELETE /api/cart/\*                       | Session (OptionalAuth) |
@@ -112,8 +112,8 @@ Vite SPA served on port 3002 for shop staff. Separate auth from the customer FE:
 
 - `lib/admin-auth-context.tsx` — **two-phase login**: POST `/api/auth/login` (gets JWT) → GET `/api/admin/me` (role check). Only `admin`/`owner` accounts pass; others are rejected with a "no admin access" message.
 - `lib/admin-auth-guard.tsx` — route-level redirect to `/` when not logged in. Wrap dashboard routes with it.
-- `lib/admin-token-store.ts` — stores `admin_token` in localStorage (separate key from customer `auth_token`).
-- `lib/admin-fetchers.ts` — wraps the shared `fetchApi` with the Bearer header; used as TanStack Query's default `queryFn`.
+- `lib/admin-token-store.ts` — stores `admin_token` (access) + `admin_refresh_token` in localStorage (separate keys from customer `auth_token`). `clear()` removes both and dispatches `ADMIN_TOKEN_CLEAR_EVENT` so `AdminAuthContext` can reset `user` when the fetcher's refresh interceptor fails.
+- `lib/admin-fetchers.ts` — wraps the shared `fetchApi` with the Bearer header; used as TanStack Query's default `queryFn`. On 401 it transparently calls `POST /api/auth/refresh`, swaps in the new tokens, and retries the original request. Concurrent 401s share a single in-flight refresh via a module-level promise. If refresh fails, both tokens are cleared and the original 401 is re-thrown.
 - `hooks/use-locale.ts` — `LocaleProvider` + `useLocale()/t()` mirroring the customer FE pattern. Admin is zh-only for v1 but the structure is ready for multi-locale.
 - `lib/content-keys.ts` — flattens `@frontend-i18n/{zh,en}.json` into dot-notation key groups for the content editor. Uses TS path alias `@frontend-i18n/*` → `../frontend/src/i18n/*`.
 - Shadcn components (`components/ui/`) — generated with `nova` preset. **`Input` and `Textarea` use `React.forwardRef`** so `react-hook-form`'s `register` can attach refs; don't downgrade these back to plain function components or form validation will silently receive empty values.

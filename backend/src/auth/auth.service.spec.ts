@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -156,6 +156,66 @@ describe('AuthService', () => {
         preserveExistingSession: true,
       }),
     );
+  });
+
+  describe('refreshToken', () => {
+    it('returns new tokens when refreshSession succeeds', async () => {
+      const refreshSession = jest.fn().mockResolvedValue({
+        data: {
+          session: { access_token: 'new-access', refresh_token: 'new-refresh' },
+          user: { id: 'user-1', email: 'user@example.com' },
+        },
+        error: null,
+      });
+      const supabaseService = {
+        getClient: jest.fn(),
+        getAuthClient: jest.fn().mockReturnValue({ auth: { refreshSession } }),
+      };
+
+      const service = new AuthService(supabaseService as any, configService as any);
+      const result = await service.refreshToken('old-refresh');
+
+      expect(refreshSession).toHaveBeenCalledWith({ refresh_token: 'old-refresh' });
+      expect(result).toEqual({
+        user: { id: 'user-1', email: 'user@example.com' },
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+      });
+    });
+
+    it('throws UnauthorizedException when Supabase returns an error', async () => {
+      const refreshSession = jest.fn().mockResolvedValue({
+        data: { session: null, user: null },
+        error: { message: 'Invalid Refresh Token' },
+      });
+      const supabaseService = {
+        getClient: jest.fn(),
+        getAuthClient: jest.fn().mockReturnValue({ auth: { refreshSession } }),
+      };
+
+      const service = new AuthService(supabaseService as any, configService as any);
+
+      await expect(service.refreshToken('bad-refresh')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when Supabase returns no session', async () => {
+      const refreshSession = jest.fn().mockResolvedValue({
+        data: { session: null, user: null },
+        error: null,
+      });
+      const supabaseService = {
+        getClient: jest.fn(),
+        getAuthClient: jest.fn().mockReturnValue({ auth: { refreshSession } }),
+      };
+
+      const service = new AuthService(supabaseService as any, configService as any);
+
+      await expect(service.refreshToken('expired-refresh')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
   });
 
   it('rejects linking when the LINE account is already linked to another Bread Shop user', async () => {
