@@ -36,3 +36,55 @@ export function composePickupAt(date: Date, timeSlot: string): string {
   const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}T${h}:${m}:00+08:00`;
 }
+
+export interface TaipeiWallClockParts {
+  y: number;
+  m: number;
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+export function taipeiNowParts(now: Date = new Date()): TaipeiWallClockParts {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(now).map((p) => [p.type, p.value]));
+  const hour = Number(parts.hour);
+  return {
+    y: Number(parts.year),
+    m: Number(parts.month),
+    day: Number(parts.day),
+    hour: hour === 24 ? 0 : hour,
+    minute: Number(parts.minute),
+  };
+}
+
+export function taipeiToday(now: Date = new Date()): Date {
+  const { y, m, day } = taipeiNowParts(now);
+  return new Date(y, m - 1, day, 0, 0, 0, 0);
+}
+
+export function filterFutureSlots(
+  slots: string[],
+  date: Date | undefined,
+  now: Date = new Date(),
+): string[] {
+  if (!date) return slots;
+  const today = taipeiNowParts(now);
+  const sameDay =
+    date.getFullYear() === today.y &&
+    date.getMonth() + 1 === today.m &&
+    date.getDate() === today.day;
+  if (!sameDay) return slots;
+  return slots.filter((slot) => {
+    const [h, m] = slot.split(':').map(Number);
+    return h > today.hour || (h === today.hour && m > today.minute);
+  });
+}

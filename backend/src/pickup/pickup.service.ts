@@ -134,8 +134,16 @@ export class PickupService {
 
   async updateLocation(id: string, dto: UpdatePickupLocationDto): Promise<PickupLocation> {
     const payload: Record<string, unknown> = {};
-    if (dto.label_zh !== undefined) payload.label_zh = dto.label_zh.trim();
-    if (dto.label_en !== undefined) payload.label_en = dto.label_en.trim();
+    if (dto.label_zh !== undefined) {
+      const trimmed = dto.label_zh.trim();
+      if (!trimmed) throw new BadRequestException('label_required');
+      payload.label_zh = trimmed;
+    }
+    if (dto.label_en !== undefined) {
+      const trimmed = dto.label_en.trim();
+      if (!trimmed) throw new BadRequestException('label_required');
+      payload.label_en = trimmed;
+    }
     if (dto.is_active !== undefined) payload.is_active = dto.is_active;
     if (dto.sort_order !== undefined) payload.sort_order = dto.sort_order;
 

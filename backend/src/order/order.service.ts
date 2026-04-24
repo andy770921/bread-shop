@@ -13,6 +13,26 @@ type CheckoutCartSnapshotInput = Partial<CartResponse> & {
   }>;
 };
 
+const PICKUP_REASON_MESSAGES: Record<string, string> = {
+  seven_eleven_not_available:
+    'Seven-Eleven frozen pickup is not yet available. Please choose in-person pickup.',
+  unknown_pickup_method: 'Unsupported pickup method.',
+  pickup_location_unavailable: 'The selected pickup location is no longer available.',
+  invalid_pickup_at: 'Invalid pickup time.',
+  pickup_in_past: 'The selected pickup time has already passed.',
+  pickup_beyond_window: 'The selected pickup date is outside the booking window.',
+  weekday_closed: 'The shop is closed on the selected weekday.',
+  within_closure: 'The shop is closed during the selected date range.',
+  time_slot_unavailable: 'The selected time slot is no longer offered.',
+};
+
+function pickupReasonMessage(reason: string): string {
+  return (
+    PICKUP_REASON_MESSAGES[reason] ??
+    'The selected pickup slot is no longer available. Please pick another slot.'
+  );
+}
+
 @Injectable()
 export class OrderService {
   private static readonly VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -81,6 +101,7 @@ export class OrderService {
       throw new BadRequestException({
         code: 'pickup_slot_unavailable',
         reason: pickupResult.reason,
+        message: pickupReasonMessage(pickupResult.reason),
       });
     }
 

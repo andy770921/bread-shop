@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import type { PickupLocation } from '@repo/shared';
 
@@ -12,6 +13,7 @@ import type { CartFormValues } from '@/features/checkout/cart-form';
 import { usePickupSettings } from './use-pickup-settings';
 import { PickupDatePicker } from './PickupDatePicker';
 import { PickupTimeSlotRadio } from './PickupTimeSlotRadio';
+import { filterFutureSlots } from './pickup-schema';
 
 // NOTE: Pickup fields intentionally do NOT persist via CartContactDraft — see
 // documents/FEAT-10/development/customer-frontend.md "Notes" for rationale.
@@ -22,6 +24,19 @@ export function PickupSection() {
   const { data, isLoading, isError } = usePickupSettings();
 
   const method = form.watch('pickup.method');
+  const selectedDate = form.watch('pickup.date');
+  const selectedSlot = form.watch('pickup.timeSlot');
+
+  const availableSlots = filterFutureSlots(data?.timeSlots ?? [], selectedDate);
+
+  // If the user had picked a slot that just dropped off the available list
+  // (e.g. the hour has since passed today), clear it so isValid reflects reality
+  // and the radio does not show a stale highlight.
+  useEffect(() => {
+    if (selectedSlot && !availableSlots.includes(selectedSlot)) {
+      form.setValue('pickup.timeSlot', undefined, { shouldValidate: true });
+    }
+  }, [selectedSlot, availableSlots, form]);
 
   if (isLoading) {
     return <Skeleton className="h-48 w-full rounded-xl" />;
@@ -144,8 +159,13 @@ export function PickupSection() {
               <FormItem>
                 <FormLabel>{t('cart.pickup.timeSlotLabel')} *</FormLabel>
                 <FormControl>
-                  <PickupTimeSlotRadio slots={data.timeSlots} />
+                  <PickupTimeSlotRadio slots={availableSlots} />
                 </FormControl>
+                {selectedDate && availableSlots.length === 0 && (
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                    {t('cart.pickup.noSlotsToday')}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}

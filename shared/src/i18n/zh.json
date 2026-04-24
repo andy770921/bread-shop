@@ -91,7 +91,8 @@
       "datePlaceholder": "請選擇日期",
       "timeSlotLabel": "面交時間",
       "loadError": "無法載入取貨設定，請稍後再試",
-      "slotUnavailable": "此時段已無法預約，請重新選擇"
+      "slotUnavailable": "此時段已無法預約，請重新選擇",
+      "noSlotsToday": "今日時段皆已過，請選擇其他日期"
     }
   },
   "process": {

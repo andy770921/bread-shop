@@ -1,7 +1,7 @@
 'use client';
 
 import { useFormContext } from 'react-hook-form';
-import { addDays, format, parseISO, startOfToday } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import type { PickupSettingsResponse } from '@repo/shared';
 
@@ -10,13 +10,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CartFormValues } from '@/features/checkout/cart-form';
 import { useLocale } from '@/hooks/use-locale';
+import { taipeiToday } from './pickup-schema';
 
 export function PickupDatePicker({ settings }: { settings: PickupSettingsResponse }) {
   const form = useFormContext<CartFormValues>();
   const { t } = useLocale();
   const date = form.watch('pickup.date');
 
-  const today = startOfToday();
+  // Align the picker bounds with the backend validator, which computes the
+  // window in Asia/Taipei regardless of host timezone.
+  const today = taipeiToday();
   const end = addDays(today, settings.windowDays);
   const closureStart = settings.closureStartDate ? parseISO(settings.closureStartDate) : null;
   const closureEnd = settings.closureEndDate ? parseISO(settings.closureEndDate) : null;

@@ -91,7 +91,8 @@
       "datePlaceholder": "Select a date",
       "timeSlotLabel": "Pickup Time",
       "loadError": "Could not load pickup settings. Please try again.",
-      "slotUnavailable": "This slot is no longer available. Please pick another."
+      "slotUnavailable": "This slot is no longer available. Please pick another.",
+      "noSlotsToday": "All slots for today have passed. Please pick another date."
     }
   },
   "process": {

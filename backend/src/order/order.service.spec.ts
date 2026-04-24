@@ -87,4 +87,50 @@ describe('OrderService', () => {
       expect(clearDraft).toHaveBeenCalledWith('session-1');
     });
   });
+
+  describe('createOrder pickup validator failure', () => {
+    it('bubbles code, reason, and a human message when the validator rejects', async () => {
+      const pickup = {
+        loadValidationBundle: jest.fn().mockResolvedValue({
+          settings: {
+            timeSlots: ['15:00'],
+            windowDays: 30,
+            disabledWeekdays: [],
+            closureStartDate: null,
+            closureEndDate: null,
+          },
+          locations: [{ id: 'loc-1', is_active: true }],
+        }),
+      };
+      const service = new OrderService(
+        { getClient: jest.fn() } as any,
+        {} as any,
+        { clearForSession: jest.fn() } as any,
+        pickup as any,
+      );
+
+      let caught: any;
+      try {
+        await service.createOrder('sess-1', null, {
+          customer_name: 'A',
+          customer_phone: '0912345678',
+          customer_address: 'Hsinchu',
+          payment_method: 'line',
+          pickup_method: 'in_person',
+          pickup_location_id: 'loc-1',
+          pickup_at: '2020-01-01T15:00:00+08:00',
+        });
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(BadRequestException);
+      const body = caught.getResponse() as Record<string, unknown>;
+      expect(body).toMatchObject({
+        code: 'pickup_slot_unavailable',
+        reason: 'pickup_in_past',
+      });
+      expect(body.message).toEqual(expect.stringContaining('pickup time has already passed'));
+    });
+  });
 });
