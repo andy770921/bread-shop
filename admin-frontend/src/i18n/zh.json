@@ -160,5 +160,33 @@
     "error": "發生錯誤",
     "retry": "重試",
     "required": "必填"
+  },
+  "pickupConfig": {
+    "schedule": {
+      "title": "時段設定",
+      "timeSlotsLegend": "可預約時段 (15:00–22:00，每 30 分鐘)",
+      "weekdaysLegend": "固定休息日",
+      "weekday": {
+        "0": "週日",
+        "1": "週一",
+        "2": "週二",
+        "3": "週三",
+        "4": "週四",
+        "5": "週五",
+        "6": "週六"
+      },
+      "closureLegend": "臨時休息區間",
+      "clearButton": "清除",
+      "windowDaysLabel": "可預約天數 (X 天)",
+      "windowDaysHelp": "後端預設為 30 天",
+      "leadDaysLabel": "X 天後開放訂購",
+      "leadDaysHelp": "0 = 今天即可預約，2 = 後天起",
+      "saveButton": "儲存",
+      "errorEmptySlots": "請至少保留一個可預約時段",
+      "errorWindowDaysRange": "可預約天數必須在 1–365 之間",
+      "errorLeadDaysRange": "開放訂購天數必須在 0–30 之間",
+      "saved": "已儲存時段設定",
+      "saveFailed": "儲存失敗"
+    }
   }
 }

@@ -87,7 +87,7 @@ CREATE POLICY "pickup_settings_read_public" ON public.pickup_settings
 **Rationale:**
 
 - `CHECK (id = 1)` guarantees exactly one row — no key/value juggling, simple `WHERE id = 1` reads.
-- `time_slots text[]` of `HH:mm` strings; validation (each entry matches `^([01]\d|2[0-3]):00$` and lies in 15–22) is enforced at the service layer rather than the DB, so admin edits can produce a nicer 400 message.
+- `time_slots text[]` of `HH:mm` strings; validation (each entry matches `^((1[5-9]|2[01]):(00|30)|22:00)$` — i.e. 30-minute increments from 15:00 through 22:00 inclusive, 15 valid values) is enforced at the service layer rather than the DB, so admin edits can produce a nicer 400 message.
 - `lead_days` (default 2) controls the earliest bookable date: `today + lead_days`. A value of 0 means "today", 2 means "day after tomorrow". This gives the shop owner preparation time before the earliest possible pickup.
 - `disabled_weekdays` uses JS `Date.getDay()` semantics (`0=Sun..6=Sat`) to match the frontend directly.
 - Closure range stored as two nullable `date` columns with a CHECK preventing a start without an end or inverted ranges. If requirements grow to support multiple closures later, promote to a child table.

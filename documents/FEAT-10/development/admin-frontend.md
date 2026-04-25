@@ -7,7 +7,7 @@ Adds a new top-level sidebar tab **「取貨設定」** (Pickup Config) to the a
 The page has two cards:
 
 1. **地點管理** — list existing locations; add / rename / soft-delete.
-2. **時段設定** — checkbox grid for time slots 15:00–22:00 (hourly), weekday blackout checkboxes Mon–Sun, closure-range calendar picker, `window_days` text input, `lead_days` text input (how many days before the earliest bookable date).
+2. **時段設定** — checkbox grid for time slots 15:00–22:00 (15 slots in 30-minute increments — `15:00, 15:30, …, 21:30, 22:00`), weekday blackout checkboxes Mon–Sun, closure-range calendar picker, `window_days` text input, `lead_days` text input (how many days before the earliest bookable date).
 
 Also extends the existing admin order detail view so pickup method, location, and timestamp are visible for fulfillment.
 
@@ -112,7 +112,23 @@ export function useDeletePickupLocation() {
 Single `react-hook-form` form with these controls:
 
 ```tsx
-const HOURS = ['15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+const HOURS = [
+  '15:00',
+  '15:30',
+  '16:00',
+  '16:30',
+  '17:00',
+  '17:30',
+  '18:00',
+  '18:30',
+  '19:00',
+  '19:30',
+  '20:00',
+  '20:30',
+  '21:00',
+  '21:30',
+  '22:00',
+];
 const WEEKDAYS = [
   { v: 1, label: '週一' },
   { v: 2, label: '週二' },
@@ -131,8 +147,8 @@ Layout:
   <CardHeader>時段設定</CardHeader>
   <CardContent className="space-y-6">
     <fieldset>
-      <legend>可預約時段 (15:00–22:00)</legend>
-      <div className="grid grid-cols-4 gap-2">
+      <legend>可預約時段 (15:00–22:00，每 30 分鐘)</legend>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
         {HOURS.map((h) => (
           <Checkbox
             key={h}

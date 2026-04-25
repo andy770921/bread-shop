@@ -128,5 +128,33 @@
     "error": "Something went wrong",
     "retry": "Retry",
     "required": "Required"
+  },
+  "pickupConfig": {
+    "schedule": {
+      "title": "Schedule Settings",
+      "timeSlotsLegend": "Bookable Time Slots (15:00–22:00, every 30 min)",
+      "weekdaysLegend": "Closed Weekdays",
+      "weekday": {
+        "0": "Sun",
+        "1": "Mon",
+        "2": "Tue",
+        "3": "Wed",
+        "4": "Thu",
+        "5": "Fri",
+        "6": "Sat"
+      },
+      "closureLegend": "Temporary Closure Range",
+      "clearButton": "Clear",
+      "windowDaysLabel": "Booking Window (days)",
+      "windowDaysHelp": "Backend default is 30 days",
+      "leadDaysLabel": "Open Booking After (days)",
+      "leadDaysHelp": "0 = bookable today, 2 = from the day after tomorrow",
+      "saveButton": "Save",
+      "errorEmptySlots": "Keep at least one bookable time slot",
+      "errorWindowDaysRange": "Booking window must be between 1 and 365 days",
+      "errorLeadDaysRange": "Lead days must be between 0 and 30",
+      "saved": "Schedule saved",
+      "saveFailed": "Save failed"
+    }
   }
 }

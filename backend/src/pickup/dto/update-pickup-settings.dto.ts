@@ -14,14 +14,14 @@ import {
 
 export class UpdatePickupSettingsDto {
   @ApiProperty({
-    example: ['15:00', '20:00'],
-    description: 'Allowed pickup hour slots in HH:mm (15:00-22:00 hourly)',
+    example: ['15:00', '15:30', '20:00'],
+    description: 'Allowed pickup time slots in HH:mm (15:00–22:00, 30-minute increments)',
   })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(8)
+  @ArrayMaxSize(15)
   @IsString({ each: true })
-  @Matches(/^(1[5-9]|2[0-2]):00$/, { each: true })
+  @Matches(/^((1[5-9]|2[01]):(00|30)|22:00)$/, { each: true })
   timeSlots: string[];
 
   @ApiProperty({ example: 30 })

@@ -250,7 +250,7 @@ which `OrderService` calls right before submit.
 
 **Validation inside update paths (server-enforced, UI-friendly error messages):**
 
-- `timeSlots`: each entry matches `/^(1[5-9]|2[0-2]):00$/`; array length ≥ 1. Enforced by the `@Matches` / `@ArrayMinSize` decorators on `UpdatePickupSettingsDto` (defence-in-depth at both DTO and service layers).
+- `timeSlots`: each entry matches `/^((1[5-9]|2[01]):(00|30)|22:00)$/` (30-minute slots from 15:00 through 22:00 inclusive — 15 valid values, with 22:30 explicitly excluded so the last slot stays at 22:00); array length 1–15. Enforced by the `@Matches` / `@ArrayMinSize` / `@ArrayMaxSize` decorators on `UpdatePickupSettingsDto` (defence-in-depth at both DTO and service layers).
 - `windowDays`: integer 1–365.
 - `leadDays`: integer 0–30. Controls the earliest bookable date (`today + leadDays`). 0 = today, 2 = day after tomorrow (default).
 - `disabledWeekdays`: unique integers in `[0..6]`.

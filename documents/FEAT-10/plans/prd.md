@@ -10,7 +10,7 @@ Add a **Pickup** block on the `/cart` page that forces the customer to pick:
 
 1. **Pickup method** — dropdown with `面交` (in-person) and `7-11 冷凍取貨` (seven-eleven frozen). The 7-11 option is visible but renders a "擴展中" notice; it cannot be used to place an order yet.
 2. **Pickup location** — dropdown of admin-configured locations (seeded with the two Hsinchu points).
-3. **Pickup time** — date picker (react-day-picker inside a popover) plus a radio group of time-of-day slots. Date is constrained by a rolling window, always-closed weekdays, and an optional admin-set closure range. Time slots are admin-configured (any subset of the 15:00–22:00 hourly grid).
+3. **Pickup time** — date picker (react-day-picker inside a popover) plus a radio group of time-of-day slots. Date is constrained by a rolling window, always-closed weekdays, and an optional admin-set closure range. Time slots are admin-configured (any subset of the 15:00–22:00 grid in 30-minute increments — `15:00, 15:30, …, 21:30, 22:00`, 15 slots in total).
 
 All three values are **required** to enable the place-order button. The submit payload adds `pickup_method`, `pickup_location_id`, and a single `pickup_at` TIMESTAMPTZ. The backend re-validates against current settings and rejects 400 if the slot is no longer valid.
 
@@ -22,7 +22,7 @@ A new **top-level admin sidebar tab "取貨設定"** lets the owner manage locat
 2. As a **customer**, I want the calendar to hide dates the shop is closed on, so I don't waste a click on an invalid slot.
 3. As a **customer**, if I picked a slot that has since been closed by the owner, I want to see a clear toast explaining that and be allowed to pick another slot.
 4. As the **shop owner**, I want to add, rename, and retire pickup locations without needing a developer.
-5. As the **shop owner**, I want to choose which hours (15:00 through 22:00) and which weekdays are bookable, plus block an arbitrary date range for vacations.
+5. As the **shop owner**, I want to choose which 30-minute slots between 15:00 and 22:00 and which weekdays are bookable, plus block an arbitrary date range for vacations.
 6. As the **shop owner**, I want to configure how many days ahead the calendar opens (default 30) so I can keep the booking horizon short during busy periods.
 6b. As the **shop owner**, I want to configure a lead-time buffer (default 2 days) so that customers can only book starting from the day after tomorrow, giving me preparation time.
 7. As the **shop owner**, I want every order in the admin order detail to show pickup method, location, and the exact timestamp so I can plan daily fulfillment.
@@ -55,7 +55,7 @@ A new **top-level admin sidebar tab "取貨設定"** lets the owner manage locat
 
 - `PickupConfigPage.tsx` — two-section layout: `LocationManager` + `ScheduleSettings`.
 - `LocationManager.tsx` — add / rename / soft-delete, `react-hook-form` + mutation hooks.
-- `ScheduleSettings.tsx` — time-slot checkbox grid (15:00–22:00), weekday blackout checkboxes (Mon–Sun), closure date-range picker, window-days text input, lead-days text input.
+- `ScheduleSettings.tsx` — time-slot checkbox grid (15:00–22:00 in 30-minute increments, 15 slots), weekday blackout checkboxes (Mon–Sun), closure date-range picker, window-days text input, lead-days text input.
 - `queries/usePickupConfig.ts` — fetch/mutation hooks mirroring `useSiteContent`.
 
 **Shared** (`shared/src/types/pickup.ts`)
@@ -81,7 +81,7 @@ A new **top-level admin sidebar tab "取貨設定"** lets the owner manage locat
 GET /api/pickup-settings            # cart page reads this
 → {
     locations: [{ id, label_zh, label_en }],
-    timeSlots: ["15:00", "20:00"],
+    timeSlots: ["15:00", "15:30", "20:00"],
     windowDays: 30,
     leadDays: 2,                         # earliest bookable date = today + leadDays
     disabledWeekdays: [0],               # 0=Sun ... 6=Sat (JS Date.getDay)
