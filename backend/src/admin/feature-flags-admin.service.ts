@@ -1,9 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import type { UpdateShopSettingsRequest } from '@repo/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ShopSettingsService } from '../shop-settings/shop-settings.service';
 
 @Injectable()
 export class FeatureFlagsAdminService {
-  constructor(private supabase: SupabaseService) {}
+  constructor(
+    private supabase: SupabaseService,
+    private shopSettings: ShopSettingsService,
+  ) {}
 
   async get() {
     const supabase = this.supabase.getClient();
@@ -12,7 +17,13 @@ export class FeatureFlagsAdminService {
       .select('id')
       .eq('visible_on_home', true);
     if (error) throw new BadRequestException(error.message);
-    return { homeVisibleCategoryIds: (data ?? []).map((r) => r.id as number) };
+    const homeVisibleCategoryIds = (data ?? []).map((r) => r.id as number);
+    const shopSettings = await this.shopSettings.getSettings();
+    return { homeVisibleCategoryIds, shopSettings };
+  }
+
+  async updateShopSettings(dto: UpdateShopSettingsRequest, adminUserId: string) {
+    return this.shopSettings.updateSettings(dto, adminUserId);
   }
 
   async replaceHomeVisibleCategories(categoryIds: number[]) {

@@ -121,7 +121,24 @@
     "saving": "Saving…",
     "saved": "Saved",
     "saveFailed": "Save failed",
-    "selectAtLeastOne": "Select at least one category"
+    "selectAtLeastOne": "Select at least one category",
+    "shipping": {
+      "title": "Shipping Toggle",
+      "help": "When off every order ships free; when on the values below apply.",
+      "enabledLabel": "Charge shipping",
+      "feeLabel": "Shipping fee (NT$)",
+      "thresholdLabel": "Free-shipping threshold (NT$)",
+      "thresholdHelp": "Orders at or above this amount ship free. 0 disables the free-shipping cutoff.",
+      "errorFeeRange": "Shipping fee must be between 0 and 9999",
+      "errorThresholdRange": "Threshold must be between 0 and 999999"
+    },
+    "promoBanner": {
+      "title": "Home Promo Banner",
+      "help": "Toggle the home-page promo banner. Banner copy is edited via Site Content under the banner.text key.",
+      "enabledLabel": "Show banner",
+      "previewLabel": "Current copy",
+      "editLink": "Open Site Content"
+    }
   },
   "common": {
     "loading": "Loading…",

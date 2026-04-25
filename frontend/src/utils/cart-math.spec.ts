@@ -1,4 +1,4 @@
-import { CART_CONSTANTS, type CartResponse } from '@repo/shared';
+import type { CartResponse, ShopSettings } from '@repo/shared';
 import {
   EMPTY_CART,
   applyPendingUpdates,
@@ -6,13 +6,20 @@ import {
   reconcileWithPending,
 } from './cart-math';
 
+const SETTINGS: ShopSettings = {
+  shippingEnabled: true,
+  shippingFee: 60,
+  freeShippingThreshold: 500,
+  promoBannerEnabled: true,
+};
+
 function createCart(items: CartResponse['items']): CartResponse {
-  return recalcCartTotals(items);
+  return recalcCartTotals(items, SETTINGS);
 }
 
 describe('[cart-math]', () => {
   it('returns an empty cart shape for no items', () => {
-    expect(recalcCartTotals([])).toEqual(EMPTY_CART);
+    expect(recalcCartTotals([], SETTINGS)).toEqual(EMPTY_CART);
   });
 
   it('adds shipping below the free-shipping threshold', () => {
@@ -33,8 +40,8 @@ describe('[cart-math]', () => {
       },
     ]);
 
-    expect(cart.shipping_fee).toBe(CART_CONSTANTS.SHIPPING_FEE);
-    expect(cart.total).toBe(400 + CART_CONSTANTS.SHIPPING_FEE);
+    expect(cart.shipping_fee).toBe(SETTINGS.shippingFee);
+    expect(cart.total).toBe(400 + SETTINGS.shippingFee);
   });
 
   it('removes shipping at the free-shipping threshold', () => {
@@ -57,6 +64,31 @@ describe('[cart-math]', () => {
 
     expect(cart.shipping_fee).toBe(0);
     expect(cart.total).toBe(500);
+  });
+
+  it('forces shipping_fee to 0 when shippingEnabled is false', () => {
+    const disabled: ShopSettings = { ...SETTINGS, shippingEnabled: false };
+    const cart = recalcCartTotals(
+      [
+        {
+          id: 1,
+          product_id: 1,
+          quantity: 1,
+          line_total: 100,
+          product: {
+            id: 1,
+            name_zh: 'X',
+            name_en: 'X',
+            price: 100,
+            image_url: null,
+            category_slug: 'other',
+          },
+        },
+      ],
+      disabled,
+    );
+    expect(cart.shipping_fee).toBe(0);
+    expect(cart.total).toBe(100);
   });
 
   it('preserves optimistic items missing from a stale server response', () => {
@@ -97,6 +129,7 @@ describe('[cart-math]', () => {
     const reconciled = reconcileWithPending(
       serverCart,
       new Map([[2, { quantity: 1 }]]),
+      SETTINGS,
       optimisticCart,
     );
 
@@ -122,7 +155,7 @@ describe('[cart-math]', () => {
       },
     ]);
 
-    const updated = applyPendingUpdates(cart, new Map([[10, { quantity: 3 }]]));
+    const updated = applyPendingUpdates(cart, new Map([[10, { quantity: 3 }]]), SETTINGS);
 
     expect(updated.items[0].quantity).toBe(3);
     expect(updated.items[0].line_total).toBe(300);

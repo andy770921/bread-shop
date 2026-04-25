@@ -1,8 +1,15 @@
-import { CART_CONSTANTS, CartResponse } from '@repo/shared';
+import { CartResponse, ShopSettings } from '@repo/shared';
 
 export interface PendingCartEntry {
   quantity: number;
 }
+
+export const FALLBACK_SHOP_SETTINGS: ShopSettings = Object.freeze({
+  shippingEnabled: true,
+  shippingFee: 60,
+  freeShippingThreshold: 500,
+  promoBannerEnabled: true,
+});
 
 export const EMPTY_CART: CartResponse = Object.freeze({
   cart_id: null,
@@ -16,15 +23,17 @@ export const EMPTY_CART: CartResponse = Object.freeze({
 
 export function recalcCartTotals(
   items: CartResponse['items'],
+  settings: ShopSettings,
   meta?: Partial<Pick<CartResponse, 'cart_id' | 'version'>>,
 ): CartResponse {
   const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
-  const shipping_fee =
-    subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+  const shipping_fee = !settings.shippingEnabled
+    ? 0
+    : subtotal === 0
       ? 0
-      : subtotal === 0
+      : subtotal >= settings.freeShippingThreshold
         ? 0
-        : CART_CONSTANTS.SHIPPING_FEE;
+        : settings.shippingFee;
 
   return {
     cart_id: meta?.cart_id ?? null,
@@ -40,6 +49,7 @@ export function recalcCartTotals(
 export function reconcileWithPending(
   serverCart: CartResponse,
   pending: ReadonlyMap<number, PendingCartEntry>,
+  settings: ShopSettings,
   optimisticCache?: CartResponse,
 ): CartResponse {
   const serverProductIds = new Set(serverCart.items.map((item) => item.product_id));
@@ -63,12 +73,13 @@ export function reconcileWithPending(
     }
   }
 
-  return recalcCartTotals(items, serverCart);
+  return recalcCartTotals(items, settings, serverCart);
 }
 
 export function applyPendingUpdates(
   cart: CartResponse,
   pending: ReadonlyMap<number | string, PendingCartEntry>,
+  settings: ShopSettings,
 ): CartResponse {
   if (pending.size === 0) {
     return cart;
@@ -87,5 +98,5 @@ export function applyPendingUpdates(
     };
   });
 
-  return recalcCartTotals(items, cart);
+  return recalcCartTotals(items, settings, cart);
 }

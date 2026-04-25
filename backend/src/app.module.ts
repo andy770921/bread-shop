@@ -15,6 +15,7 @@ import { UserModule } from './user/user.module';
 import { AdminModule } from './admin/admin.module';
 import { SiteContentModule } from './site-content/site-content.module';
 import { ContentBlocksModule } from './content-blocks/content-blocks.module';
+import { ShopSettingsModule } from './shop-settings/shop-settings.module';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 
 @Module({
@@ -24,6 +25,7 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
       envFilePath: '.env',
     }),
     SupabaseModule,
+    ShopSettingsModule,
     AuthModule,
     ProductModule,
     CategoryModule,

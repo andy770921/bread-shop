@@ -103,9 +103,19 @@ describe('CartService', () => {
       rpc,
     };
 
-    const service = new CartService({
-      getClient: jest.fn(() => supabase),
-    } as any);
+    const service = new CartService(
+      {
+        getClient: jest.fn(() => supabase),
+      } as any,
+      {
+        getSettings: jest.fn().mockResolvedValue({
+          shippingEnabled: true,
+          shippingFee: 60,
+          freeShippingThreshold: 500,
+          promoBannerEnabled: true,
+        }),
+      } as any,
+    );
 
     const resolved = await service.resolveCart('session-1', 'user-1');
 
@@ -149,9 +159,19 @@ describe('CartService', () => {
       }),
       rpc: jest.fn().mockResolvedValue({ error: null }),
     };
-    const service = new CartService({
-      getClient: jest.fn(() => supabase),
-    } as any);
+    const service = new CartService(
+      {
+        getClient: jest.fn(() => supabase),
+      } as any,
+      {
+        getSettings: jest.fn().mockResolvedValue({
+          shippingEnabled: true,
+          shippingFee: 60,
+          freeShippingThreshold: 500,
+          promoBannerEnabled: true,
+        }),
+      } as any,
+    );
     const expectedCart = {
       cart_id: 'user-cart',
       version: 9,
@@ -232,9 +252,19 @@ describe('CartService', () => {
       }),
     };
 
-    const service = new CartService({
-      getClient: jest.fn(() => supabase),
-    } as any);
+    const service = new CartService(
+      {
+        getClient: jest.fn(() => supabase),
+      } as any,
+      {
+        getSettings: jest.fn().mockResolvedValue({
+          shippingEnabled: true,
+          shippingFee: 60,
+          freeShippingThreshold: 500,
+          promoBannerEnabled: true,
+        }),
+      } as any,
+    );
 
     await expect(service.resolveCart('session-1')).resolves.toEqual(
       expect.objectContaining({

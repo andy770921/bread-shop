@@ -26,6 +26,14 @@ describe('OrderService', () => {
         {} as any,
         { clearForSession: jest.fn().mockResolvedValue(undefined) } as any,
         { loadValidationBundle: jest.fn() } as any,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            shippingEnabled: true,
+            shippingFee: 60,
+            freeShippingThreshold: 500,
+            promoBannerEnabled: true,
+          }),
+        } as any,
       );
     });
 
@@ -77,6 +85,14 @@ describe('OrderService', () => {
         { clearCart } as any,
         { clearForSession: clearDraft } as any,
         { loadValidationBundle: jest.fn() } as any,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            shippingEnabled: true,
+            shippingFee: 60,
+            freeShippingThreshold: 500,
+            promoBannerEnabled: true,
+          }),
+        } as any,
       );
 
       jest.spyOn(service as any, 'getOrderWithItemsForActor').mockResolvedValue({ id: 1 });
@@ -107,6 +123,14 @@ describe('OrderService', () => {
         {} as any,
         { clearForSession: jest.fn() } as any,
         pickup as any,
+        {
+          getSettings: jest.fn().mockResolvedValue({
+            shippingEnabled: true,
+            shippingFee: 60,
+            freeShippingThreshold: 500,
+            promoBannerEnabled: true,
+          }),
+        } as any,
       );
 
       let caught: any;

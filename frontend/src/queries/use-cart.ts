@@ -4,8 +4,14 @@ import { useCallback } from 'react';
 import { QUERY_KEYS } from './query-keys';
 import { ensureCartSessionReady, fetchCart, primeCartSessionReady } from './cart-session';
 import { useDebouncedCartMutation } from './use-debounced-cart-mutation';
+import { useShopSettings } from './use-shop-settings';
 import { authedFetchFn } from '@/utils/fetchers/fetchers.client';
-import { applyPendingUpdates, recalcCartTotals, reconcileWithPending } from '@/utils/cart-math';
+import {
+  FALLBACK_SHOP_SETTINGS,
+  applyPendingUpdates,
+  recalcCartTotals,
+  reconcileWithPending,
+} from '@/utils/cart-math';
 
 type CartProductSnapshot = CartItem['product'];
 type AddToCartInput = {
@@ -21,6 +27,8 @@ export function useCart() {
 }
 
 export function useAddToCart(options?: { onError?: () => void }) {
+  const { data: shopSettings } = useShopSettings();
+  const settings = shopSettings ?? FALLBACK_SHOP_SETTINGS;
   const { run } = useDebouncedCartMutation<number, AddToCartInput>({
     onError: options?.onError,
     getKey: ({ productId }) => productId,
@@ -56,7 +64,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
             },
           ];
 
-      return recalcCartTotals(items, cart);
+      return recalcCartTotals(items, settings, cart);
     },
     send: async (productId, quantity) => {
       await ensureCartSessionReady();
@@ -66,7 +74,7 @@ export function useAddToCart(options?: { onError?: () => void }) {
       });
     },
     reconcile: (serverCart, pending, optimisticCache) =>
-      reconcileWithPending(serverCart, pending, optimisticCache),
+      reconcileWithPending(serverCart, pending, settings, optimisticCache),
   });
 
   const addToCart = useCallback(
@@ -81,6 +89,8 @@ export function useAddToCart(options?: { onError?: () => void }) {
 }
 
 export function useUpdateCartItem() {
+  const { data: shopSettings } = useShopSettings();
+  const settings = shopSettings ?? FALLBACK_SHOP_SETTINGS;
   const { run } = useDebouncedCartMutation<
     number | string,
     { itemId: number | string; newQuantity: number }
@@ -103,6 +113,7 @@ export function useUpdateCartItem() {
               }
             : item,
         ),
+        settings,
         cart,
       );
     },
@@ -111,7 +122,7 @@ export function useUpdateCartItem() {
         method: 'PATCH',
         body: { quantity },
       }),
-    reconcile: (serverCart, pending) => applyPendingUpdates(serverCart, pending),
+    reconcile: (serverCart, pending) => applyPendingUpdates(serverCart, pending, settings),
   });
 
   const updateItem = useCallback(
@@ -126,6 +137,8 @@ export function useUpdateCartItem() {
 
 export function useRemoveCartItem() {
   const queryClient = useQueryClient();
+  const { data: shopSettings } = useShopSettings();
+  const settings = shopSettings ?? FALLBACK_SHOP_SETTINGS;
 
   return useMutation({
     mutationFn: (itemId: number | string) =>
@@ -137,6 +150,7 @@ export function useRemoveCartItem() {
         if (!old) return old;
         return recalcCartTotals(
           old.items.filter((item) => item.id !== itemId),
+          settings,
           old,
         );
       });

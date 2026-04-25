@@ -50,7 +50,7 @@
     "subtotal": "Subtotal",
     "shipping": "Shipping",
     "freeShipping": "Free Shipping",
-    "freeShippingNote": "Free shipping on orders over NT$500",
+    "freeShippingNote": "Free shipping on orders over NT${threshold}",
     "total": "Total",
     "orderSummary": "Order Summary",
     "customerInfo": "Customer Info",

@@ -81,6 +81,17 @@ jest.mock('@/queries/use-cart', () => ({
   useRemoveCartItem: jest.fn(),
 }));
 
+jest.mock('@/queries/use-shop-settings', () => ({
+  useShopSettings: () => ({
+    data: {
+      shippingEnabled: true,
+      shippingFee: 60,
+      freeShippingThreshold: 500,
+      promoBannerEnabled: true,
+    },
+  }),
+}));
+
 jest.mock('@/lib/auth-context', () => ({
   useAuth: jest.fn(),
 }));

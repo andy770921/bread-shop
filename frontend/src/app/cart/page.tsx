@@ -39,6 +39,7 @@ import { pickLocalizedText } from '@/i18n/utils';
 import { QUERY_KEYS } from '@/queries/query-keys';
 import { flushPendingCartMutations } from '@/queries/use-debounced-cart-mutation';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/queries/use-cart';
+import { useShopSettings } from '@/queries/use-shop-settings';
 import { CartFormValues, cartFormSchema } from '@/features/checkout/cart-form';
 import {
   extractCheckoutErrorMessage,
@@ -138,6 +139,8 @@ function CartContent() {
   const items = cart?.items ?? [];
   const subtotal = cart?.subtotal ?? 0;
   const shippingFee = cart?.shipping_fee ?? 0;
+  const { data: shopSettings } = useShopSettings();
+  const freeShippingThreshold = shopSettings?.freeShippingThreshold ?? 500;
   const total = cart?.total ?? 0;
   const hasIncompleteCachedItems = items.some((item) => {
     const hasMissingLocalizedName = !item.product.name_zh.trim() && !item.product.name_en.trim();
@@ -595,7 +598,10 @@ function CartContent() {
                     </div>
                     {shippingFee > 0 && (
                       <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        {t('cart.freeShippingNote')}
+                        {t('cart.freeShippingNote').replace(
+                          '{threshold}',
+                          String(freeShippingThreshold),
+                        )}
                       </p>
                     )}
                   </div>

@@ -5,6 +5,7 @@ import { CartService } from '../cart/cart.service';
 import { CartContactDraftService } from '../cart/cart-contact-draft.service';
 import { PickupService } from '../pickup/pickup.service';
 import { validatePickupAt } from '../pickup/pickup.validator';
+import { ShopSettingsService } from '../shop-settings/shop-settings.service';
 
 type CheckoutCartSnapshotInput = Partial<CartResponse> & {
   items?: Array<{
@@ -49,6 +50,7 @@ export class OrderService {
     private cartService: CartService,
     private cartContactDraftService: CartContactDraftService,
     private pickupService: PickupService,
+    private shopSettings: ShopSettingsService,
   ) {}
 
   async getCartForSession(sessionId: string, userId?: string) {
@@ -155,12 +157,14 @@ export class OrderService {
       };
     });
     const subtotal = canonicalItems.reduce((sum, item) => sum + item.line_total, 0);
-    const shipping_fee =
-      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+    const settings = await this.shopSettings.getSettings();
+    const shipping_fee = !settings.shippingEnabled
+      ? 0
+      : subtotal === 0
         ? 0
-        : subtotal === 0
+        : subtotal >= settings.freeShippingThreshold
           ? 0
-          : CART_CONSTANTS.SHIPPING_FEE;
+          : settings.shippingFee;
     const total = subtotal + shipping_fee;
 
     const { data: order, error: orderError } = await supabase
@@ -301,12 +305,14 @@ export class OrderService {
     });
 
     const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
-    const shipping_fee =
-      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+    const settings = await this.shopSettings.getSettings();
+    const shipping_fee = !settings.shippingEnabled
+      ? 0
+      : subtotal === 0
         ? 0
-        : subtotal === 0
+        : subtotal >= settings.freeShippingThreshold
           ? 0
-          : CART_CONSTANTS.SHIPPING_FEE;
+          : settings.shippingFee;
 
     return {
       cart_id: null,

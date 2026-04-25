@@ -1,9 +1,13 @@
 'use client';
 
 import { useLocale } from '@/hooks/use-locale';
+import { useShopSettings } from '@/queries/use-shop-settings';
 
 export function SeasonalBanner() {
   const { t } = useLocale();
+  const { data: settings } = useShopSettings();
+
+  if (!settings || settings.promoBannerEnabled === false) return null;
 
   return (
     <div

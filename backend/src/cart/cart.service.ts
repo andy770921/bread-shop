@@ -1,10 +1,14 @@
-import { CART_CONSTANTS, CartResponse } from '@repo/shared';
+import { CartResponse } from '@repo/shared';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ShopSettingsService } from '../shop-settings/shop-settings.service';
 
 @Injectable()
 export class CartService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    private supabaseService: SupabaseService,
+    private shopSettings: ShopSettingsService,
+  ) {}
 
   private async findActiveCartByUserId(
     userId: string,
@@ -323,12 +327,14 @@ export class CartService {
     }));
 
     const subtotal = cartItems.reduce((sum: number, item: any) => sum + item.line_total, 0);
-    const shipping_fee =
-      subtotal >= CART_CONSTANTS.FREE_SHIPPING_THRESHOLD
+    const settings = await this.shopSettings.getSettings();
+    const shipping_fee = !settings.shippingEnabled
+      ? 0
+      : subtotal === 0
         ? 0
-        : subtotal === 0
+        : subtotal >= settings.freeShippingThreshold
           ? 0
-          : CART_CONSTANTS.SHIPPING_FEE;
+          : settings.shippingFee;
 
     return {
       cart_id: cartId,

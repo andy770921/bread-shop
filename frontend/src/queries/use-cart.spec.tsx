@@ -16,6 +16,17 @@ jest.mock('@/utils/fetchers/fetchers.client', () => ({
   authedFetchFn: jest.fn(),
 }));
 
+jest.mock('./use-shop-settings', () => ({
+  useShopSettings: () => ({
+    data: {
+      shippingEnabled: true,
+      shippingFee: 60,
+      freeShippingThreshold: 500,
+      promoBannerEnabled: true,
+    },
+  }),
+}));
+
 describe('[use-cart]', () => {
   const { primeCartSessionReady } = jest.requireMock('./cart-session') as {
     primeCartSessionReady: jest.Mock;

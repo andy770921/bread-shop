@@ -153,7 +153,24 @@
     "saving": "儲存中…",
     "saved": "已儲存",
     "saveFailed": "儲存失敗",
-    "selectAtLeastOne": "請至少選擇一個類別"
+    "selectAtLeastOne": "請至少選擇一個類別",
+    "shipping": {
+      "title": "運費開關",
+      "help": "關閉後所有訂單免運費；打開後依下方金額計算。",
+      "enabledLabel": "啟用運費",
+      "feeLabel": "運費 (NT$)",
+      "thresholdLabel": "滿額免運門檻 (NT$)",
+      "thresholdHelp": "訂單金額達到此數字以上免運費，0 代表永不免運。",
+      "errorFeeRange": "運費需介於 0–9999 之間",
+      "errorThresholdRange": "免運門檻需介於 0–999999 之間"
+    },
+    "promoBanner": {
+      "title": "首頁促銷訊息",
+      "help": "控制首頁是否顯示促銷橫幅；文字內容請至「文案管理」編輯 banner.text。",
+      "enabledLabel": "顯示橫幅",
+      "previewLabel": "目前文案",
+      "editLink": "前往文案管理"
+    }
   },
   "common": {
     "loading": "載入中…",

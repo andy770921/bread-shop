@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FeatureFlagsResponse, UpdateHomeVisibleCategoriesRequest } from '@repo/shared';
+import type {
+  FeatureFlagsResponse,
+  ShopSettings,
+  UpdateHomeVisibleCategoriesRequest,
+  UpdateShopSettingsRequest,
+} from '@repo/shared';
 import { defaultFetchFn } from '@/lib/admin-fetchers';
 
+const KEY = ['api', 'admin', 'feature-flags'] as const;
+
 export function useFeatureFlags() {
-  return useQuery<FeatureFlagsResponse>({
-    queryKey: ['api', 'admin', 'feature-flags'],
-  });
+  return useQuery<FeatureFlagsResponse>({ queryKey: KEY });
 }
 
 export function useUpdateHomeVisibleCategories() {
@@ -17,8 +22,20 @@ export function useUpdateHomeVisibleCategories() {
         { method: 'PUT', body },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['api', 'admin', 'feature-flags'] });
+      qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ['api', 'categories'] });
     },
+  });
+}
+
+export function useUpdateShopSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateShopSettingsRequest) =>
+      defaultFetchFn<ShopSettings, UpdateShopSettingsRequest>(
+        '/api/admin/feature-flags/shop-settings',
+        { method: 'PUT', body },
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
