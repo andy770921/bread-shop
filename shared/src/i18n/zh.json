@@ -33,8 +33,11 @@
     "best_before": "最佳享用",
     "texture": "口感",
     "flavor": "風味",
-    "daily_limit": "庫存",
+    "daily_limit": "每日訂購上限",
     "ingredients": "成分"
+  },
+  "card": {
+    "dailyCap": "每日總訂購上限 {count}"
   },
   "home": {
     "title": "周爸烘焙坊",

@@ -33,8 +33,11 @@
     "best_before": "Best Before",
     "texture": "Texture",
     "flavor": "Flavor",
-    "daily_limit": "Daily limit",
+    "daily_limit": "Daily order limit",
     "ingredients": "Ingredients"
+  },
+  "card": {
+    "dailyCap": "Daily order limit {count}"
   },
   "home": {
     "title": "Papa Bakery",

@@ -1,6 +1,6 @@
 'use client';
 
-import { Heart, ShoppingCart } from 'lucide-react';
+import { CalendarClock, Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -95,9 +95,27 @@ export function ProductCard({
 
       {/* Content */}
       <div className="flex flex-1 flex-col gap-2 px-4 pb-4">
-        <span className="text-xs font-medium" style={{ color: 'var(--primary-500)' }}>
-          {categoryName}
-        </span>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="text-xs font-medium" style={{ color: 'var(--primary-500)' }}>
+            {categoryName}
+          </span>
+          {showInventory && (
+            <span
+              className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={{
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+              }}
+              aria-label={t('card.dailyCap').replace(
+                '{count}',
+                String(shopSettings.dailyTotalLimit),
+              )}
+            >
+              <CalendarClock className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+              {t('card.dailyCap').replace('{count}', String(shopSettings.dailyTotalLimit))}
+            </span>
+          )}
+        </div>
         <h3
           className="font-heading text-base font-semibold leading-tight"
           style={{ color: 'var(--text-primary)' }}
@@ -108,28 +126,15 @@ export function ProductCard({
           <span className="text-lg font-bold" style={{ color: 'var(--primary-700)' }}>
             NT${product.price}
           </span>
-          <div className="flex items-center gap-2">
-            {showInventory && (
-              <span
-                className="rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                {t('spec.daily_limit')} {shopSettings.dailyTotalLimit}
-              </span>
-            )}
-            <Button
-              size="sm"
-              className="gap-1.5 rounded-full"
-              style={{ backgroundColor: 'var(--primary-500)', color: '#fff' }}
-              onClick={() => onAddToCart(product.id)}
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              {t('home.addToCart')}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            className="gap-1.5 rounded-full"
+            style={{ backgroundColor: 'var(--primary-500)', color: '#fff' }}
+            onClick={() => onAddToCart(product.id)}
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            {t('home.addToCart')}
+          </Button>
         </div>
       </div>
     </Card>
