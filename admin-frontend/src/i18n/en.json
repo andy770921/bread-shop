@@ -132,7 +132,7 @@
   "featureFlags": {
     "title": "Feature Flags",
     "homeCategoriesTitle": "Home-visible Categories",
-    "homeCategoriesHelp": "Tick the categories that should appear in the pill rack on the customer home page. Unticked categories still accept product assignments; they just aren't advertised on the home page.",
+    "homeCategoriesHelp": "Tick the categories that should appear in the pill rack on the customer home page. Unticked categories are hidden from the storefront entirely: the pill is removed AND their products no longer appear under 'All'. Products can still be assigned to these categories — they just aren't shown publicly until the category is re-ticked.",
     "save": "Save",
     "saving": "Saving…",
     "saved": "Saved",

@@ -8,19 +8,19 @@ export class ProductService {
   async findAll(categorySlug?: string) {
     const supabase = this.supabaseService.getClient();
 
+    // Always inner-join `categories` and require `visible_on_home = true` so
+    // that admin-hidden categories disappear from every public listing
+    // (the "全部" pill, deep links, search). Strict hiding semantics — see
+    // documents/FEAT-8/development/admin-frontend-category-flag.md.
     let query = supabase
       .from('products')
-      .select('*, category:categories(*)')
+      .select('*, category:categories!inner(*)')
       .eq('is_active', true)
+      .eq('categories.visible_on_home', true)
       .order('sort_order', { ascending: true });
 
     if (categorySlug) {
-      query = supabase
-        .from('products')
-        .select('*, category:categories!inner(*)')
-        .eq('is_active', true)
-        .eq('categories.slug', categorySlug)
-        .order('sort_order', { ascending: true });
+      query = query.eq('categories.slug', categorySlug);
     }
 
     const { data, error } = await query;

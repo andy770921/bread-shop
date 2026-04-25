@@ -164,7 +164,7 @@
   "featureFlags": {
     "title": "功能開關",
     "homeCategoriesTitle": "首頁顯示類別",
-    "homeCategoriesHelp": "勾選要出現在首頁類別列的項目；未勾選的類別仍可用於商品歸類，只是不會在首頁顯示。",
+    "homeCategoriesHelp": "勾選要出現在首頁類別列的項目。未勾選的類別會從首頁完全隱藏：分類按鈕不顯示，且該分類底下的商品在「全部」也不會出現（仍可用於商品歸類，只是不在前台顯示）。",
     "save": "儲存",
     "saving": "儲存中…",
     "saved": "已儲存",
