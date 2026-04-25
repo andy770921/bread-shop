@@ -47,6 +47,8 @@
     "nameEn": "英文名稱",
     "descriptionZh": "中文描述",
     "descriptionEn": "英文描述",
+    "ingredientsZh": "成分（中文）",
+    "ingredientsEn": "成分（英文）",
     "price": "價格",
     "category": "分類",
     "badge": "標籤",
@@ -67,7 +69,21 @@
     "categoryRequired": "請選擇分類",
     "backToList": "回到列表",
     "empty": "尚無商品",
-    "specs": "商品規格"
+    "specs": "商品規格",
+    "tabs": {
+      "edit": "編輯商品",
+      "inventory": "庫存設定"
+    },
+    "inventory": {
+      "title": "庫存設定",
+      "help": "選擇「不設定庫存」時所有商品可無限加入購物車。選擇「每日總量」時，每天最多接受指定的商品總數量。",
+      "modeLabel": "庫存模式",
+      "modeUnlimited": "不設定庫存",
+      "modeDailyTotal": "每日總量",
+      "limitLabel": "每日上限數量",
+      "limitHelp": "每天最多接受的商品總數量（含所有商品）。",
+      "errorLimitRange": "上限需介於 1–999 之間"
+    }
   },
   "content": {
     "title": "文案管理",

@@ -142,6 +142,7 @@ describe('AuthController', () => {
       orderService as any,
       checkoutService as any,
       lineService as any,
+      { assertHasCapacity: jest.fn().mockResolvedValue(undefined) } as any,
     );
   });
 

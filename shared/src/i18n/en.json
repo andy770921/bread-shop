@@ -32,7 +32,9 @@
     "production": "Production",
     "best_before": "Best Before",
     "texture": "Texture",
-    "flavor": "Flavor"
+    "flavor": "Flavor",
+    "daily_limit": "Daily limit",
+    "ingredients": "Ingredients"
   },
   "home": {
     "title": "Papa Bakery",
@@ -51,6 +53,7 @@
     "shipping": "Shipping",
     "freeShipping": "Free Shipping",
     "freeShippingNote": "Free shipping on orders over NT${threshold}",
+    "dailyInventoryFull": "This pickup date is fully booked. Please pick another date.",
     "total": "Total",
     "orderSummary": "Order Summary",
     "customerInfo": "Customer Info",

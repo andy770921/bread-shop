@@ -71,6 +71,18 @@ export function taipeiToday(now: Date = new Date()): Date {
   return new Date(y, m - 1, day, 0, 0, 0, 0);
 }
 
+/**
+ * Returns the Asia/Taipei wall-clock date of the given Date as `YYYY-MM-DD`.
+ * Use this when comparing against backend buckets — the BE buckets `pickup_at`
+ * by Taipei date, while host-local `format(d, 'yyyy-MM-dd')` would shift by ±1
+ * day for users browsing in a non-Taipei timezone.
+ */
+export function taipeiYmd(d: Date): string {
+  const { y, m, day } = taipeiNowParts(d);
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  return `${y}-${pad(m)}-${pad(day)}`;
+}
+
 export function filterFutureSlots(
   slots: string[],
   date: Date | undefined,

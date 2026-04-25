@@ -32,8 +32,11 @@ describe('OrderService', () => {
             shippingFee: 60,
             freeShippingThreshold: 500,
             promoBannerEnabled: true,
+            inventoryMode: 'unlimited',
+            dailyTotalLimit: 3,
           }),
         } as any,
+        { assertHasCapacity: jest.fn().mockResolvedValue(undefined) } as any,
       );
     });
 
@@ -91,8 +94,11 @@ describe('OrderService', () => {
             shippingFee: 60,
             freeShippingThreshold: 500,
             promoBannerEnabled: true,
+            inventoryMode: 'unlimited',
+            dailyTotalLimit: 3,
           }),
         } as any,
+        { assertHasCapacity: jest.fn().mockResolvedValue(undefined) } as any,
       );
 
       jest.spyOn(service as any, 'getOrderWithItemsForActor').mockResolvedValue({ id: 1 });
@@ -129,8 +135,11 @@ describe('OrderService', () => {
             shippingFee: 60,
             freeShippingThreshold: 500,
             promoBannerEnabled: true,
+            inventoryMode: 'unlimited',
+            dailyTotalLimit: 3,
           }),
         } as any,
+        { assertHasCapacity: jest.fn().mockResolvedValue(undefined) } as any,
       );
 
       let caught: any;

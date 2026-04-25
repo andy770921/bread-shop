@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -21,6 +22,8 @@ export class CreateProductDto {
   @IsString() name_en!: string;
   @IsOptional() @IsString() description_zh?: string;
   @IsOptional() @IsString() description_en?: string;
+  @IsOptional() @IsString() @MaxLength(2000) ingredients_zh?: string;
+  @IsOptional() @IsString() @MaxLength(2000) ingredients_en?: string;
   @IsInt() @Min(0) price!: number;
   @IsInt() category_id!: number;
   @IsOptional() @IsString() image_url?: string;

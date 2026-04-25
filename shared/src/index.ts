@@ -13,6 +13,7 @@ export * from './types/pickup';
 export * from './types/admin';
 export * from './types/site-content';
 export * from './types/shop-settings';
+export * from './types/pickup-availability';
 export * from './types/feature-flags';
 export * from './types/content-block';
 export * from './utils/fetchers';

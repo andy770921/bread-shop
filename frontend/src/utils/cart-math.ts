@@ -9,6 +9,8 @@ export const FALLBACK_SHOP_SETTINGS: ShopSettings = Object.freeze({
   shippingFee: 60,
   freeShippingThreshold: 500,
   promoBannerEnabled: true,
+  inventoryMode: 'unlimited',
+  dailyTotalLimit: 3,
 });
 
 export const EMPTY_CART: CartResponse = Object.freeze({

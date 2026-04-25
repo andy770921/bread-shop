@@ -8,6 +8,7 @@ import { pickLocalizedText } from '@/i18n/utils';
 import { ProductImage } from './product-image';
 import type { ProductWithCategory } from '@repo/shared';
 import { useLocale } from '@/hooks/use-locale';
+import { useShopSettings } from '@/queries/use-shop-settings';
 
 interface ProductEditorialProps {
   product: ProductWithCategory;
@@ -18,6 +19,12 @@ interface ProductEditorialProps {
 
 export function ProductEditorial({ product, locale, index, onAddToCart }: ProductEditorialProps) {
   const { t } = useLocale();
+  const { data: shopSettings } = useShopSettings();
+  const showInventory = shopSettings?.inventoryMode === 'daily_total';
+  const ingredientsValue = pickLocalizedText(locale, {
+    zh: product.ingredients_zh,
+    en: product.ingredients_en,
+  });
   const name = pickLocalizedText(locale, { zh: product.name_zh, en: product.name_en });
   const description = pickLocalizedText(locale, {
     zh: product.description_zh,
@@ -25,6 +32,8 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
   });
   const categoryName = t(`category.${product.category.slug}`);
   const isEven = index % 2 === 0;
+  const hasSpecsContent =
+    (product.specs && product.specs.length > 0) || showInventory || Boolean(ingredientsValue);
 
   return (
     <div
@@ -74,9 +83,9 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
         )}
 
         {/* Specs Grid */}
-        {product.specs && product.specs.length > 0 && (
+        {hasSpecsContent && (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            {product.specs.map((spec, i) => (
+            {product.specs?.map((spec, i) => (
               <div
                 key={i}
                 className="rounded-lg p-3"
@@ -96,6 +105,41 @@ export function ProductEditorial({ product, locale, index, onAddToCart }: Produc
                 </span>
               </div>
             ))}
+            {showInventory && shopSettings && (
+              <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                <span
+                  className="block text-xs font-medium"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {t('spec.daily_limit')}
+                </span>
+                <span
+                  className="mt-1 block text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {shopSettings.dailyTotalLimit}
+                </span>
+              </div>
+            )}
+            {ingredientsValue && (
+              <div
+                className="col-span-2 rounded-lg p-3 lg:col-span-3"
+                style={{ backgroundColor: 'var(--bg-elevated)' }}
+              >
+                <span
+                  className="block text-xs font-medium"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {t('spec.ingredients')}
+                </span>
+                <span
+                  className="mt-1 block whitespace-pre-line text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {ingredientsValue}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

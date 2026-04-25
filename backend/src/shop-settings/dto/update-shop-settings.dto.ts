@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsInt, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, Max, Min } from 'class-validator';
+import type { InventoryMode } from '@repo/shared';
 
 export class UpdateShopSettingsDto {
   @ApiProperty({ example: true })
@@ -21,4 +22,14 @@ export class UpdateShopSettingsDto {
   @ApiProperty({ example: true })
   @IsBoolean()
   promoBannerEnabled: boolean;
+
+  @ApiProperty({ example: 'unlimited', enum: ['unlimited', 'daily_total'] })
+  @IsIn(['unlimited', 'daily_total'])
+  inventoryMode: InventoryMode;
+
+  @ApiProperty({ example: 3 })
+  @IsInt()
+  @Min(1)
+  @Max(999)
+  dailyTotalLimit: number;
 }

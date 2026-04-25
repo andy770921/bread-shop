@@ -28,6 +28,18 @@ jest.mock('@/queries/use-debounced-cart-mutation', () => ({
   flushPendingCartMutations: jest.fn(),
 }));
 
+jest.mock('@/hooks/use-locale', () => ({
+  useLocale: () => ({ locale: 'zh', t: (key: string) => key, toggleLocale: jest.fn() }),
+}));
+
+jest.mock('@/queries/use-pickup-availability', () => ({
+  PICKUP_AVAILABILITY_KEY: ['api', 'pickup-availability'],
+}));
+
+jest.mock('sonner', () => ({
+  toast: { error: jest.fn(), success: jest.fn() },
+}));
+
 describe('[useCheckoutFlow]', () => {
   const push = jest.fn();
   const invalidateQueries = jest.fn().mockResolvedValue(undefined);

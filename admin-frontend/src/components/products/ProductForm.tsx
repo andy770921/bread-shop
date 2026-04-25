@@ -27,6 +27,8 @@ const schema = z.object({
   name_en: z.string().min(1),
   description_zh: z.string().optional(),
   description_en: z.string().optional(),
+  ingredients_zh: z.string().optional(),
+  ingredients_en: z.string().optional(),
   price: z.coerce.number().int().min(0),
   // category_id must reference an existing row in categories; 0 (the form
   // default before the Select is touched) would hit the foreign key
@@ -66,6 +68,8 @@ export function ProductForm({ initial, onSubmit, submitting, productId }: Props)
       name_en: '',
       description_zh: '',
       description_en: '',
+      ingredients_zh: '',
+      ingredients_en: '',
       price: 0,
       category_id: 0,
       image_url: '',
@@ -82,6 +86,8 @@ export function ProductForm({ initial, onSubmit, submitting, productId }: Props)
         name_en: initial.name_en,
         description_zh: initial.description_zh ?? '',
         description_en: initial.description_en ?? '',
+        ingredients_zh: initial.ingredients_zh ?? '',
+        ingredients_en: initial.ingredients_en ?? '',
         price: initial.price,
         category_id: initial.category_id,
         image_url: initial.image_url ?? '',
@@ -132,6 +138,15 @@ export function ProductForm({ initial, onSubmit, submitting, productId }: Props)
               </Field>
               <Field label={t('product.descriptionEn')}>
                 <Textarea rows={3} {...register('description_en')} />
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label={t('product.ingredientsZh')}>
+                <Textarea rows={3} {...register('ingredients_zh')} />
+              </Field>
+              <Field label={t('product.ingredientsEn')}>
+                <Textarea rows={3} {...register('ingredients_en')} />
               </Field>
             </div>
 

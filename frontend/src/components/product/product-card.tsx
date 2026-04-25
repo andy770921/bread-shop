@@ -9,6 +9,7 @@ import { pickLocalizedText } from '@/i18n/utils';
 import { ProductImage } from './product-image';
 import type { ProductWithCategory, BadgeType } from '@repo/shared';
 import { useLocale } from '@/hooks/use-locale';
+import { useShopSettings } from '@/queries/use-shop-settings';
 
 interface ProductCardProps {
   product: ProductWithCategory;
@@ -41,6 +42,8 @@ export function ProductCard({
   isLoggedIn,
 }: ProductCardProps) {
   const { t } = useLocale();
+  const { data: shopSettings } = useShopSettings();
+  const showInventory = shopSettings?.inventoryMode === 'daily_total';
   const name = pickLocalizedText(locale, { zh: product.name_zh, en: product.name_en });
   const categoryName = t(`category.${product.category.slug}`);
   const badgeText = product.badge_type ? t(`badge.${product.badge_type}`) : null;
@@ -101,19 +104,32 @@ export function ProductCard({
         >
           {name}
         </h3>
-        <div className="mt-auto flex items-center justify-between pt-2">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <span className="text-lg font-bold" style={{ color: 'var(--primary-700)' }}>
             NT${product.price}
           </span>
-          <Button
-            size="sm"
-            className="gap-1.5 rounded-full"
-            style={{ backgroundColor: 'var(--primary-500)', color: '#fff' }}
-            onClick={() => onAddToCart(product.id)}
-          >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            {t('home.addToCart')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {showInventory && (
+              <span
+                className="rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                {t('spec.daily_limit')} {shopSettings.dailyTotalLimit}
+              </span>
+            )}
+            <Button
+              size="sm"
+              className="gap-1.5 rounded-full"
+              style={{ backgroundColor: 'var(--primary-500)', color: '#fff' }}
+              onClick={() => onAddToCart(product.id)}
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              {t('home.addToCart')}
+            </Button>
+          </div>
         </div>
       </div>
     </Card>

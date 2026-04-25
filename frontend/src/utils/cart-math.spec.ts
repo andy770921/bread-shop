@@ -11,6 +11,8 @@ const SETTINGS: ShopSettings = {
   shippingFee: 60,
   freeShippingThreshold: 500,
   promoBannerEnabled: true,
+  inventoryMode: 'unlimited',
+  dailyTotalLimit: 3,
 };
 
 function createCart(items: CartResponse['items']): CartResponse {

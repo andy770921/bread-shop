@@ -27,6 +27,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { OrderService } from '../order/order.service';
 import { CheckoutService } from '../checkout/checkout.service';
 import { LineService } from '../line/line.service';
+import { InventoryService } from '../shop-settings/inventory.service';
 
 type LineStartResponse =
   | { pendingId: string; next: 'line_login' }
@@ -43,6 +44,7 @@ export class AuthController {
     private orderService: OrderService,
     private checkoutService: CheckoutService,
     private lineService: LineService,
+    private inventory: InventoryService,
   ) {}
 
   @Post('register')
@@ -159,6 +161,16 @@ export class AuthController {
       sessionId,
       currentUserId || undefined,
     );
+
+    // Defensive inventory check before LINE OAuth redirect.
+    // The same guard runs again at order-create time inside `OrderService.createOrder`
+    // (race-safe), but failing here avoids sending the customer through the LINE login
+    // round-trip just to be told the date is full when they come back.
+    const pickupAt = (safeFormData as Record<string, unknown>).pickup_at;
+    if (typeof pickupAt === 'string' && cart.items.length > 0) {
+      const totalQuantity = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+      await this.inventory.assertHasCapacity(new Date(pickupAt), totalQuantity);
+    }
     const pendingFormData: Record<string, unknown> = {
       ...safeFormData,
       _cart_snapshot: cart,

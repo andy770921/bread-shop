@@ -46,6 +46,8 @@
     "nameEn": "Name (English)",
     "descriptionZh": "Description (Chinese)",
     "descriptionEn": "Description (English)",
+    "ingredientsZh": "Ingredients (Chinese)",
+    "ingredientsEn": "Ingredients (English)",
     "price": "Price",
     "category": "Category",
     "badge": "Badge",
@@ -66,7 +68,21 @@
     "categoryRequired": "Please select a category",
     "backToList": "Back to List",
     "empty": "No products yet",
-    "specs": "Specs"
+    "specs": "Specs",
+    "tabs": {
+      "edit": "Edit Products",
+      "inventory": "Inventory"
+    },
+    "inventory": {
+      "title": "Inventory Settings",
+      "help": "When set to Unlimited, customers can add any quantity to cart. When set to Daily Total, the shop accepts at most the specified number of items per pickup day.",
+      "modeLabel": "Inventory mode",
+      "modeUnlimited": "Unlimited",
+      "modeDailyTotal": "Daily total",
+      "limitLabel": "Daily limit (items)",
+      "limitHelp": "Maximum total item quantity per day across all products.",
+      "errorLimitRange": "Limit must be between 1 and 999"
+    }
   },
   "content": {
     "title": "Site Content",

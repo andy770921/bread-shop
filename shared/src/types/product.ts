@@ -13,6 +13,8 @@ export interface Product {
   name_en: string;
   description_zh: string | null;
   description_en: string | null;
+  ingredients_zh: string | null;
+  ingredients_en: string | null;
   price: number;
   image_url: string | null;
   badge_type: BadgeType | null;

@@ -32,7 +32,9 @@
     "production": "製作",
     "best_before": "最佳享用",
     "texture": "口感",
-    "flavor": "風味"
+    "flavor": "風味",
+    "daily_limit": "庫存",
+    "ingredients": "成分"
   },
   "home": {
     "title": "周爸烘焙坊",
@@ -51,6 +53,7 @@
     "shipping": "運費",
     "freeShipping": "免運費",
     "freeShippingNote": "滿NT${threshold}免運費",
+    "dailyInventoryFull": "此日期已額滿，請選擇其他日期",
     "total": "總計",
     "orderSummary": "訂單摘要",
     "customerInfo": "訂購資訊",

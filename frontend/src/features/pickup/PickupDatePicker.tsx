@@ -11,7 +11,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { CartFormValues } from '@/features/checkout/cart-form';
 import { useLocale } from '@/hooks/use-locale';
-import { taipeiToday } from './pickup-schema';
+import { usePickupAvailability } from '@/queries/use-pickup-availability';
+import { taipeiToday, taipeiYmd } from './pickup-schema';
 
 export function PickupDatePicker({ settings }: { settings: PickupSettingsResponse }) {
   const form = useFormContext<CartFormValues>();
@@ -27,11 +28,17 @@ export function PickupDatePicker({ settings }: { settings: PickupSettingsRespons
   const closureStart = settings.closureStartDate ? parseISO(settings.closureStartDate) : null;
   const closureEnd = settings.closureEndDate ? parseISO(settings.closureEndDate) : null;
 
+  const { data: availability } = usePickupAvailability();
+  const fullDateSet = new Set<string>(availability?.fullDates ?? []);
+
   const disabled = [
     { before: earliest },
     { after: end },
     (d: Date) => settings.disabledWeekdays.includes(d.getDay()),
     ...(closureStart && closureEnd ? [{ from: closureStart, to: closureEnd }] : []),
+    // Use Taipei date string so the matcher aligns with the BE's bucketing
+    // even when the customer's host timezone is not Taipei.
+    (d: Date) => fullDateSet.has(taipeiYmd(d)),
   ];
 
   return (

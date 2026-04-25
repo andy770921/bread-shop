@@ -6,6 +6,7 @@ import { CartContactDraftService } from '../cart/cart-contact-draft.service';
 import { PickupService } from '../pickup/pickup.service';
 import { validatePickupAt } from '../pickup/pickup.validator';
 import { ShopSettingsService } from '../shop-settings/shop-settings.service';
+import { InventoryService } from '../shop-settings/inventory.service';
 
 type CheckoutCartSnapshotInput = Partial<CartResponse> & {
   items?: Array<{
@@ -51,6 +52,7 @@ export class OrderService {
     private cartContactDraftService: CartContactDraftService,
     private pickupService: PickupService,
     private shopSettings: ShopSettingsService,
+    private inventory: InventoryService,
   ) {}
 
   async getCartForSession(sessionId: string, userId?: string) {
@@ -115,6 +117,9 @@ export class OrderService {
     if (cart.items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
+
+    const newOrderQuantity = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    await this.inventory.assertHasCapacity(new Date(dto.pickup_at), newOrderQuantity);
 
     // Canonicalize product data and totals on the server. This keeps checkout
     // safe even when the snapshot originated from client state.
