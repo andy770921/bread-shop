@@ -15,6 +15,7 @@ import { UserModule } from './user/user.module';
 import { AdminModule } from './admin/admin.module';
 import { SiteContentModule } from './site-content/site-content.module';
 import { ContentBlocksModule } from './content-blocks/content-blocks.module';
+import { HeroSlidesModule } from './hero-slides/hero-slides.module';
 import { ShopSettingsModule } from './shop-settings/shop-settings.module';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 
@@ -38,6 +39,7 @@ import { SessionMiddleware } from './common/middleware/session.middleware';
     AdminModule,
     SiteContentModule,
     ContentBlocksModule,
+    HeroSlidesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

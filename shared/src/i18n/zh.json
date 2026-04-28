@@ -45,7 +45,10 @@
     "allCategories": "全部",
     "editorialToggle": "介紹",
     "addToCart": "加入購物車",
-    "addedToCart": "已加入購物車"
+    "addedToCart": "已加入購物車",
+    "carouselPrev": "上一張",
+    "carouselNext": "下一張",
+    "carouselSlideOf": "第 {n} 張，共 {total} 張"
   },
   "cart": {
     "title": "購物車",

@@ -45,7 +45,10 @@
     "allCategories": "All",
     "editorialToggle": "Intro",
     "addToCart": "Add to Cart",
-    "addedToCart": "Added to Cart"
+    "addedToCart": "Added to Cart",
+    "carouselPrev": "Previous slide",
+    "carouselNext": "Next slide",
+    "carouselSlideOf": "Slide {n} of {total}"
   },
   "cart": {
     "title": "Shopping Cart",

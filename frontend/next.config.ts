@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['lodash-es'],
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'wqgaujuapacxuhvfatii.supabase.co' },
+      { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },

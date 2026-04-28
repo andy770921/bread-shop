@@ -17,9 +17,18 @@ import { useSiteContent } from '../queries/use-site-content';
 
 const baseMessages = defaultContent;
 
+type TParams = Record<string, string | number>;
+
+function interpolate(value: string, params?: TParams): string {
+  if (!params) return value;
+  return value.replace(/\{(\w+)\}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match,
+  );
+}
+
 interface LocaleContextType {
   locale: Locale;
-  t: (key: string) => string;
+  t: (key: string, params?: TParams) => string;
   toggleLocale: () => void;
 }
 
@@ -42,7 +51,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [locale, siteContent]);
 
   const t = useCallback(
-    (key: string): string => {
+    (key: string, params?: TParams): string => {
       const keys = key.split('.');
       let result: unknown = messages;
       for (const k of keys) {
@@ -53,7 +62,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      return typeof result === 'string' ? result : key;
+      return typeof result === 'string' ? interpolate(result, params) : key;
     },
     [messages],
   );

@@ -16,6 +16,7 @@ export * from './types/shop-settings';
 export * from './types/pickup-availability';
 export * from './types/feature-flags';
 export * from './types/content-block';
+export * from './types/hero-slide';
 export * from './utils/fetchers';
 export * from './utils/query';
 export * from './i18n/defaults';

@@ -156,6 +156,51 @@
       "editLink": "Open Site Content"
     }
   },
+  "contentBlocksPage": {
+    "tabHeroSlides": "Homepage Carousel",
+    "tabBottomBlocks": "Homepage Blocks"
+  },
+  "heroSlides": {
+    "title": "Homepage Carousel",
+    "addNew": "Add Slide",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "draft": "Draft",
+    "isPublished": "Published",
+    "titleZh": "Title (Chinese)",
+    "titleEn": "Title (English)",
+    "subtitleZh": "Subtitle (Chinese)",
+    "subtitleEn": "Subtitle (English)",
+    "titleSize": "Title size",
+    "subtitleSize": "Subtitle size",
+    "size": {
+      "xs": "Extra small",
+      "sm": "Small",
+      "md": "Medium",
+      "lg": "Large",
+      "xl": "Extra large"
+    },
+    "image": "Background Image",
+    "imageRequired": "Please upload a background image",
+    "dropImage": "Drag or click to upload image",
+    "uploading": "Uploading…",
+    "uploadFailed": "Image upload failed",
+    "removeImage": "Remove image",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "empty": "No carousel slides yet. Click \"Add Slide\" to create one.",
+    "created": "Slide created",
+    "updated": "Slide updated",
+    "deleted": "Slide deleted",
+    "saveFailed": "Save failed",
+    "deleteFailed": "Delete failed",
+    "reorderFailed": "Reorder failed",
+    "deleteConfirmTitle": "Delete this slide?",
+    "deleteConfirmDesc": "This slide will be permanently removed from the homepage."
+  },
   "common": {
     "loading": "Loading…",
     "error": "Something went wrong",

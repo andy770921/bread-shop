@@ -22,9 +22,18 @@ const messages: Record<Locale, NestedRecord> = {
 
 const STORAGE_KEY = 'admin_locale';
 
+type TParams = Record<string, string | number>;
+
+function interpolate(value: string, params?: TParams): string {
+  if (!params) return value;
+  return value.replace(/\{(\w+)\}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match,
+  );
+}
+
 interface LocaleContextType {
   locale: Locale;
-  t: (key: string) => string;
+  t: (key: string, params?: TParams) => string;
   toggleLocale: () => void;
 }
 
@@ -42,7 +51,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const t = useCallback(
-    (key: string): string => {
+    (key: string, params?: TParams): string => {
       const parts = key.split('.');
       let current: unknown = messages[locale];
       for (const p of parts) {
@@ -52,7 +61,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
           return key;
         }
       }
-      return typeof current === 'string' ? current : key;
+      return typeof current === 'string' ? interpolate(current, params) : key;
     },
     [locale],
   );

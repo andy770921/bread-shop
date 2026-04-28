@@ -18,6 +18,8 @@ import { FeatureFlagsAdminController } from './feature-flags-admin.controller';
 import { FeatureFlagsAdminService } from './feature-flags-admin.service';
 import { ContentBlocksAdminController } from './content-blocks-admin.controller';
 import { ContentBlocksAdminService } from './content-blocks-admin.service';
+import { HeroSlidesAdminController } from './hero-slides-admin.controller';
+import { HeroSlidesAdminService } from './hero-slides-admin.service';
 import { PickupAdminController } from './pickup-admin.controller';
 
 @Module({
@@ -31,6 +33,7 @@ import { PickupAdminController } from './pickup-admin.controller';
     UploadAdminController,
     FeatureFlagsAdminController,
     ContentBlocksAdminController,
+    HeroSlidesAdminController,
     PickupAdminController,
   ],
   providers: [
@@ -42,6 +45,7 @@ import { PickupAdminController } from './pickup-admin.controller';
     UploadAdminService,
     FeatureFlagsAdminService,
     ContentBlocksAdminService,
+    HeroSlidesAdminService,
   ],
 })
 export class AdminModule {}
