@@ -66,7 +66,7 @@ function StaticSlide({ slide }: { slide: HeroSlide }) {
         <h1 className={`font-heading font-bold text-white ${titleSize(slide)}`}>
           {pickTitle(slide, locale)}
         </h1>
-        <p className={`max-w-lg text-white/90 ${subtitleSize(slide)}`}>
+        <p className={`max-w-lg whitespace-pre-line text-white/90 ${subtitleSize(slide)}`}>
           {pickSubtitle(slide, locale)}
         </p>
       </div>
@@ -124,7 +124,7 @@ function CarouselSlides({ slides }: { slides: HeroSlide[] }) {
                 <h1 className={`font-heading font-bold text-white ${titleSize(slide)}`}>
                   {pickTitle(slide, locale)}
                 </h1>
-                <p className={`max-w-lg text-white/90 ${subtitleSize(slide)}`}>
+                <p className={`max-w-lg whitespace-pre-line text-white/90 ${subtitleSize(slide)}`}>
                   {pickSubtitle(slide, locale)}
                 </p>
               </div>

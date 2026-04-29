@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -23,7 +24,11 @@ const sizeEnum = z.enum(['xs', 'sm', 'md', 'lg', 'xl'] as const);
 const schema = z.object({
   title_zh: z.string().trim().min(1).max(200),
   title_en: z.string().max(200).optional().or(z.literal('')),
-  subtitle_zh: z.string().trim().min(1).max(500),
+  subtitle_zh: z
+    .string()
+    .min(1)
+    .max(500)
+    .refine((v) => v.trim().length > 0),
   subtitle_en: z.string().max(500).optional().or(z.literal('')),
   image_url: z.string().min(1).url(),
   is_published: z.boolean(),
@@ -94,11 +99,19 @@ export function HeroSlideForm({ initial, onSubmit, onCancel, submitting }: Props
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Field label={t('heroSlides.subtitleZh')} error={errors.subtitle_zh?.message}>
-          <Input {...register('subtitle_zh')} />
+        <Field
+          label={t('heroSlides.subtitleZh')}
+          error={errors.subtitle_zh?.message}
+          hint={t('heroSlides.subtitleHint')}
+        >
+          <Textarea rows={3} {...register('subtitle_zh')} />
         </Field>
-        <Field label={t('heroSlides.subtitleEn')} error={errors.subtitle_en?.message}>
-          <Input {...register('subtitle_en')} />
+        <Field
+          label={t('heroSlides.subtitleEn')}
+          error={errors.subtitle_en?.message}
+          hint={t('heroSlides.subtitleHint')}
+        >
+          <Textarea rows={3} {...register('subtitle_en')} />
         </Field>
       </div>
 
@@ -183,16 +196,19 @@ export function HeroSlideForm({ initial, onSubmit, onCancel, submitting }: Props
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-xs text-text-secondary">{hint}</p>}
       {error && <p className="text-xs text-error">{error}</p>}
     </div>
   );

@@ -176,6 +176,7 @@
     "titleEn": "Title (English)",
     "subtitleZh": "Subtitle (Chinese)",
     "subtitleEn": "Subtitle (English)",
+    "subtitleHint": "Supports line breaks — press Enter to wrap; the storefront preserves the same line breaks.",
     "titleSize": "Title size",
     "subtitleSize": "Subtitle size",
     "size": {

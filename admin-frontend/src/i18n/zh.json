@@ -150,6 +150,7 @@
     "titleEn": "英文標題",
     "subtitleZh": "中文副標題",
     "subtitleEn": "英文副標題",
+    "subtitleHint": "支援多行：在編輯器內按 Enter 換行，前台會以同樣的斷行方式顯示。",
     "titleSize": "標題大小",
     "subtitleSize": "副標大小",
     "size": {
