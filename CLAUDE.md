@@ -79,7 +79,6 @@ All follow `Module → Controller → Service`. `SupabaseModule` is `@Global()` 
 | Cart        | GET/POST/PATCH/DELETE /api/cart/\*                       | Session (OptionalAuth) |
 | Favorite    | GET/POST/DELETE /api/favorites/\*                        | Bearer required        |
 | Order       | POST /api/orders; GET list, detail, by-number            | Session + Bearer       |
-| LINE        | POST /api/orders/:id/line-send                           | Bearer required        |
 | User        | GET/PATCH /api/user/profile                              | Bearer required        |
 | SiteContent | GET /api/site-content                                    | —                      |
 | Admin       | /api/admin/{me,dashboard,products,content,orders,upload} | AdminAuthGuard         |

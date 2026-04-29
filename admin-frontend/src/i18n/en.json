@@ -126,6 +126,8 @@
     "resendSuccess": "Message resent",
     "resendFailedNotFriend": "Customer has not added the Official Account; cannot send message",
     "resendFailedNoLine": "This order has no LINE user",
+    "resendConfirmTitle": "Resend LINE message?",
+    "resendConfirmDesc": "The customer will immediately receive a duplicate of the original order card on LINE. Continue?",
     "backToList": "Back to List",
     "empty": "No orders yet"
   },
@@ -205,7 +207,8 @@
     "loading": "Loading…",
     "error": "Something went wrong",
     "retry": "Retry",
-    "required": "Required"
+    "required": "Required",
+    "cancel": "Cancel"
   },
   "pickupConfig": {
     "schedule": {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, Send } from 'lucide-react';
@@ -5,6 +6,14 @@ import type { OrderStatus } from '@repo/shared';
 import { ApiResponseError } from '@repo/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -40,6 +49,7 @@ export default function OrderDetail() {
   const { data: order, isLoading } = useAdminOrder(id);
   const updateStatus = useUpdateOrderStatus(id ?? 0);
   const resend = useResendLine(id ?? 0);
+  const [resendConfirmOpen, setResendConfirmOpen] = useState(false);
 
   if (isLoading || !order) {
     return <p className="text-text-secondary">{t('common.loading')}</p>;
@@ -70,6 +80,8 @@ export default function OrderDetail() {
       } else {
         toast.error(t('common.error'));
       }
+    } finally {
+      setResendConfirmOpen(false);
     }
   }
 
@@ -93,7 +105,7 @@ export default function OrderDetail() {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleResend}
+          onClick={() => setResendConfirmOpen(true)}
           disabled={resend.isPending}
           className="self-start sm:self-auto"
         >
@@ -205,6 +217,37 @@ export default function OrderDetail() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={resendConfirmOpen}
+        onOpenChange={(open) => {
+          if (resend.isPending) return;
+          setResendConfirmOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('order.resendConfirmTitle')}</DialogTitle>
+            <DialogDescription>{t('order.resendConfirmDesc')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResendConfirmOpen(false)}
+              disabled={resend.isPending}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleResend}
+              disabled={resend.isPending}
+              data-testid="btn-confirm-resend-line"
+            >
+              {resend.isPending ? t('order.resending') : t('order.resendLine')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

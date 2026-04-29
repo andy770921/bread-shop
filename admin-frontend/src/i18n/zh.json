@@ -127,6 +127,8 @@
     "resendSuccess": "已重新傳送",
     "resendFailedNotFriend": "客戶尚未加入官方帳號，無法傳送訊息",
     "resendFailedNoLine": "此訂單沒有 LINE 使用者",
+    "resendConfirmTitle": "確認重送 LINE 訊息？",
+    "resendConfirmDesc": "客人會立刻在 LINE 收到一張和原本一樣的訂單卡片。確定要重送嗎？",
     "backToList": "回到列表",
     "empty": "尚無訂單"
   },
@@ -237,7 +239,8 @@
     "loading": "載入中…",
     "error": "發生錯誤",
     "retry": "重試",
-    "required": "必填"
+    "required": "必填",
+    "cancel": "取消"
   },
   "pickupConfig": {
     "schedule": {
