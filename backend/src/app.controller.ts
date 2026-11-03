@@ -1,5 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Header } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiServiceUnavailableResponse } from '@nestjs/swagger';
 import { HealthResponseDto } from './dto/health-response.dto';
 import { AppService } from './app.service';
 
@@ -20,5 +20,24 @@ export class AppController {
   })
   getHealth(): HealthResponseDto {
     return this.appService.getHealth();
+  }
+
+  @Get('health/db')
+  // Never let a CDN answer this: the keep-alive workflow needs every call to reach the database.
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Database health check',
+    description:
+      'Runs a minimal read against the database. Called on a schedule by the keep-alive ' +
+      'GitHub Actions workflow so the Supabase Free-plan project is not paused for inactivity',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Database is reachable',
+    type: HealthResponseDto,
+  })
+  @ApiServiceUnavailableResponse({ description: 'Database is unreachable' })
+  getDatabaseHealth(): Promise<HealthResponseDto> {
+    return this.appService.getDatabaseHealth();
   }
 }

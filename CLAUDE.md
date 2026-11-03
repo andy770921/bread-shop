@@ -190,3 +190,4 @@ All markdown under `documents/` is written in English (even when chat is in Chin
 - **CORS difference**: local dev restricts to `FRONTEND_URL` + `ADMIN_FRONTEND_URL`; serverless entry uses `origin: true` (allows all)
 - Serverless limitations: cold starts, no WebSockets, 10s timeout
 - Vercel `installCommand` must build shared types before backend / admin-frontend deployment
+- Supabase Free plan pauses after ~7 days without DB activity; `.github/workflows/supabase-keep-alive.yml` calls `GET /api/health/db` (one-row read on `categories`, 503 on failure) twice a day (UTC 03:17, 15:17). Scheduled workflows in a public repo are auto-disabled after 60 days without pushes. See `documents/FEAT-16/`
