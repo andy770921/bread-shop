@@ -12,5 +12,10 @@
       "source": "/(.*)",
       "destination": "/api/index.ts"
     }
+  ],
+  "crons": [
+    { "path": "/api/health/db", "schedule": "0 1 * * *" },
+    { "path": "/api/health/db", "schedule": "0 9 * * *" },
+    { "path": "/api/health/db", "schedule": "0 17 * * *" }
   ]
 }

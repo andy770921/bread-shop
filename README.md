@@ -225,7 +225,7 @@ Each app is deployed as its own Vercel project against this monorepo:
 
 In production the backend CORS entry allows all origins (`origin: true`) because both customer and admin frontends are served from different Vercel domains. Locally, CORS is restricted to `FRONTEND_URL` + `ADMIN_FRONTEND_URL`.
 
-Supabase pauses Free-plan projects after ~7 days without database activity. The [`Supabase keep-alive`](.github/workflows/supabase-keep-alive.yml) GitHub Actions workflow calls `GET /api/health/db` twice a day to prevent that. See [documents/FEAT-16](documents/FEAT-16/plans/supabase-keep-alive.md).
+Supabase pauses Free-plan projects after ~7 days without database activity. Three [Vercel Cron](https://vercel.com/docs/cron-jobs) jobs in [`backend/vercel.json`](backend/vercel.json) call `GET /api/health/db` once each per day to prevent that. See [documents/FEAT-16](documents/FEAT-16/plans/supabase-keep-alive.md).
 
 ## Documentation
 
@@ -235,7 +235,7 @@ Supabase pauses Free-plan projects after ~7 days without database activity. The 
 - [documents/FEAT-1/development/](documents/FEAT-1/development/) — Customer shop implementation docs (DB schema, API specs, auth flows, E2E tests)
 - [documents/FEAT-5/plans/prd.md](documents/FEAT-5/plans/prd.md) — Admin backoffice product requirements
 - [documents/FEAT-5/development/](documents/FEAT-5/development/) — Admin backoffice implementation docs (shared types, DB schema, backend API, admin-frontend)
-- [documents/FEAT-16/](documents/FEAT-16/) — Supabase keep-alive workflow (research, design, operations)
+- [documents/FEAT-16/](documents/FEAT-16/) — Supabase keep-alive via Vercel Cron (research, design, operations)
 
 ## License
 

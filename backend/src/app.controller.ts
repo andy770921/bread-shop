@@ -23,13 +23,13 @@ export class AppController {
   }
 
   @Get('health/db')
-  // Never let a CDN answer this: the keep-alive workflow needs every call to reach the database.
+  // Never let a CDN answer this: the keep-alive cron needs every call to reach the database.
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Database health check',
     description:
-      'Runs a minimal read against the database. Called on a schedule by the keep-alive ' +
-      'GitHub Actions workflow so the Supabase Free-plan project is not paused for inactivity',
+      'Runs a minimal read against the database. Called on a schedule by Vercel Cron ' +
+      '(backend/vercel.json) so the Supabase Free-plan project is not paused for inactivity',
   })
   @ApiResponse({
     status: 200,

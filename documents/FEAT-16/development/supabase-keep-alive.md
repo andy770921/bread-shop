@@ -4,19 +4,22 @@
 
 - **Ticket:** FEAT-16
 - **Created:** 2026-11-03
+- **Revised:** 2026-11-03 — GitHub Actions workflow replaced by Vercel Cron
 - **Author:** Claude Code
 - **Plan:** [../plans/supabase-keep-alive.md](../plans/supabase-keep-alive.md)
 
 ## Changes
 
-| File                                        | Change                                                               |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `backend/src/app.service.ts`                | Injects `SupabaseService`; adds `getDatabaseHealth()`                |
-| `backend/src/app.controller.ts`             | Adds `GET /api/health/db` with `Cache-Control: no-store`             |
-| `backend/src/app.controller.spec.ts`        | Provides a mocked `SupabaseService`; covers ok and query-error paths |
-| `.github/workflows/supabase-keep-alive.yml` | Twice-daily scheduled `curl` to `/api/health/db`                     |
+| File                                        | Change                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------- |
+| `backend/src/app.service.ts`                | Injects `SupabaseService`; adds `getDatabaseHealth()`                        |
+| `backend/src/app.controller.ts`             | Adds `GET /api/health/db` with `Cache-Control: no-store`                     |
+| `backend/src/app.controller.spec.ts`        | Provides a mocked `SupabaseService`; covers ok and query-error paths         |
+| `backend/vercel.json`                       | Adds three `crons` entries; the rest of the file is unchanged                |
+| `.github/workflows/supabase-keep-alive.yml` | **Removed.** It was the first scheduler; see the plan for why it was dropped |
 
-No new environment variables, no GitHub secrets, no database changes.
+`.github/workflows/ci.yml` is unaffected. No new environment variables, no secrets, no
+database changes.
 
 ## Endpoint Behaviour
 
@@ -36,39 +39,54 @@ activity Supabase counts.
 There is no "Supabase not configured" branch. `SupabaseService` uses `getOrThrow` for
 `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`, so the app does not boot without them.
 
+## Cron Schedule
+
+| Schedule     | Fires between (UTC) | Fires between (Taiwan, UTC+8) |
+| ------------ | ------------------- | ----------------------------- |
+| `0 1 * * *`  | 01:00–01:59         | 09:00–09:59                   |
+| `0 9 * * *`  | 09:00–09:59         | 17:00–17:59                   |
+| `0 17 * * *` | 17:00–17:59         | 01:00–01:59 (next day)        |
+
+On the Hobby plan, Vercel picks the minute within the hour. Each job runs only against the
+production deployment. `backend/vercel.json` validates against Vercel's published schema
+(`https://openapi.vercel.sh/vercel.json`).
+
 ## Setup After Merge
 
-1. **Deploy the backend** so `/api/health/db` exists in production. Until then the workflow
-   gets a 404 and fails.
-2. **Push to `main` on GitHub.** Scheduled workflows only run from the default branch.
-3. **Run it once by hand:** GitHub → Actions → _Supabase keep-alive_ → _Run workflow_. Check
-   that the log ends with `{"status":"ok",...}`.
+1. **Push to `main`** so Vercel deploys the backend to production.
+2. **Smoke-test production:**
 
-The live log page can keep counting after the step has finished. If the log already shows
-`{"status":"ok",...}`, reload the page; the job usually completes in about 5 seconds.
+   ```bash
+   curl -i https://papa-bread-api.vercel.app/api/health      # 200
+   curl -i https://papa-bread-api.vercel.app/api/health/db   # 200, Cache-Control: no-store, no Set-Cookie
+   ```
+
+3. **Confirm the jobs:** Backend project → Settings → **Cron Jobs** should list three entries
+   for `/api/health/db`. A run can be triggered by hand from the deployment summary, or with
+   the `vercel crons` CLI.
 
 ## Verification
 
 ```bash
-# Unit tests
+# Unit tests (endpoint)
 cd backend && npx jest src/app.controller.spec.ts
 
 # Local endpoint (with backend/.env pointing at Supabase)
 npm run dev
 curl -i http://localhost:3000/api/health/db
-
-# Production, after deploy
-curl -i https://papa-bread-api.vercel.app/api/health/db
 ```
+
+Vercel Cron does not run locally (`vercel dev` and framework dev servers are not
+supported). Calling the endpoint directly is the local equivalent.
 
 ## Operations
 
-- **Changing the backend URL:** edit `env.BACKEND_URL` in the workflow file.
-- **Failure emails** go to whoever last edited the `cron:` line. A red run means either the
-  backend or the database is down. If the project is already paused, restore it from the
-  Supabase dashboard; the workflow does not unpause projects.
-- **60-day auto-disable:** this repo is public. If nothing is pushed for 60 days, GitHub
-  disables the schedule. Re-enable it from the Actions tab (or
-  `gh workflow enable supabase-keep-alive.yml`). Do not add a bot that commits or re-enables
-  just to reset the clock; the best-known Action that did this was disabled by GitHub for a
-  ToS violation.
+- **Changing the schedule:** edit `crons` in `backend/vercel.json` and redeploy. Hobby rejects
+  any expression that would run more than once a day.
+- **Seeing results:** Settings → Cron Jobs → View Logs. Hobby keeps runtime logs for one hour
+  only, so check soon after a run.
+- **Failure alerts:** Vercel does not email on cron failures. The backstop is Supabase's
+  warning email, sent about a week before a pause. If the project is already paused,
+  restore it from the Supabase dashboard; cron calls do not unpause it.
+- **Pausing the keep-alive:** Settings → Cron Jobs → Disable Cron Jobs. It stays disabled until
+  it is re-enabled there.
